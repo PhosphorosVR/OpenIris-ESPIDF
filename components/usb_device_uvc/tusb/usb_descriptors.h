@@ -27,6 +27,7 @@
 
 #ifndef _USB_DESCRIPTORS_H_
 #define _USB_DESCRIPTORS_H_
+#define STRID_CDC 6
 
 #include "uvc_frame_config.h"
 /* Time stamp base clock. It is a deprecated parameter. */
@@ -44,8 +45,17 @@ enum {
     ITF_NUM_VIDEO_STREAMING_2,
 #endif
 #endif
+    ITF_NUM_CDC,        // CDC Control interface
+    ITF_NUM_CDC_DATA,   // CDC Data interface
     ITF_NUM_TOTAL
 };
+
+// Video endpoints are probably 0x81, 0x82 already in your file.
+// Choose CDC endpoints not to collide with those:
+#define EPNUM_CDC_NOTIF  0x83  // Interrupt IN (notification)
+#define EPNUM_CDC_IN     0x84  // Bulk IN  (device -> host)
+#define EPNUM_CDC_OUT    0x04  // Bulk OUT (host -> device)
+
 
 #if (CFG_TUD_VIDEO)
 #define TUD_VIDEO_CAPTURE_DESC_UNCOMPR_LEN (\

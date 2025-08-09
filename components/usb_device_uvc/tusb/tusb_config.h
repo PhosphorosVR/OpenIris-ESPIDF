@@ -95,6 +95,20 @@ extern "C" {
 
 //------------- CLASS -------------//
 
+/* --- enable CDC ACM (USB-Serial) --- */
+#ifndef CFG_TUD_CDC
+#define CFG_TUD_CDC               1
+#endif
+
+#ifndef CFG_TUD_CDC_RX_BUFSIZE
+#define CFG_TUD_CDC_RX_BUFSIZE    64
+#endif
+
+#ifndef CFG_TUD_CDC_TX_BUFSIZE
+#define CFG_TUD_CDC_TX_BUFSIZE    64
+#endif
+
+
 // The number of video control interfaces
 // The number of video streaming interfaces
 #if CONFIG_UVC_SUPPORT_TWO_CAM

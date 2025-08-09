@@ -143,7 +143,7 @@ uint8_t const *tud_descriptor_device_cb(void)
 #define TUD_CAM2_VIDEO_CAPTURE_DESC_LEN 0
 #endif
 
-#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_CAM1_VIDEO_CAPTURE_DESC_LEN + TUD_CAM2_VIDEO_CAPTURE_DESC_LEN)
+#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_CAM1_VIDEO_CAPTURE_DESC_LEN + TUD_CAM2_VIDEO_CAPTURE_DESC_LEN + TUD_CDC_DESC_LEN)
 #define EPNUM_CAM1_VIDEO_IN 0x81
 #if CONFIG_UVC_SUPPORT_TWO_CAM
 #define EPNUM_CAM2_VIDEO_IN 0x82
@@ -247,17 +247,20 @@ uint8_t const desc_fs_configuration[] = {
 #endif // CFG_TUD_CAM2_VIDEO_STREAMING_BULK
 #endif
 
+TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, STRID_CDC,
+                   EPNUM_CDC_NOTIF, 8,
+                   EPNUM_CDC_OUT, EPNUM_CDC_IN, 64) // STRID_CDC kann auch 0 sein
 };
 
-// Invoked when received GET CONFIGURATION DESCRIPTOR
-// Application return pointer to descriptor
-// Descriptor contents must exist long enough for transfer to complete
+ // Invoked when received GET CONFIGURATION DESCRIPTOR
+ // Application return pointer to descriptor
+ // Descriptor contents must exist long enough for transfer to complete
 uint8_t const *tud_descriptor_configuration_cb(uint8_t index)
 {
-    (void)index; // for multiple configurations
-
+    (void) index; // for multiple configurations
     return desc_fs_configuration;
 }
+
 
 //--------------------------------------------------------------------+
 // String Descriptors
@@ -271,8 +274,9 @@ char const *string_desc_arr[] = {
     CONFIG_TUSB_SERIAL_NUM,     // 3: Serials, should use chip ID, overridden with get_serial_number()
     "UVC CAM1",                 // 4: UVC Interface, default, because we're overriding it get_uvc_device_name(), but we still have to keep the structure
 #if CONFIG_UVC_SUPPORT_TWO_CAM
-    "UVC CAM2", // 5: UVC Interface
+    "UVC CAM2",                 // 5: UVC Interface
 #endif
+    "CDC Serial"                // 6: STRID_CDC
 };
 
 static uint16_t _desc_str[32];

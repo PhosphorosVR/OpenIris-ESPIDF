@@ -37,6 +37,8 @@ menu "OpenIris: Camera Configuration"
 
 endmenu
 
+#test
+
 menu "OpenIris: WiFi Configuration"
 
     config WIFI_MDNS_HOSTNAME

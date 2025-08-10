@@ -249,7 +249,7 @@ uint8_t const desc_fs_configuration[] = {
 
 TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, STRID_CDC,
                    EPNUM_CDC_NOTIF, 8,
-                   EPNUM_CDC_OUT, EPNUM_CDC_IN, 64) // STRID_CDC kann auch 0 sein
+                   EPNUM_CDC_OUT, EPNUM_CDC_IN, 64)
 };
 
  // Invoked when received GET CONFIGURATION DESCRIPTOR

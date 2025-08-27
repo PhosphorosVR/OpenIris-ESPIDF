@@ -139,6 +139,8 @@ void LEDManager::displayCurrentPattern()
 {
     auto [state, delayTime] = ledStateMap[this->currentState].patterns[this->currentPatternIndex];
     this->toggleLED(state);
+    // Optionally mirror error pattern to external LED (PWM) by toggling duty between 0% and current config
+    mirrorExternalIfError(state);
     this->timeToDelayFor = delayTime;
 
     if (this->currentPatternIndex < ledStateMap[this->currentState].patterns.size() - 1)
@@ -178,11 +180,38 @@ void LEDManager::toggleLED(const bool state) const
     gpio_set_level(blink_led_pin, state);
 }
 
+void LEDManager::mirrorExternalIfError(int state)
+{
+#if defined(CONFIG_LED_EXTERNAL_CONTROL) && defined(CONFIG_LED_DEBUG_USE_EXTERNAL)
+    // Only mirror during error states
+    if (!ledStateMap[this->currentState].isError)
+        return;
+
+    // Map LED_ON/LED_OFF to PWM duty values
+    // Use configured duty for "ON" and 0 for "OFF"
+    uint8_t configuredDuty = 50; // safe default
+    if (this->deviceConfig)
+    {
+        configuredDuty = this->deviceConfig->getDeviceConfig().led_external_pwm_duty_cycle;
+    }
+    // Map pattern state to duty: ON -> configuredDuty, OFF -> 0
+    const uint8_t targetDuty = (state == LED_ON) ? configuredDuty : 0;
+    if (lastExternalDutyApplied != static_cast<int>(targetDuty))
+    {
+        // Use info-level only on setup, keep mirroring quiet to reduce stack/log pressure
+        setExternalLEDDutyCycle(targetDuty);
+        lastExternalDutyApplied = static_cast<int>(targetDuty);
+    }
+#else
+    (void)state;
+#endif
+}
+
 void LEDManager::setExternalLEDDutyCycle(uint8_t dutyPercent)
 {
 #ifdef CONFIG_LED_EXTERNAL_CONTROL
     const uint32_t dutyCycle = (static_cast<uint32_t>(dutyPercent) * 255) / 100;
-    ESP_LOGI(LED_MANAGER_TAG, "Updating external LED duty to %u%% (raw %lu)", dutyPercent, dutyCycle);
+    ESP_LOGD(LED_MANAGER_TAG, "Updating external LED duty to %u%% (raw %lu)", dutyPercent, dutyCycle);
 
     // Apply to LEDC hardware live
     // We configured channel 0 in setup with LEDC_LOW_SPEED_MODE

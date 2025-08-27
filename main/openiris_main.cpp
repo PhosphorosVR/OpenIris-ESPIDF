@@ -26,7 +26,7 @@
 #include <UVCStream.hpp>
 #endif
 
-#define BLINK_GPIO (gpio_num_t) CONFIG_LED_BLINK_GPIO
+#define DEBUG_LED_GPIO (gpio_num_t) CONFIG_LED_DEBUG_GPIO
 #define CONFIG_LED_C_PIN_GPIO (gpio_num_t) CONFIG_LED_EXTERNAL_GPIO
 
 esp_timer_handle_t timerHandle;
@@ -53,7 +53,7 @@ auto *restAPI = new RestAPI("http://0.0.0.0:81", commandManager);
 UVCStreamManager uvcStream;
 #endif
 
-auto ledManager = std::make_shared<LEDManager>(BLINK_GPIO, CONFIG_LED_C_PIN_GPIO, ledStateQueue, deviceConfig);
+auto ledManager = std::make_shared<LEDManager>(DEBUG_LED_GPIO, CONFIG_LED_C_PIN_GPIO, ledStateQueue, deviceConfig);
 auto *serialManager = new SerialManager(commandManager, &timerHandle, deviceConfig);
 
 static void initNVSStorage()
@@ -307,7 +307,7 @@ extern "C" void app_main(void)
     xTaskCreate(
         HandleLEDDisplayTask,
         "HandleLEDDisplayTask",
-        1024 * 2,
+    1024 * 2,
         ledManager.get(),
         3,
         nullptr);

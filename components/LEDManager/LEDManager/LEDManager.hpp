@@ -56,6 +56,7 @@ private:
   void toggleLED(bool state) const;
   void displayCurrentPattern();
   void updateState(LEDStates_e newState);
+  void mirrorExternalIfError(int state);
 
   gpio_num_t blink_led_pin;
   gpio_num_t illumninator_led_pin;
@@ -66,6 +67,8 @@ private:
   LEDStates_e buffer;
   LEDStates_e currentState;
   std::shared_ptr<ProjectConfig> deviceConfig;
+  // Cache last applied external LED duty to avoid redundant updates/logs
+  int lastExternalDutyApplied = -1; // -1 = uninitialized
 
   size_t currentPatternIndex = 0;
   size_t timeToDelayFor = 100;

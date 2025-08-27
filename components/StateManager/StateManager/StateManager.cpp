@@ -63,9 +63,9 @@ void StateManager::HandleUpdateState()
         ledStreamState = LEDStates_e::LedStateStreaming;
         xQueueSend(this->ledStateQueue, &ledStreamState, 10);
       }
-      if (this->stream_state == StreamState_e::Stream_ON)
+      if (this->stream_state == StreamState_e::Stream_OFF)
       {
-        ledStreamState = LEDStates_e::LedStateStreaming;
+        ledStreamState = LEDStates_e::LedStateStoppedStreaming;
         xQueueSend(this->ledStateQueue, &ledStreamState, 10);
       }
       break;

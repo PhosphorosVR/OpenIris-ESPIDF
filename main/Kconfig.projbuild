@@ -76,12 +76,12 @@ endmenu
 
 menu "OpenIris: LED Configuration"
 
-    config LED_BLINK_GPIO
-        int "Blink GPIO number"
+    config LED_DEBUG_GPIO
+        int "Debug LED GPIO number"
         range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
         default 8
         help
-            GPIO number (IOxx) used to blink an onboard LED.
+            GPIO number (IOxx) used to drive the on-board debug/status LED.
             Some GPIOs are reserved for other functions (e.g. flash) and cannot be used.
 
     config LED_EXTERNAL_GPIO
@@ -96,6 +96,16 @@ menu "OpenIris: LED Configuration"
         default false
         help
             Enable this if your board can control external IR LEDs.
+
+
+    config LED_DEBUG_USE_EXTERNAL
+        bool "Mirror error pattern on external LED (PWM)"
+        default false
+        depends on LED_EXTERNAL_CONTROL
+        help
+            When enabled, the external illuminator LED (PWM) will mirror the same error blink
+            pattern as the debug LED. Useful for boards without a dedicated debug LED, but also
+            works in combination with one. Non-error states do not affect the external LED.
 
     config LED_EXTERNAL_PWM_FREQ
         int "External LED PWM frequency (Hz)"

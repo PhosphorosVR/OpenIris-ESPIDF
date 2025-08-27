@@ -78,11 +78,13 @@ void SerialManager::notify_startup_command_received()
   setStartupCommandReceived(true);
 
   // Cancel the startup timer if it's still running
-  if (timerHandle != nullptr)
+  if (timerHandle != nullptr && *timerHandle != nullptr)
   {
-    esp_timer_stop(*timerHandle);
-    esp_timer_delete(*timerHandle);
-    timerHandle = nullptr;
+    // Stop and delete the one-shot timer; ignore errors if it already fired
+    (void)esp_timer_stop(*timerHandle);
+    (void)esp_timer_delete(*timerHandle);
+    // Clear the global handle reference so others won't try to delete again
+    *timerHandle = nullptr;
     ESP_LOGI("[MAIN]", "Startup timer cancelled, staying in heartbeat mode");
   }
 }
@@ -111,7 +113,7 @@ bool SerialManager::should_send_heartbeat()
   // Always send heartbeat during startup delay or if no WiFi configured
 
   // If startup timer is still running, always send heartbeat
-  if (timerHandle != nullptr)
+  if (timerHandle != nullptr && *timerHandle != nullptr)
   {
     return true;
   }

@@ -319,7 +319,7 @@ extern "C" void app_main(void)
 
     xTaskCreate(
         HandleStateManagerTask,
-        "HandleLEDDisplayTask",
+        "HandleStateManagerTask",
         1024 * 2,
         stateManager,
         3,
@@ -340,7 +340,7 @@ extern "C" void app_main(void)
         "CurrentMonitorTask",
         1024,
         currentMonitor.get(),
-    0,
+        0, // run at lowest priority; it's periodic and light
         nullptr);
 #endif
 

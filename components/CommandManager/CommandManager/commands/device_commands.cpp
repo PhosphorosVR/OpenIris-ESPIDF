@@ -135,7 +135,8 @@ CommandResult getLEDCurrentCommand(std::shared_ptr<DependencyRegistry> registry)
     {
         return CommandResult::getErrorResult("Monitoring not initialized");
     }
-    float mA = cm->pollAndGetMilliAmps();
+    // Use cached filtered value to avoid ADC access in command path
+    float mA = cm->getCurrentMilliAmps();
     auto result = std::format("{{ \"led_current_mA\": {:.2f} }}", mA);
     return CommandResult::getSuccessResult(result);
 #else

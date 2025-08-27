@@ -340,7 +340,7 @@ extern "C" void app_main(void)
         "CurrentMonitorTask",
         1024,
         currentMonitor.get(),
-        1,
+    0,
         nullptr);
 #endif
 

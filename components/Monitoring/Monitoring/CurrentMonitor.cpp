@@ -32,8 +32,9 @@ float CurrentMonitor::getCurrentMilliAmps() const
     const int shunt_milliohm = CONFIG_MONITORING_LED_SHUNT_MILLIOHM; // mΩ
     if (shunt_milliohm <= 0)
         return 0.0f;
-    // I[mA] = V[mV] / R[mΩ]
-    return static_cast<float>(filtered_mv_) / static_cast<float>(shunt_milliohm);
+    // Physically correct scaling:
+    // I[mA] = 1000 * Vshunt[mV] / R[mΩ]
+    return (1000.0f * static_cast<float>(filtered_mv_)) / static_cast<float>(shunt_milliohm);
 #else
     return 0.0f;
 #endif

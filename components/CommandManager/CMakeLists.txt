@@ -12,4 +12,5 @@ idf_component_register(
      "CommandManager"
      "CommandManager/commands"
   REQUIRES ProjectConfig cJSON CameraManager OpenIrisTasks wifiManager Helpers LEDManager
+           Monitoring
 )

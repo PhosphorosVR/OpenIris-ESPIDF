@@ -21,6 +21,7 @@
 #include <SerialManager.hpp>
 #include <RestAPI.hpp>
 #include <main_globals.hpp>
+#include <CurrentMonitor.hpp>
 
 #ifdef CONFIG_GENERAL_DEFAULT_WIRED_MODE
 #include <UVCStream.hpp>
@@ -55,6 +56,21 @@ UVCStreamManager uvcStream;
 
 auto ledManager = std::make_shared<LEDManager>(DEBUG_LED_GPIO, CONFIG_LED_C_PIN_GPIO, ledStateQueue, deviceConfig);
 auto *serialManager = new SerialManager(commandManager, &timerHandle, deviceConfig);
+
+#if CONFIG_MONITORING_LED_CURRENT
+std::shared_ptr<CurrentMonitor> currentMonitor = std::make_shared<CurrentMonitor>();
+
+static void CurrentMonitorTask(void *param)
+{
+    auto cm = static_cast<CurrentMonitor *>(param);
+    const TickType_t delayTicks = pdMS_TO_TICKS(CONFIG_MONITORING_LED_INTERVAL_MS);
+    while (true)
+    {
+        cm->sampleOnce();
+        vTaskDelay(delayTicks);
+    }
+}
+#endif
 
 static void initNVSStorage()
 {
@@ -243,6 +259,9 @@ extern "C" void app_main(void)
     dependencyRegistry->registerService<CameraManager>(DependencyType::camera_manager, cameraHandler);
     dependencyRegistry->registerService<WiFiManager>(DependencyType::wifi_manager, wifiManager);
     dependencyRegistry->registerService<LEDManager>(DependencyType::led_manager, ledManager);
+#if CONFIG_MONITORING_LED_CURRENT
+    dependencyRegistry->registerService<CurrentMonitor>(DependencyType::current_monitor, currentMonitor);
+#endif
     // uvc plan
     // cleanup the logs - done
     // prepare the camera to be initialized with UVC - done?
@@ -294,6 +313,9 @@ extern "C" void app_main(void)
     initNVSStorage();
     deviceConfig->load();
     ledManager->setup();
+#if CONFIG_MONITORING_LED_CURRENT
+    currentMonitor->setup();
+#endif
 
     xTaskCreate(
         HandleStateManagerTask,
@@ -311,6 +333,16 @@ extern "C" void app_main(void)
         ledManager.get(),
         3,
         nullptr);
+
+#if CONFIG_MONITORING_LED_CURRENT
+    xTaskCreate(
+        CurrentMonitorTask,
+        "CurrentMonitorTask",
+        1024,
+        currentMonitor.get(),
+        1,
+        nullptr);
+#endif
 
     serialManager->setup();
 

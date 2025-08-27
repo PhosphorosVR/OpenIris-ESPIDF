@@ -1,5 +1,6 @@
 #include "device_commands.hpp"
 #include "LEDManager.hpp"
+#include "CurrentMonitor.hpp"
 #include "esp_mac.h"
 #include <cstdio>
 
@@ -124,6 +125,22 @@ CommandResult getLEDDutyCycleCommand(std::shared_ptr<DependencyRegistry> registr
     int duty = deviceCfg.led_external_pwm_duty_cycle;
     auto result = std::format("{{ \"led_external_pwm_duty_cycle\": {} }}", duty);
     return CommandResult::getSuccessResult(result);
+}
+
+CommandResult getLEDCurrentCommand(std::shared_ptr<DependencyRegistry> registry)
+{
+#if CONFIG_MONITORING_LED_CURRENT
+    auto cm = registry->resolve<CurrentMonitor>(DependencyType::current_monitor);
+    if (!cm)
+    {
+        return CommandResult::getErrorResult("Monitoring not initialized");
+    }
+    float mA = cm->pollAndGetMilliAmps();
+    auto result = std::format("{{ \"led_current_mA\": {:.2f} }}", mA);
+    return CommandResult::getSuccessResult(result);
+#else
+    return CommandResult::getSuccessResult("{ \"led_current_mA\": \"Not supported\" }");
+#endif
 }
 
 CommandResult startStreamingCommand()

@@ -46,6 +46,7 @@ enum class CommandType
   GET_DEVICE_MODE,
   SET_LED_DUTY_CYCLE,
   GET_LED_DUTY_CYCLE,
+  GET_LED_CURRENT,
   GET_SERIAL,
 };
 

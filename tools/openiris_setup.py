@@ -980,6 +980,19 @@ def _probe_led_pwm(device: OpenIrisDevice) -> Dict:
     duty = device.get_led_duty_cycle()
     return {"led_external_pwm_duty_cycle": duty}
 
+def _probe_led_current(device: OpenIrisDevice) -> Dict:
+    resp = device.send_command("get_led_current")
+    try:
+        if "results" in resp and resp["results"]:
+            result_data = json.loads(resp["results"][0])
+            payload = result_data["result"]
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            return {"led_current": payload.get("led_current_mA", "Not supported")}
+    except Exception:
+        pass
+    return {"led_current": "Not supported"}
+
 
 def _probe_mode(device: OpenIrisDevice) -> Dict:
     mode = device.get_device_mode()
@@ -997,7 +1010,8 @@ def get_settings(device: OpenIrisDevice, args=None):
 
     probes = [
         ("Identity", _probe_serial),
-        ("LED", _probe_led_pwm),
+    ("LED", _probe_led_pwm),
+    ("Monitoring", _probe_led_current),
         ("Mode", _probe_mode),
         ("WiFi", _probe_wifi_status),
     ]
@@ -1030,6 +1044,15 @@ def get_settings(device: OpenIrisDevice, args=None):
         print(f"💡 LED PWM Duty: {duty}%")
     else:
         print("💡 LED PWM Duty: unknown")
+
+    # Monitoring
+    mon = summary.get("Monitoring", {})
+    led_current = mon.get("led_current")
+    if led_current is not None:
+        if isinstance(led_current, (int, float)):
+            print(f"🔍 LED Current: {led_current:.2f} mA")
+        else:
+            print(f"🔍 LED Current: {led_current}")
 
     # Mode
     mode = summary.get("Mode", {}).get("mode")

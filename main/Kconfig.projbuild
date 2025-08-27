@@ -74,6 +74,57 @@ menu "OpenIris: WiFi Configuration"
 
 endmenu
 
+menu "OpenIris: Monitoring"
+
+    config MONITORING_LED_CURRENT
+        bool "Enable LED current monitoring"
+        default false
+        help
+            Enables ADC-based current monitoring for the external IR LEDs.
+
+    config MONITORING_LED_ADC_GPIO
+        int "ADC GPIO for LED current sense"
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
+        default 2
+        depends on MONITORING_LED_CURRENT
+        help
+            GPIO connected to the LED current sense output (goes to ADC input).
+            Note: Only specific GPIOs support ADC input. On ESP32-S3 these are typically GPIO1..10 for ADC1.
+
+    config MONITORING_LED_GAIN
+        int "Sense path gain/divider factor"
+        default 11
+    depends on MONITORING_LED_CURRENT
+        help
+            Overall analog gain (or divider factor) between shunt voltage and ADC input.
+            The measured ADC voltage will be divided by this factor (e.g., 11).
+
+    config MONITORING_LED_SHUNT_MILLIOHM
+        int "Shunt resistance (mΩ)"
+        range 1 1000
+        default 22
+    depends on MONITORING_LED_CURRENT
+        help
+            Value of the current-sense shunt resistor in milliohms.
+
+    config MONITORING_LED_SAMPLES
+        int "Number of samples for moving average"
+        range 1 200
+        default 10
+    depends on MONITORING_LED_CURRENT
+        help
+            Number of ADC samples to average for a smoother reading.
+
+    config MONITORING_LED_INTERVAL_MS
+        int "Sampling interval (ms)"
+        range 5 10000
+        default 50
+    depends on MONITORING_LED_CURRENT
+        help
+            Time between ADC samples in milliseconds.
+
+endmenu
+
 menu "OpenIris: LED Configuration"
 
     config LED_DEBUG_GPIO

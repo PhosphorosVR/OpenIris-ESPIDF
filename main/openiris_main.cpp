@@ -338,7 +338,7 @@ extern "C" void app_main(void)
     xTaskCreate(
         CurrentMonitorTask,
         "CurrentMonitorTask",
-        1024,
+    1024 * 2,
         currentMonitor.get(),
         0, // run at lowest priority; it's periodic and light
         nullptr);

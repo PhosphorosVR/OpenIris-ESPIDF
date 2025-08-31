@@ -140,6 +140,7 @@ menu "OpenIris: LED Configuration"
         int "GPIO pin controlling external LEDs"
         range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
         default 1
+        depends on LED_EXTERNAL_CONTROL
         help
             GPIO number connected to the control line of the external IR LEDs.
 

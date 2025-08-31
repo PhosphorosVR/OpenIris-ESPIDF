@@ -28,7 +28,13 @@
 #endif
 
 #define DEBUG_LED_GPIO (gpio_num_t) CONFIG_LED_DEBUG_GPIO
+#ifdef CONFIG_LED_EXTERNAL_CONTROL
 #define CONFIG_LED_C_PIN_GPIO (gpio_num_t) CONFIG_LED_EXTERNAL_GPIO
+#else
+// Fallback when external LED control is not enabled in Kconfig.
+// Use the debug LED pin as default so the constructor always receives a valid gpio_num_t.
+#define CONFIG_LED_C_PIN_GPIO DEBUG_LED_GPIO
+#endif
 
 esp_timer_handle_t timerHandle;
 QueueHandle_t eventQueue = xQueueCreate(10, sizeof(SystemEvent));

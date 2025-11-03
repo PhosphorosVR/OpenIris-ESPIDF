@@ -5,7 +5,7 @@ set (
   ProjectConfig
 )
 
-if ("$ENV{IDF_ETARGET}" STREQUAL "esp32s3")
+if ("$ENV{IDF_TARGET}" STREQUAL "esp32s3")
 list(APPEND requires
             tinyusb
 )
@@ -16,7 +16,7 @@ set (
   "SerialManager/SerialManager.cpp"
 )
 
-if ("$ENV{IDF_ETARGET}" STREQUAL "esp32s3" OR "$ENV{IDF_ETARGET}" STREQUAL "esp32s2" )
+if ("$ENV{IDF_TARGET}" STREQUAL "esp32s3" )
 list(APPEND source_files
             "SerialManager/SerialManager_esp32s3.cpp"
 )

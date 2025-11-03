@@ -108,12 +108,24 @@ menu "OpenIris: WiFi Configuration"
 endmenu
 
 menu "OpenIris: Serial Communication Settings"
-    config UART_PORT_NUMER
+    config UART_PORT_NUMBER
         int "UART Port number"
-        default 1
-        range 1 4
+        default 0
+        range 0 4
         help
             The UART port to use for communication
+
+    config UART_RX_PIN
+        int "UART RX PIN number"
+        default -1
+        help
+            The UART RX pin to use for communication. If set to -1 we won't override it. It will be treated as NO_CHANGE
+
+    config UART_TX_PIN
+        int "UART TX PIN number"
+        default -1
+        help
+            The UART TX pin to use for communication. If set to -1 we won't override it. It will be treated as NO_CHANGE
 
 endmenu
 

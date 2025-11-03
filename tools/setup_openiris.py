@@ -101,6 +101,8 @@ class OpenIrisDevice:
             self.connection = serial.Serial(
                 port=self.port, baudrate=115200, timeout=1, write_timeout=1
             )
+            self.connection.dtr = False
+            self.connection.rts = False
             print(f"✅ Connected to the device on {self.port}")
             return True
         except Exception as e:

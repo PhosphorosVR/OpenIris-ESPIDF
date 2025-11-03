@@ -2567,8 +2567,3 @@ CONFIG_SUPPRESS_SELECT_DEBUG_OUTPUT=y
 CONFIG_SUPPORT_TERMIOS=y
 CONFIG_SEMIHOSTFS_MAX_MOUNT_POINTS=1
 # End of deprecated options
-#
-# OpenIris: Serial Communication Settings
-#
-CONFIG_UART_PORT_NUMER=1
-# end of OpenIris: Serial Communication Settings

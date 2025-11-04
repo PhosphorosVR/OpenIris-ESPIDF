@@ -36,7 +36,7 @@
 #define BLINK_GPIO (gpio_num_t) CONFIG_LED_DEBUG_GPIO
 #else
 // Use an invalid / unused GPIO when debug LED disabled to avoid accidental toggles
-#define BLINK_GPIO (gpio_num_t) - 1
+#define BLINK_GPIO (gpio_num_t)(-1)
 #endif
 #define CONFIG_LED_C_PIN_GPIO (gpio_num_t) CONFIG_LED_EXTERNAL_GPIO
 
@@ -61,7 +61,7 @@ MDNSManager mdnsManager(deviceConfig, eventQueue);
 std::shared_ptr<CameraManager> cameraHandler = std::make_shared<CameraManager>(deviceConfig, eventQueue);
 StreamServer streamServer(80, stateManager);
 
-auto *restAPI = new RestAPI("http://0.0.0.0:81", commandManager);
+std::shared_ptr<RestAPI> restAPI = std::make_shared<RestAPI>("http://0.0.0.0:81", commandManager);
 
 #ifdef CONFIG_GENERAL_INCLUDE_UVC_MODE
 UVCStreamManager uvcStream;
@@ -215,6 +215,7 @@ void startWiFiMode()
     mdnsManager.start();
     restAPI->begin();
     StreamingMode mode = deviceConfig->getDeviceMode();
+    // don't enable in SETUP mode
     if (mode == StreamingMode::WIFI)
     {
         streamServer.startStreamServer();
@@ -223,7 +224,7 @@ void startWiFiMode()
         HandleRestAPIPollTask,
         "HandleRestAPIPollTask",
         1024 * 2,
-        restAPI,
+        restAPI.get(),
         1, // it's the rest API, we only serve commands over it so we don't really need a higher priority
         nullptr);
 #else

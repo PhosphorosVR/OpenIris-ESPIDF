@@ -2,7 +2,10 @@
 
 #include <utility>
 
+#define PATCH_METHOD "PATCH"
 #define POST_METHOD "POST"
+#define GET_METHOD "GET"
+#define DELETE_METHOD "DELETE"
 
 bool getIsSuccess(const nlohmann::json &response)
 {
@@ -19,27 +22,55 @@ bool getIsSuccess(const nlohmann::json &response)
 
 RestAPI::RestAPI(std::string url, std::shared_ptr<CommandManager> commandManager) : command_manager(commandManager)
 {
+  // until we stumble on a simpler way to handle the commands over the rest api
+  // the formula will be like this:
+  // each command gets its own endpoint
+  // each endpoint must include the action it performs in its path
+  // for example
+  // /get/ for getters
+  // /set/ for posts
+  // /delete/ for deletes
+  // /update/ for updates
+  // additional actions on the resource should be appended after the resource name
+  // like for example /api/set/config/save/
+  //
+  // one endpoint must not contain more than one action
+
   this->url = std::move(url);
-  // updates
-  routes.emplace("/api/update/wifi/", &RestAPI::handle_update_wifi);
-  routes.emplace("/api/update/device/", &RestAPI::handle_update_device);
-  routes.emplace("/api/update/camera/", &RestAPI::handle_update_camera);
+  // updates via PATCH
+  routes.emplace("/api/update/wifi/", RequestBaseData(PATCH_METHOD, CommandType::UPDATE_WIFI, 200, 400));
+  routes.emplace("/api/update/device/mode/", RequestBaseData(PATCH_METHOD, CommandType::SWITCH_MODE, 200, 400));
+  routes.emplace("/api/update/camera/", RequestBaseData(PATCH_METHOD, CommandType::UPDATE_CAMERA, 200, 400));
+  routes.emplace("/api/update/ota/credentials", RequestBaseData(PATCH_METHOD, CommandType::UPDATE_OTA_CREDENTIALS, 200, 400));
+  routes.emplace("/api/update/ap/", RequestBaseData(PATCH_METHOD, CommandType::UPDATE_AP_WIFI, 200, 400));
+  routes.emplace("/api/update/led_duty_cycle/", RequestBaseData(PATCH_METHOD, CommandType::SET_LED_DUTY_CYCLE, 200, 400));
 
-  // post will reset it
-  // resets
-  routes.emplace("/api/reset/config/", &RestAPI::handle_reset_config);
-  // gets
-  routes.emplace("/api/get/config/", &RestAPI::handle_get_config);
+  // POST will set the data
+  routes.emplace("/api/set/pause/", RequestBaseData(POST_METHOD, CommandType::PAUSE, 200, 400));
+  routes.emplace("/api/set/wifi/", RequestBaseData(POST_METHOD, CommandType::SET_WIFI, 200, 400));
+  routes.emplace("/api/set/mdns/", RequestBaseData(POST_METHOD, CommandType::SET_MDNS, 200, 400));
+  routes.emplace("/api/set/config/save/", RequestBaseData(POST_METHOD, CommandType::SAVE_CONFIG, 200, 400));
+  routes.emplace("/api/set/wifi/connect/", RequestBaseData(POST_METHOD, CommandType::CONNECT_WIFI, 200, 400));
 
-  // reboots
-  routes.emplace("/api/reboot/device/", &RestAPI::handle_reboot);
-  routes.emplace("/api/reboot/camera/", &RestAPI::handle_camera_reboot);
+  // resets via POST as well
+  routes.emplace("/api/reset/config/", RequestBaseData(POST_METHOD, CommandType::RESET_CONFIG, 200, 400));
 
-  // heartbeat
-  routes.emplace("/api/ping/", &RestAPI::pong);
+  // gets via GET
+  routes.emplace("/api/get/config/", RequestBaseData(GET_METHOD, CommandType::GET_CONFIG, 200, 400));
+  routes.emplace("/api/get/mdns/", RequestBaseData(GET_METHOD, CommandType::GET_MDNS_NAME, 200, 400));
+  routes.emplace("/api/get/led_duty_cycle/", RequestBaseData(GET_METHOD, CommandType::GET_LED_DUTY_CYCLE, 200, 400));
+  routes.emplace("/api/get/serial_number/", RequestBaseData(GET_METHOD, CommandType::GET_SERIAL, 200, 400));
+  routes.emplace("/api/get/led_current/", RequestBaseData(GET_METHOD, CommandType::GET_LED_CURRENT, 200, 400));
+  routes.emplace("/api/get/who_am_i/", RequestBaseData(GET_METHOD, CommandType::GET_WHO_AM_I, 200, 400));
 
-  // special
-  routes.emplace("/api/save/", &RestAPI::handle_save);
+  // deletes via DELETE
+  routes.emplace("/api/delete/wifi", RequestBaseData(DELETE_METHOD, CommandType::DELETE_NETWORK, 200, 400));
+
+  // reboots via POST
+  routes.emplace("/api/reboot/device/", RequestBaseData(GET_METHOD, CommandType::RESTART_DEVICE, 200, 500));
+
+  // heartbeat via GET
+  routes.emplace("/api/ping/", RequestBaseData(GET_METHOD, CommandType::PING, 200, 400));
 }
 
 void RestAPI::begin()
@@ -58,19 +89,24 @@ void RestAPI::handle_request(struct mg_connection *connection, int event, void *
     auto const *message = static_cast<struct mg_http_message *>(event_data);
     auto const uri = std::string(message->uri.buf, message->uri.len);
 
-    if (auto const handler = this->routes[uri])
-    {
-      auto *context = new RequestContext{
-          .connection = connection,
-          .method = std::string(message->method.buf, message->method.len),
-          .body = std::string(message->body.buf, message->body.len),
-      };
-      (*this.*handler)(context);
-    }
-    else
+    if (this->routes.find(uri) == this->routes.end())
     {
       mg_http_reply(connection, 404, "", "Wrong URL");
+      return;
     }
+
+    auto const base_request_params = this->routes.at(uri);
+
+    auto *context = new RequestContext{
+        .connection = connection,
+        .method = std::string(message->method.buf, message->method.len),
+        .body = std::string(message->body.buf, message->body.len),
+    };
+    this->handle_endpoint_command(context,
+                                  base_request_params.allowed_method,
+                                  base_request_params.command_type,
+                                  base_request_params.success_code,
+                                  base_request_params.error_code);
   }
 }
 
@@ -95,97 +131,16 @@ void HandleRestAPIPollTask(void *pvParameter)
   }
 }
 
-// COMMANDS
-// updates
-void RestAPI::handle_update_wifi(RequestContext *context)
+void RestAPI::handle_endpoint_command(RequestContext *context, std::string allowed_method, CommandType command_type, int success_code, int error_code)
 {
-  if (context->method != POST_METHOD)
+
+  if (context->method != allowed_method)
   {
     mg_http_reply(context->connection, 401, JSON_RESPONSE, "{%m:%m}", MG_ESC("error"), "Method not allowed");
     return;
   }
 
-  const nlohmann::json result = command_manager->executeFromType(CommandType::UPDATE_WIFI, context->body);
-  const auto code = getIsSuccess(result) ? 200 : 400;
-  mg_http_reply(context->connection, code, JSON_RESPONSE, result.dump().c_str());
-}
-
-void RestAPI::handle_update_device(RequestContext *context)
-{
-  if (context->method != POST_METHOD)
-  {
-    mg_http_reply(context->connection, 401, JSON_RESPONSE, "{%m:%m}", MG_ESC("error"), "Method not allowed");
-    return;
-  }
-
-  const nlohmann::json result = command_manager->executeFromType(CommandType::UPDATE_OTA_CREDENTIALS, context->body);
-  const auto code = getIsSuccess(result) ? 200 : 500;
-  mg_http_reply(context->connection, code, JSON_RESPONSE, result.dump().c_str());
-}
-
-void RestAPI::handle_update_camera(RequestContext *context)
-{
-  if (context->method != POST_METHOD)
-  {
-    mg_http_reply(context->connection, 401, JSON_RESPONSE, "{%m:%m}", MG_ESC("error"), "Method not allowed");
-    return;
-  }
-
-  const nlohmann::json result = command_manager->executeFromType(CommandType::UPDATE_CAMERA, context->body);
-  const auto code = getIsSuccess(result) ? 200 : 500;
-  mg_http_reply(context->connection, code, JSON_RESPONSE, result.dump().c_str());
-}
-
-// gets
-
-void RestAPI::handle_get_config(RequestContext *context)
-{
-  auto const result = this->command_manager->executeFromType(CommandType::GET_CONFIG, "");
-  const nlohmann::json jsonResult = result;
-  mg_http_reply(context->connection, 200, JSON_RESPONSE, "{%m:%m}", MG_ESC("result"), jsonResult.dump().c_str());
-}
-
-// resets
-
-void RestAPI::handle_reset_config(RequestContext *context)
-{
-  if (context->method != POST_METHOD)
-  {
-    mg_http_reply(context->connection, 401, JSON_RESPONSE, "{%m:%m}", MG_ESC("error"), "Method not allowed");
-    return;
-  }
-
-  const nlohmann::json result = this->command_manager->executeFromType(CommandType::RESET_CONFIG, "{\"section\": \"all\"}");
-  const auto code = getIsSuccess(result) ? 200 : 500;
-  mg_http_reply(context->connection, code, JSON_RESPONSE, "{%m:%m}", MG_ESC("result"), result.dump().c_str());
-}
-
-// reboots
-void RestAPI::handle_reboot(RequestContext *context)
-{
-  const auto result = this->command_manager->executeFromType(CommandType::RESTART_DEVICE, "");
-  mg_http_reply(context->connection, 200, JSON_RESPONSE, "{%m:%m}", MG_ESC("result"), "Ok");
-}
-
-void RestAPI::handle_camera_reboot(RequestContext *context)
-{
-  mg_http_reply(context->connection, 200, JSON_RESPONSE, "{%m:%m}", MG_ESC("result"), "Ok");
-}
-
-// heartbeat
-
-void RestAPI::pong(RequestContext *context)
-{
-  const nlohmann::json result = this->command_manager->executeFromType(CommandType::PING, "");
-  const auto code = getIsSuccess(result) ? 200 : 500;
-  mg_http_reply(context->connection, code, JSON_RESPONSE, result.dump().c_str());
-}
-
-// special
-
-void RestAPI::handle_save(RequestContext *context)
-{
-  const nlohmann::json result = this->command_manager->executeFromType(CommandType::SAVE_CONFIG, "");
-  const auto code = getIsSuccess(result) ? 200 : 500;
+  const nlohmann::json result = command_manager->executeFromType(command_type, context->body);
+  const auto code = getIsSuccess(result) ? success_code : error_code;
   mg_http_reply(context->connection, code, JSON_RESPONSE, result.dump().c_str());
 }

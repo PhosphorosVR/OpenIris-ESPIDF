@@ -223,7 +223,7 @@ void startWiFiMode()
     xTaskCreate(
         HandleRestAPIPollTask,
         "HandleRestAPIPollTask",
-        1024 * 2,
+        2024 * 2,
         restAPI.get(),
         1, // it's the rest API, we only serve commands over it so we don't really need a higher priority
         nullptr);

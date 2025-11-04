@@ -161,5 +161,5 @@ CommandManagerResponse CommandManager::executeFromType(const CommandType type, c
     return CommandManagerResponse({{"command", type}, {"error", "Unknown command"}});
   }
 
-  return CommandManagerResponse({"result", command()});
+  return CommandManagerResponse(nlohmann::json{{"result", command()}});
 }

@@ -4,9 +4,9 @@
 #include <atomic>
 #include "CurrentMonitor.hpp"
 
-class MonitoringManager {
+class MonitoringManager
+{
 public:
-
     void setup();
     void start();
     void stop();
@@ -15,7 +15,7 @@ public:
     float getCurrentMilliAmps() const { return last_current_ma_.load(); }
 
 private:
-    static void taskEntry(void* arg);
+    static void taskEntry(void *arg);
     void run();
 
     TaskHandle_t task_{nullptr};

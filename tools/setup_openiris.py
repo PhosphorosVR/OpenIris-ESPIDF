@@ -494,6 +494,7 @@ def get_settings_summary(device: OpenIrisDevice, *args, **kwargs):
         configured = wifi.get("networks_configured", 0)
         print(f"📶 WiFi: {status}  |  IP: {ip}  |  Networks configured: {configured}")
 
+
 def restart_device_command(device: OpenIrisDevice, *args, **kwargs):
     print("🔄 Restarting device...")
     response = device.send_command("restart_device")
@@ -503,6 +504,7 @@ def restart_device_command(device: OpenIrisDevice, *args, **kwargs):
 
     print("✅ Device restart command sent successfully")
     print("💡 Please wait a few seconds for the device to reboot")
+
 
 def scan_networks(wifi_scanner: WiFiScanner, *args, **kwargs):
     use_custom_timeout = (

@@ -6,7 +6,8 @@
 #include <vector>
 #include "sdkconfig.h"
 
-class CurrentMonitor {
+class CurrentMonitor
+{
 public:
     CurrentMonitor();
     ~CurrentMonitor() = default;
@@ -25,15 +26,15 @@ public:
     // Whether monitoring is enabled by Kconfig
     static constexpr bool isEnabled()
     {
-    #ifdef CONFIG_MONITORING_LED_CURRENT
+#ifdef CONFIG_MONITORING_LED_CURRENT
         return true;
-    #else
+#else
         return false;
-    #endif
+#endif
     }
 
 private:
-#if CONFIG_MONITORING_LED_CURRENT
+#ifdef CONFIG_MONITORING_LED_CURRENT
     void init_adc();
     int read_mv_once();
     int gpio_to_adc_channel(int gpio);

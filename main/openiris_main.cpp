@@ -22,7 +22,10 @@
 #include <SerialManager.hpp>
 #include <RestAPI.hpp>
 #include <main_globals.hpp>
+
+#ifdef CONFIG_MONITORING_LED_CURRENT
 #include <MonitoringManager.hpp>
+#endif
 
 #ifdef CONFIG_GENERAL_INCLUDE_UVC_MODE
 #include <UVCStream.hpp>
@@ -68,7 +71,11 @@ UVCStreamManager uvcStream;
 #endif
 
 auto ledManager = std::make_shared<LEDManager>(BLINK_GPIO, CONFIG_LED_C_PIN_GPIO, ledStateQueue, deviceConfig);
+
+#ifdef CONFIG_MONITORING_LED_CURRENT
 std::shared_ptr<MonitoringManager> monitoringManager = std::make_shared<MonitoringManager>();
+#endif
+
 auto *serialManager = new SerialManager(commandManager, &timerHandle);
 
 void startWiFiMode();
@@ -265,18 +272,23 @@ extern "C" void app_main(void)
     dependencyRegistry->registerService<WiFiManager>(DependencyType::wifi_manager, wifiManager);
 #endif
     dependencyRegistry->registerService<LEDManager>(DependencyType::led_manager, ledManager);
+
+#ifdef CONFIG_MONITORING_LED_CURRENT
     dependencyRegistry->registerService<MonitoringManager>(DependencyType::monitoring_manager, monitoringManager);
+#endif
 
     // add endpoint to check firmware version
-    // setup CI and building for other boards
 
     // esp_log_set_vprintf(&websocket_logger);
     Logo::printASCII();
     initNVSStorage();
     deviceConfig->load();
     ledManager->setup();
+
+#ifdef CONFIG_MONITORING_LED_CURRENT
     monitoringManager->setup();
     monitoringManager->start();
+#endif
 
     xTaskCreate(
         HandleStateManagerTask,

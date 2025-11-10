@@ -1,7 +1,10 @@
-#ifdef CONFIG_GENERAL_INCLUDE_UVC_MODE
 #pragma once
 #ifndef UVCSTREAM_HPP
 #define UVCSTREAM_HPP
+
+#include "sdkconfig.h"
+
+#ifdef CONFIG_GENERAL_INCLUDE_UVC_MODE
 #include "esp_timer.h"
 #include "esp_mac.h"
 #include "esp_camera.h"

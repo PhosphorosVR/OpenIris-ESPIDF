@@ -2,7 +2,7 @@
 #include <esp_log.h>
 #include <cmath>
 
-#if CONFIG_MONITORING_LED_CURRENT
+#ifdef CONFIG_MONITORING_LED_CURRENT
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
@@ -12,14 +12,14 @@ static const char *TAG_CM = "[CurrentMonitor]";
 
 CurrentMonitor::CurrentMonitor()
 {
-#if CONFIG_MONITORING_LED_CURRENT
+#ifdef CONFIG_MONITORING_LED_CURRENT
     samples_.assign(CONFIG_MONITORING_LED_SAMPLES, 0);
 #endif
 }
 
 void CurrentMonitor::setup()
 {
-#if CONFIG_MONITORING_LED_CURRENT
+#ifdef CONFIG_MONITORING_LED_CURRENT
     init_adc();
 #else
     ESP_LOGI(TAG_CM, "LED current monitoring disabled");
@@ -28,7 +28,7 @@ void CurrentMonitor::setup()
 
 float CurrentMonitor::getCurrentMilliAmps() const
 {
-#if CONFIG_MONITORING_LED_CURRENT
+#ifdef CONFIG_MONITORING_LED_CURRENT
     const int shunt_milliohm = CONFIG_MONITORING_LED_SHUNT_MILLIOHM; // mΩ
     if (shunt_milliohm <= 0)
         return 0.0f;
@@ -48,7 +48,7 @@ float CurrentMonitor::pollAndGetMilliAmps()
 
 void CurrentMonitor::sampleOnce()
 {
-#if CONFIG_MONITORING_LED_CURRENT
+#ifdef CONFIG_MONITORING_LED_CURRENT
     int mv = read_mv_once();
     // Divide by analog gain/divider factor to get shunt voltage
     if (CONFIG_MONITORING_LED_GAIN > 0)
@@ -76,7 +76,7 @@ void CurrentMonitor::sampleOnce()
 #endif
 }
 
-#if CONFIG_MONITORING_LED_CURRENT
+#ifdef CONFIG_MONITORING_LED_CURRENT
 
 static adc_oneshot_unit_handle_t s_adc_handle = nullptr;
 static adc_cali_handle_t s_cali_handle = nullptr;

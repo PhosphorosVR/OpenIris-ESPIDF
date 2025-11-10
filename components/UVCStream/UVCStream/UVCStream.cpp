@@ -1,6 +1,6 @@
-#ifdef CONFIG_GENERAL_INCLUDE_UVC_MODE
-
 #include "UVCStream.hpp"
+
+#ifdef CONFIG_GENERAL_INCLUDE_UVC_MODE
 #include <cstdio> // for snprintf
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

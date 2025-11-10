@@ -16,7 +16,7 @@ void SerialManager::setup()
 #endif
 }
 
-usb_serial_jtag_write_bytes_chunked(const char *data, size_t len, size_t timeout)
+void usb_serial_jtag_write_bytes_chunked(const char *data, size_t len, size_t timeout)
 {
 #ifndef CONFIG_USE_UART_FOR_COMMUNICATION
   while (len > 0)

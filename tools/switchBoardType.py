@@ -1,5 +1,6 @@
 import os
 import difflib
+import shutil
 import argparse
 from typing import Dict, Optional, List
 
@@ -13,12 +14,27 @@ BOARDS_DIR_NAME = "boards"
 SDKCONFIG_DEFAULTS_FILENAME = "sdkconfig.base_defaults"
 
 
+# some components are super platform specific.
+# to a point where building them with esp32 will fail every single time due to depndencies not supporting it
+# with our own components, we can ship some shims to keep things clean
+# but with those, unless we roll our own somehow, we're out of luck.
+# So, to make things simpler, when selecting for which board to build, we're gonna reconfigure the components
+# on the fly.
+PLATFORM_SPECIFIC_COMPONENTS = {"esp32s3": ["usb_device_uvc"]}
+PLATFORM_SPECIFIC_COMPONENTS_DIRS = {"esp32s3": "esp32s3"}
+
+
 def get_root_path() -> str:
     return os.path.split(os.path.dirname(os.path.realpath(__file__)))[0]
 
 
 def get_boards_root() -> str:
     return os.path.join(get_root_path(), BOARDS_DIR_NAME)
+
+
+def get_config_platform(_parsed_config: dict) -> str:
+    # 1:-1 to strip quotes
+    return _parsed_config["CONFIG_IDF_TARGET"][1:-1]
 
 
 def enumerate_board_configs() -> Dict[str, str]:
@@ -178,6 +194,58 @@ def compute_diff(_parsed_base_config: dict, _parsed_board_config: dict) -> dict:
     return _diff
 
 
+def _move_directories(component: str, destination_path: str):
+    if os.path.exists(component):
+        shutil.move(component, destination_path)
+
+
+def handle_extra_components(old_platform: str, new_platform: str, dry_run: bool):
+    print(
+        f"{OKGREEN}Switching components configuration from platform:{ENDC} {OKBLUE}{old_platform}{ENDC} {OKGREEN}to platform:{ENDC} {OKBLUE}{new_platform}{ENDC}"
+    )
+
+    if old_platform == new_platform:
+        print(f"{OKGREEN}The platform is the same. Nothing to do here.{ENDC}")
+        return
+
+    old_platform_components = PLATFORM_SPECIFIC_COMPONENTS.get(old_platform, [])
+    new_platform_components = PLATFORM_SPECIFIC_COMPONENTS.get(new_platform, [])
+    if dry_run:
+        print(f"{OKGREEN}Would remove: {ENDC}")
+        for component in old_platform_components:
+            print(f"{OKBLUE}- {component} {ENDC}")
+
+        print(f"{OKGREEN}Would add: {ENDC}")
+        for component in new_platform_components:
+            print(f"{OKBLUE}- {component} {ENDC}")
+
+        return
+
+    components_path = os.path.join(get_root_path(), "components")
+
+    if old_base_dir := PLATFORM_SPECIFIC_COMPONENTS_DIRS.get(old_platform):
+        old_extra_components_path = os.path.join(
+            os.path.join(get_root_path(), "extra_components"), old_base_dir
+        )
+        for component in old_platform_components:
+            component_path = os.path.join(components_path, component)
+            print(
+                f"{OKGREEN}Moving:{ENDC}{OKBLUE} {component}{ENDC} to {OKBLUE}{old_extra_components_path}{ENDC}"
+            )
+            _move_directories(component_path, old_extra_components_path)
+
+    if new_base_dir := PLATFORM_SPECIFIC_COMPONENTS_DIRS.get(new_platform):
+        new_extra_components_path = os.path.join(
+            os.path.join(get_root_path(), "extra_components"), new_base_dir
+        )
+        for component in new_platform_components:
+            component_path = os.path.join(new_extra_components_path, component)
+            print(
+                f"{OKGREEN}Moving:{ENDC}{OKBLUE} {component}{ENDC} to {OKBLUE}{components_path}{ENDC}"
+            )
+            _move_directories(component_path, components_path)
+
+
 def main():
     parser = build_arg_parser()
     args = parser.parse_args()
@@ -247,6 +315,13 @@ def main():
                     main_config.write(f"{key}\n")
     else:
         print(f"{WARNING}[DRY-RUN]{ENDC} Skipping writing to files")
+
+    handle_extra_components(
+        get_config_platform(parsed_main_config),
+        get_config_platform(new_board_config),
+        args.dry_run,
+    )
+
     print(
         f"{OKGREEN}Done. ESP-IDF is setup to build for:{ENDC} {OKBLUE}{normalized}{ENDC}"
     )

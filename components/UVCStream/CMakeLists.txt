@@ -7,8 +7,8 @@ set (
   Helpers
 )
 
-if ("$ENV{IDF_ETARGET}" STREQUAL "esp32s3")
-list(APPEND required
+if ("$ENV{IDF_TARGET}" STREQUAL "esp32s3")
+list(APPEND requires
             usb_device_uvc
 )
 endif()

@@ -49,7 +49,7 @@ private:
 public:
   WiFiManager(std::shared_ptr<ProjectConfig> deviceConfig, QueueHandle_t eventQueue, StateManager *stateManager);
   void Begin();
-  std::vector<WiFiNetwork> ScanNetworks();
+  std::vector<WiFiNetwork> ScanNetworks(int timeout_ms = 15000);
   WiFiState_e GetCurrentWiFiState();
   void TryConnectToStoredNetworks();
 };

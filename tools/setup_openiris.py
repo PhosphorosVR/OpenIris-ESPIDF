@@ -228,7 +228,12 @@ class WiFiScanner:
         print(
             f"🔍 Scanning for WiFi networks (this may take up to {timeout} seconds)..."
         )
-        response = self.device.send_command("scan_networks", timeout=timeout)
+        # Convert timeout from seconds to milliseconds for the ESP
+        timeout_ms = timeout * 1000
+        # Send timeout_ms in the command data AND as serial timeout
+        response = self.device.send_command(
+            "scan_networks", params={"timeout_ms": timeout_ms}, timeout=timeout
+        )
         if has_command_failed(response):
             print(f"❌ Scan failed: {response['error']}")
             return

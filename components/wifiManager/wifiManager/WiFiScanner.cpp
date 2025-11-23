@@ -1,5 +1,6 @@
 #include "WiFiScanner.hpp"
 #include <cstring>
+#include "esp_timer.h"
 
 static const char *TAG = "WiFiScanner";
 
@@ -42,7 +43,7 @@ void WiFiScanner::scanResultCallback(void *arg, esp_event_base_t event_base,
 }
 
 // todo this is garbage
-std::vector<WiFiNetwork> WiFiScanner::scanNetworks()
+std::vector<WiFiNetwork> WiFiScanner::scanNetworks(int timeout_ms)
 {
     std::vector<WiFiNetwork> scan_results;
 
@@ -92,11 +93,22 @@ std::vector<WiFiNetwork> WiFiScanner::scanNetworks()
     }
     else
     {
-        // Sequential channel scan - scan each channel individually
+        // Sequential channel scan - scan each channel individually with timeout tracking
         std::vector<wifi_ap_record_t> all_records;
+        int64_t start_time = esp_timer_get_time() / 1000; // Convert to ms
 
         for (uint8_t ch = 1; ch <= 13; ch++)
         {
+            // Check if we've exceeded the timeout
+            int64_t current_time = esp_timer_get_time() / 1000;
+            int64_t elapsed = current_time - start_time;
+
+            if (elapsed >= timeout_ms)
+            {
+                ESP_LOGW(TAG, "Sequential scan timeout after %lld ms at channel %d", elapsed, ch);
+                break;
+            }
+
             wifi_scan_config_t scan_config = {
                 .ssid = nullptr,
                 .bssid = nullptr,
@@ -144,35 +156,42 @@ std::vector<WiFiNetwork> WiFiScanner::scanNetworks()
             scan_results.push_back(network);
         }
 
+        int64_t total_time = (esp_timer_get_time() / 1000) - start_time;
+        ESP_LOGI(TAG, "Sequential scan completed in %lld ms, found %d APs", total_time, scan_results.size());
+
         // Skip the normal result processing
         return scan_results;
     }
 
     // Wait for scan completion with timeout
-    int timeout_ms = 15000; // 15 second timeout
-    int elapsed_ms = 0;
+    int64_t start_time = esp_timer_get_time() / 1000; // Convert to ms
+    int64_t elapsed_ms = 0;
+    bool scan_done = false;
 
     while (elapsed_ms < timeout_ms)
     {
+        // Check if scan is actually complete by trying to get AP count
+        // When scan is done, this will return ESP_OK with a valid count
         uint16_t temp_count = 0;
         esp_err_t count_err = esp_wifi_scan_get_ap_num(&temp_count);
 
-        if (count_err == ESP_OK)
+        // If we can successfully get the AP count, the scan is likely complete
+        // However, we should still wait for the scan to fully finish
+        if (count_err == ESP_OK && temp_count > 0)
         {
-            // Wait a bit longer after finding networks to ensure scan is complete
-            if (temp_count > 0 && elapsed_ms > 5000)
-            {
-                break;
-            }
+            // Give it a bit more time to ensure all channels are scanned
+            vTaskDelay(pdMS_TO_TICKS(500));
+            scan_done = true;
+            break;
         }
 
         vTaskDelay(pdMS_TO_TICKS(200));
-        elapsed_ms += 200;
+        elapsed_ms = (esp_timer_get_time() / 1000) - start_time;
     }
 
-    if (elapsed_ms >= timeout_ms)
+    if (!scan_done && elapsed_ms >= timeout_ms)
     {
-        ESP_LOGE(TAG, "Scan timeout after %d ms", timeout_ms);
+        ESP_LOGE(TAG, "Scan timeout after %lld ms", elapsed_ms);
         esp_wifi_scan_stop();
         return scan_results;
     }

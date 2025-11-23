@@ -240,7 +240,7 @@ void WiFiManager::SetupAccessPoint()
   ESP_LOGI(WIFI_MANAGER_TAG, "AP started.");
 }
 
-std::vector<WiFiNetwork> WiFiManager::ScanNetworks()
+std::vector<WiFiNetwork> WiFiManager::ScanNetworks(int timeout_ms)
 {
   wifi_mode_t current_mode;
   esp_err_t err = esp_wifi_get_mode(&current_mode);
@@ -288,7 +288,7 @@ std::vector<WiFiNetwork> WiFiManager::ScanNetworks()
     vTaskDelay(pdMS_TO_TICKS(2000));
 
     // Perform scan
-    auto networks = wifiScanner->scanNetworks();
+    auto networks = wifiScanner->scanNetworks(timeout_ms);
 
     // Restore AP-only mode
     ESP_LOGI(WIFI_MANAGER_TAG, "Restoring AP-only mode");
@@ -304,7 +304,7 @@ std::vector<WiFiNetwork> WiFiManager::ScanNetworks()
   }
 
   // If already in STA or APSTA mode, scan directly
-  return wifiScanner->scanNetworks();
+  return wifiScanner->scanNetworks(timeout_ms);
 }
 
 WiFiState_e WiFiManager::GetCurrentWiFiState()

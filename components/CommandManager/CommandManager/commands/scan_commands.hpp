@@ -8,6 +8,6 @@
 #include <string>
 #include <nlohmann-json.hpp>
 
-CommandResult scanNetworksCommand(std::shared_ptr<DependencyRegistry> registry);
+CommandResult scanNetworksCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json &json);
 
 #endif

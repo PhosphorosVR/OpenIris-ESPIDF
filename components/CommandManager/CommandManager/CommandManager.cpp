@@ -74,8 +74,8 @@ std::function<CommandResult()> CommandManager::createCommand(const CommandType t
   case CommandType::RESTART_DEVICE:
     return restartDeviceCommand;
   case CommandType::SCAN_NETWORKS:
-    return [this]
-    { return scanNetworksCommand(this->registry); };
+    return [this, json]
+    { return scanNetworksCommand(this->registry, json); };
   case CommandType::START_STREAMING:
     return startStreamingCommand;
   case CommandType::GET_WIFI_STATUS:

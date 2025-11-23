@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pyserial>=3.5",
+    "pytest>=9.0.1",
+    "python-dotenv>=1.2.1",
 ]
 
 [dependency-groups]
@@ -26,4 +28,9 @@ push = false
 ]
 "sdkconfig" = [
     'CONFIG_GENERAL_VERSION="{version}"',
+]
+
+[tool.pytest]
+testpaths = [
+    "tests"
 ]

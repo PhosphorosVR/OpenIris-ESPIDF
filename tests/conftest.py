@@ -114,9 +114,9 @@ def openiris_device_manager(board_connection, config):
 
 
 @pytest.fixture()
-def get_openiris_device(openiris_device_manager):
-    def func():
-        return openiris_device_manager.get_device()
+def get_openiris_device(openiris_device_manager, config):
+    def func(port: str | None = None, _config: dict | None = None):
+        return openiris_device_manager.get_device(port, config or _config)
 
     return func
 

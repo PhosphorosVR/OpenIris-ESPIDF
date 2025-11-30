@@ -47,3 +47,19 @@ def get_current_ports() -> list[str]:
 
 def get_new_port(old_ports, new_ports) -> str:
     return list(set(new_ports) - set(old_ports))[0]
+
+
+class DetectPortChange:
+    def __init__(self):
+        self.old_ports = []
+        self.new_ports = []
+
+    def __enter__(self, *args, **kwargs):
+        self.old_ports = get_current_ports()
+        return self
+    
+    def __exit__(self, *args, **kwargs):
+        self.new_ports = get_current_ports()
+
+    def get_new_port(self):
+        return get_new_port(self.old_ports, self.new_ports)

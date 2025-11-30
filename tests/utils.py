@@ -57,7 +57,7 @@ class DetectPortChange:
     def __enter__(self, *args, **kwargs):
         self.old_ports = get_current_ports()
         return self
-    
+
     def __exit__(self, *args, **kwargs):
         self.new_ports = get_current_ports()
 

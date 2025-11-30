@@ -38,6 +38,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "has_capability(cap): skip if the board does not have the capability"
     )
+    config.addinivalue_line(
+        "markers", "lacks_capability(cap): skip if the board DOES have the capability"
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -59,6 +62,21 @@ def check_capability_marker(request, board_lacks_capability):
         required_capability = marker.args[0]
         if board_lacks_capability(required_capability):
             pytest.skip(f"Board does not have capability {required_capability}")
+
+
+@pytest.fixture(autouse=True)
+def check_lacks_capability_marker(request, board_lacks_capability):
+    if lacks_capability_marker := request.node.get_closest_marker("lacks_capability"):
+        if not len(lacks_capability_marker.args):
+            raise ValueError(
+                "lacks_capability marker must be provided with a capability to check"
+            )
+
+        required_capability = lacks_capability_marker.args[0]
+        if not board_lacks_capability(required_capability):
+            pytest.skip(
+                "The board supports given capability: {required_capability}, skipping"
+            )
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -86,8 +104,8 @@ def board_lacks_capability(board_name):
 @pytest.fixture(scope="session", autouse=True)
 def board_connection(request):
     """
-    Grabs the specified connection connection method, to be used ONLY for the initial connection. Everything after it HAS to be handled via Device Manager. 
-    Ports WILL change throughout the tests, device manager can keep track of that and reconnect the board as needed. 
+    Grabs the specified connection connection method, to be used ONLY for the initial connection. Everything after it HAS to be handled via Device Manager.
+    Ports WILL change throughout the tests, device manager can keep track of that and reconnect the board as needed.
     """
     board_connection = request.config.getoption("--connection")
 

@@ -8,6 +8,7 @@ OPENIRIS_DEVICE = None
 class OpenIrisDeviceManager:
     def __init__(self):
         self._device: OpenIrisDevice | None = None
+        self.stored_ports = []
         self._current_port: str | None = None
 
     def get_device(self, port: str | None = None, config=None) -> OpenIrisDevice:
@@ -21,6 +22,16 @@ class OpenIrisDeviceManager:
         """
         if not port and not self._device:
             raise ValueError("No device connected yet, provide a port first")
+
+        # I'm not sure if I like this approach
+        # maybe I need to rethink this fixture
+        current_ports = get_current_ports()
+        new_port = get_new_port(self.stored_ports, current_ports)
+        if new_port is not None:
+            self.stored_ports = current_ports
+
+        if not port:
+            port = new_port
 
         if port and port != self._current_port:
             print(f"Port changed from {self._current_port} to {port}, reconnecting...")
@@ -46,7 +57,9 @@ def get_current_ports() -> list[str]:
 
 
 def get_new_port(old_ports, new_ports) -> str:
-    return list(set(new_ports) - set(old_ports))[0]
+    if ports_diff := list(set(new_ports) - set(old_ports)):
+        return ports_diff[0]
+    return None
 
 
 class DetectPortChange:

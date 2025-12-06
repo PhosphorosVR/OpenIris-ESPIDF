@@ -5,7 +5,7 @@
 CommandResult setWiFiCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json &json)
 {
 #if !CONFIG_GENERAL_ENABLE_WIRELESS
-    return CommandResult::getErrorResult("Not supported by current firmware");
+  return CommandResult::getErrorResult("Not supported by current firmware");
 #endif
 
   auto payload = json.get<WifiPayload>();
@@ -33,7 +33,7 @@ CommandResult setWiFiCommand(std::shared_ptr<DependencyRegistry> registry, const
 CommandResult deleteWiFiCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json &json)
 {
 #if !CONFIG_GENERAL_ENABLE_WIRELESS
-    return CommandResult::getErrorResult("Not supported by current firmware");
+  return CommandResult::getErrorResult("Not supported by current firmware");
 #endif
 
   const auto payload = json.get<deleteNetworkPayload>();
@@ -49,7 +49,7 @@ CommandResult deleteWiFiCommand(std::shared_ptr<DependencyRegistry> registry, co
 CommandResult updateWiFiCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json &json)
 {
 #if !CONFIG_GENERAL_ENABLE_WIRELESS
-    return CommandResult::getErrorResult("Not supported by current firmware");
+  return CommandResult::getErrorResult("Not supported by current firmware");
 #endif
 
   auto payload = json.get<UpdateWifiPayload>();
@@ -82,7 +82,7 @@ CommandResult updateWiFiCommand(std::shared_ptr<DependencyRegistry> registry, co
 CommandResult updateAPWiFiCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json &json)
 {
 #if !CONFIG_GENERAL_ENABLE_WIRELESS
-    return CommandResult::getErrorResult("Not supported by current firmware");
+  return CommandResult::getErrorResult("Not supported by current firmware");
 #endif
 
   const auto payload = json.get<UpdateAPWiFiPayload>();

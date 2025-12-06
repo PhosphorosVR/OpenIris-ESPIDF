@@ -2,28 +2,6 @@ import time
 from tests.utils import has_command_failed, DetectPortChange
 import pytest
 
-## TODO
-# {"ping", CommandType::PING}, - tested
-# {"set_wifi", CommandType::SET_WIFI},
-# {"update_wifi", CommandType::UPDATE_WIFI},
-# {"delete_network", CommandType::DELETE_NETWORK},
-# {"update_ap_wifi", CommandType::UPDATE_AP_WIFI},
-# {"set_mdns", CommandType::SET_MDNS}, - tested
-# {"get_mdns_name", CommandType::GET_MDNS_NAME}, - tested
-# {"update_camera", CommandType::UPDATE_CAMERA},
-# {"get_config", CommandType::GET_CONFIG}, - tested
-# {"reset_config", CommandType::RESET_CONFIG}, -tested
-# {"restart_device", CommandType::RESTART_DEVICE} - tested,
-# {"scan_networks", CommandType::SCAN_NETWORKS}, - tested
-# {"get_wifi_status", CommandType::GET_WIFI_STATUS}, - tested
-# {"switch_mode", CommandType::SWITCH_MODE}, - tested
-# {"get_device_mode", CommandType::GET_DEVICE_MODE}, - tested
-# {"set_led_duty_cycle", CommandType::SET_LED_DUTY_CYCLE}, - tested
-# {"get_led_duty_cycle", CommandType::GET_LED_DUTY_CYCLE}, - tested
-# {"get_serial", CommandType::GET_SERIAL}, - tested
-# {"get_led_current", CommandType::GET_LED_CURRENT}, - tested
-# {"get_who_am_i", CommandType::GET_WHO_AM_I}, - tested
-
 
 def test_sending_invalid_command(get_openiris_device):
     device = get_openiris_device()
@@ -238,8 +216,14 @@ def test_get_config(get_openiris_device):
     assert not has_command_failed(command_result)
 
 
-def test_reset_config(get_openiris_device):
+def test_reset_config_invalid_payload(get_openiris_device):
     # to test the config, we can do two things. Set the mdns, get the config, reset it, get it again and compare
+    device = get_openiris_device()
+    reset_command = device.send_command("reset_config")
+    assert has_command_failed(reset_command)
+
+
+def test_reset_config(get_openiris_device):
     device = get_openiris_device()
     command_result = device.send_command("set_mdns", {"hostname": "somedifferentname"})
     assert not has_command_failed(command_result)
@@ -247,10 +231,306 @@ def test_reset_config(get_openiris_device):
     current_config = device.send_command("get_config")
     assert not has_command_failed(current_config)
 
-    reset_command = device.send_command("reset_config")
+    reset_command = device.send_command("reset_config", {"section": "all"})
     assert not has_command_failed(reset_command)
+
+    # since the config was reset, but the data will still be held in memory, we need to reboot the device
+    with DetectPortChange():
+        device.send_command("restart_device")
+        time.sleep(3)
 
     new_config = device.send_command("get_config")
     assert not has_command_failed(new_config)
 
     assert not new_config == current_config
+
+
+@pytest.mark.has_capability("wireless")
+def test_set_wifi(get_openiris_device, ensure_board_in_mode, config):
+    # since we want to test actual connection to the network, let's reset the device and reboot it
+    device = get_openiris_device()
+    reset_command = device.send_command("reset_config", {"section": "all"})
+    assert not has_command_failed(reset_command)
+
+    with DetectPortChange():
+        device.send_command("restart_device")
+        time.sleep(3)
+
+    # now that the config is clear, let's try setting the wifi
+    device = ensure_board_in_mode("wifi", device)
+    params = {
+        "name": "main",
+        "ssid": config["WIFI_SSID"],
+        "password": config["WIFI_PASS"],
+        "channel": 0,
+        "power": 0,
+    }
+    set_wifi_result = device.send_command("set_wifi", params)
+    assert not has_command_failed(set_wifi_result)
+
+    # now, let's force connection and check if it worked
+    connect_wifi_result = device.send_command("connect_wifi")
+    assert not has_command_failed(connect_wifi_result)
+    time.sleep(
+        int(config["WIFI_CONNECTION_TIMEOUT"])
+    )  # and let it try to for some time
+
+    wifi_status_command = device.send_command("get_wifi_status")
+    assert not has_command_failed(wifi_status_command)
+    assert wifi_status_command["results"][0]["result"]["data"]["status"] == "connected"
+
+
+@pytest.mark.has_capability("wireless")
+def test_set_wifi_invalid_network(get_openiris_device, ensure_board_in_mode, config):
+    device = ensure_board_in_mode("wifi", get_openiris_device())
+    params = {
+        "name": "main",
+        "ssid": "PleaseDontBeARealNetwork",
+        "password": "AndThePasswordIsFake",
+        "channel": 0,
+        "power": 0,
+    }
+    set_wifi_result = device.send_command("set_wifi", params)
+    # even if the network is fake, we should not fail to set it
+    assert not has_command_failed(set_wifi_result)
+
+    device.send_command("connect_wifi")
+
+    time.sleep(
+        int(config["INVALID_WIFI_CONNECTION_TIMEOUT"])
+    )  # and let it try to for some time
+
+    wifi_status_command = device.send_command("get_wifi_status")
+    # the command should not fail as well, but we should get an error result
+    assert not has_command_failed(wifi_status_command)
+    assert wifi_status_command["results"][0]["result"]["data"]["status"] == "error"
+    # and not to break other tests, clean up
+    device.send_command("reset_config", {"section": "all"})
+    device.send_command("restart_device")
+
+
+@pytest.mark.has_capability("wireless")
+@pytest.mark.parametrize(
+    "payload",
+    (
+        {},
+        {
+            "ssid": "PleaseDontBeARealNetwork",
+            "password": "AndThePasswordIsFake",
+            "channel": 0,
+            "power": 0,
+        },
+        {
+            "name": "IaintGotNoNameAndIMustConnect",
+            "password": "AndThePasswordIsFake",
+            "channel": 0,
+            "power": 0,
+        },
+    ),
+)
+def test_set_wifi_invalid_payload(ensure_board_in_mode, get_openiris_device, payload):
+    device = ensure_board_in_mode("wifi", get_openiris_device())
+    set_wifi_result = device.send_command("set_wifi", payload)
+    # even if the network is fake, we should not fail to set it
+    assert has_command_failed(set_wifi_result)
+    # and not to break other tests, clean up
+    device.send_command("reset_config", {"section": "all"})
+    device.send_command("restart_device")
+
+
+def test_update_main_wifi_network(ensure_board_in_mode, get_openiris_device, config):
+    # now that the config is clear, let's try setting the wifi
+    device = ensure_board_in_mode("wifi", get_openiris_device())
+    params1 = {
+        "name": "main",
+        "ssid": "Nada",
+        "password": "Nuuh",
+        "channel": 0,
+        "power": 0,
+    }
+
+    params2 = {
+        **params1,
+        "ssid": config["WIFI_SSID"],
+        "password": config["WIFI_PASS"],
+    }
+
+    set_wifi_result = device.send_command("set_wifi", params1)
+    assert not has_command_failed(set_wifi_result)
+
+    set_wifi_result = device.send_command("set_wifi", params2)
+    assert not has_command_failed(set_wifi_result)
+    # and not to break other tests, clean up
+    device.send_command("reset_config", {"section": "all"})
+    device.send_command("restart_device")
+
+
+def test_set_wifi_add_another_network(ensure_board_in_mode, get_openiris_device):
+    device = ensure_board_in_mode("wifi", get_openiris_device())
+    params = {
+        "name": "anotherNetwork",
+        "ssid": "PleaseDontBeARealNetwork",
+        "password": "AndThePassowrdIsFake",
+        "channel": 0,
+        "power": 0,
+    }
+    set_wifi_result = device.send_command("set_wifi", params)
+    assert not has_command_failed(set_wifi_result)
+    # and not to break other tests, clean up
+    device.send_command("reset_config", {"section": "all"})
+    device.send_command("restart_device")
+
+
+@pytest.mark.parametrize(
+    "payload",
+    (
+        {
+            "ssid": "testAP",
+            "password": "12345678",
+            "channel": 0,
+        },
+        {
+            "ssid": "testAP",
+            "channel": 0,
+        },
+        {
+            "ssid": "testAP",
+            "password": "12345678",
+        },
+        {
+            "ssid": "testAP",
+        },
+        {
+            "password": "12345678",
+        },
+    ),
+)
+def test_update_ap_wifi(ensure_board_in_mode, get_openiris_device, payload):
+    device = ensure_board_in_mode("wifi", get_openiris_device())
+    result = device.send_command("update_ap_wifi", payload)
+    assert not has_command_failed(result)
+    # and not to break other tests, clean up
+    device.send_command("reset_config", {"section": "all"})
+    device.send_command("restart_device")
+
+
+@pytest.mark.parametrize(
+    "payload",
+    (
+        {},  # completely empty payload
+        {
+            "channel": 2
+        },  # technically valid payload, but we're missing the network name,
+        {
+            "name": "IAMNOTTHERE",
+            "channel": 2,
+        },  # None-existent network
+    ),
+)
+@pytest.mark.has_capability("wireless")
+def test_update_wifi_command_fail(ensure_board_in_mode, get_openiris_device, payload):
+    device = ensure_board_in_mode("wifi", get_openiris_device())
+    result = device.send_command("update_wifi", payload)
+    assert has_command_failed(result)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    (
+        {
+            "name": "anotherNetwork",
+            "ssid": "WEUPDATEDTHESSID",
+            "password": "ACOMPLETELYDIFFERENTPASS",
+            "channel": 1,
+            "power": 2,
+        },
+        {
+            "name": "anotherNetwork",
+            "password": "ACOMPLETELYDIFFERENTPASS",
+        },
+        {
+            "name": "anotherNetwork",
+            "ssid": "WEUPDATEDTHESSID",
+        },
+        {
+            "name": "anotherNetwork",
+            "channel": 1,
+        },
+        {
+            "name": "anotherNetwork",
+            "power": 2,
+        },
+    ),
+)
+@pytest.mark.has_capability("wireless")
+def test_update_wifi_command(ensure_board_in_mode, get_openiris_device, payload):
+    device = ensure_board_in_mode("wifi", get_openiris_device())
+    params = {
+        "name": "anotherNetwork",
+        "ssid": "PleaseDontBeARealNetwork",
+        "password": "AndThePasswordIsFake",
+        "channel": 0,
+        "power": 0,
+    }
+    set_wifi_result = device.send_command("set_wifi", params)
+    assert not has_command_failed(set_wifi_result)
+
+    device = ensure_board_in_mode("wifi", get_openiris_device())
+    result = device.send_command("update_wifi", payload)
+    assert not has_command_failed(result)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    (
+        {},
+        {"name": ""},
+    ),
+)
+@pytest.mark.has_capability("wireless")
+def test_delete_network_fail(ensure_board_in_mode, get_openiris_device, payload):
+    device = ensure_board_in_mode("wifi", get_openiris_device())
+    result = device.send_command("delete_network", payload)
+    assert has_command_failed(result)
+
+
+@pytest.mark.parametrize("payload", ({"name": "main"}, {"name": "NOTANETWORK"}))
+@pytest.mark.has_capability("wireless")
+def test_delete_network(ensure_board_in_mode, get_openiris_device, payload):
+    device = ensure_board_in_mode("wifi", get_openiris_device())
+    result = device.send_command("delete_network", payload)
+    assert not has_command_failed(result)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    (
+        {},
+        {
+            "vlip": 0,
+            "hflip": 0,
+            "framesize": 5,
+            "quality": 7,
+            "brightness": 2,
+        },
+        {
+            "vlip": 0,
+        },
+        {
+            "hflip": 0,
+        },
+        {
+            "framesize": 5,
+        },
+        {
+            "quality": 7,
+        },
+        {
+            "brightness": 2,
+        },
+    ),
+)
+def test_update_camera(get_openiris_device, payload):
+    device = get_openiris_device()
+    result = device.send_command("update_camera", payload)
+    assert not has_command_failed(result)

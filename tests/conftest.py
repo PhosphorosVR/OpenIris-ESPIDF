@@ -37,10 +37,10 @@ def pytest_addoption(parser):
 
 def pytest_configure(config):
     config.addinivalue_line(
-        "markers", "has_capability(cap): skip if the board does not have the capability"
+        "markers", "has_capability(caps): skip if the board does not have the capability"
     )
     config.addinivalue_line(
-        "markers", "lacks_capability(cap): skip if the board DOES have the capability"
+        "markers", "lacks_capability(caps): skip if the board DOES have the capability"
     )
 
 
@@ -60,9 +60,9 @@ def check_capability_marker(request, board_lacks_capability):
                 "has_capability marker must be provided with a capability to check"
             )
 
-        required_capability = marker.args[0]
-        if board_lacks_capability(required_capability):
-            pytest.skip(f"Board does not have capability {required_capability}")
+        for capability in marker.args: 
+            if board_lacks_capability(capability):
+                pytest.skip(f"Board does not have capability {capability}")
 
 
 @pytest.fixture(autouse=True)
@@ -72,12 +72,12 @@ def check_lacks_capability_marker(request, board_lacks_capability):
             raise ValueError(
                 "lacks_capability marker must be provided with a capability to check"
             )
-
-        required_capability = lacks_capability_marker.args[0]
-        if not board_lacks_capability(required_capability):
-            pytest.skip(
-                "The board supports given capability: {required_capability}, skipping"
-            )
+        
+        for capability in lacks_capability_marker.args:
+            if not board_lacks_capability(capability):
+                pytest.skip(
+                    "The board supports given capability: {required_capability}, skipping"
+                )
 
 
 @pytest.fixture(scope="session", autouse=True)

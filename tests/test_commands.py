@@ -22,8 +22,7 @@ def test_ping_wired(get_openiris_device):
     assert not has_command_failed(command_result)
 
 
-@pytest.mark.has_capability("wired")
-@pytest.mark.has_capability("wireless")
+@pytest.mark.has_capability("wired", "wireless")
 def test_changing_mode_to_wired(get_openiris_device, ensure_board_in_mode, config):
     device = get_openiris_device()
 
@@ -93,8 +92,8 @@ def test_setting_mdns_name_invalid_payload(get_openiris_device, payload):
     assert has_command_failed(command_result)
 
 
-@pytest.mark.has_capability("wired")
-@pytest.mark.has_capability("wireless")
+@pytest.mark.has_capability("wired", "wireless")
+# make this to be has_capabilities instead
 def test_reboot_command(get_openiris_device, ensure_board_in_mode, config):
     device = ensure_board_in_mode("wifi", get_openiris_device())
 

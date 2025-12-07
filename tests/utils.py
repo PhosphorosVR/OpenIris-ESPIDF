@@ -43,7 +43,7 @@ class OpenIrisDeviceManager:
 
             self._device = OpenIrisDevice(port, False, False)
             self._device.connect()
-            time.sleep(int(config["SWITCH_MODE_REBOOT_TIME"]))
+            time.sleep(config.SWITCH_MODE_REBOOT_TIME)
 
         return self._device
 

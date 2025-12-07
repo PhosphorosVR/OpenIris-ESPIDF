@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import dotenv
 import pytest
 import time
@@ -115,9 +116,32 @@ def board_connection(request):
     yield board_connection
 
 
+@dataclass
+class TestConfig:
+    WIFI_SSID: str
+    WIFI_PASS: str
+    SWITCH_MODE_REBOOT_TIME: int
+    WIFI_CONNECTION_TIMEOUT: int
+    INVALID_WIFI_CONNECTION_TIMEOUT: int
+
+    def __init__(
+        self,
+        WIFI_SSID: str,
+        WIFI_PASS: str,
+        SWITCH_MODE_REBOOT_TIME: int,
+        WIFI_CONNECTION_TIMEOUT: int,
+        INVALID_WIFI_CONNECTION_TIMEOUT: int,
+    ):
+        self.WIFI_SSID = WIFI_SSID
+        self.WIFI_PASS = WIFI_PASS
+        self.SWITCH_MODE_REBOOT_TIME = int(SWITCH_MODE_REBOOT_TIME)
+        self.WIFI_CONNECTION_TIMEOUT = int(WIFI_CONNECTION_TIMEOUT)
+        self.INVALID_WIFI_CONNECTION_TIMEOUT = int(INVALID_WIFI_CONNECTION_TIMEOUT)
+
+
 @pytest.fixture(scope="session")
 def config():
-    config = dotenv.dotenv_values()
+    config = TestConfig(**dotenv.dotenv_values())
     yield config
 
 
@@ -168,7 +192,7 @@ def ensure_board_in_mode(openiris_device_manager, config):
         print("Rebooting the board after changing mode")
         device.send_command("restart_device")
 
-        sleep_timeout = int(config["SWITCH_MODE_REBOOT_TIME"])
+        sleep_timeout = int(config.SWITCH_MODE_REBOOT_TIME)
         print(
             f"Sleeping for {sleep_timeout} seconds to allow the device to switch modes and boot up"
         )
@@ -181,3 +205,13 @@ def ensure_board_in_mode(openiris_device_manager, config):
         return new_device
 
     return func
+
+
+@pytest.fixture(scope="session", autouse=True)
+def after_session_cleanup(openiris_device_manager, config):
+    yield
+
+    print("Cleanup: Resetting the config and restarting device")
+    device = openiris_device_manager.get_device(config=config)
+    device.send_command("reset_config", {"section": "all"})
+    device.send_command("restart_device")

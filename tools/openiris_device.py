@@ -48,8 +48,12 @@ class OpenIrisDevice:
 
     def __check_if_response_is_complete(self, response) -> dict | None:
         try:
+            if self.debug:
+                print(f"\nCHECKING: {response} \n")
             return json.loads(response)
         except ValueError:
+            if self.debug:
+                print("\nCHECK FAILED\n")
             return None
 
     def __read_response(self, timeout: int | None = None) -> dict | None:
@@ -92,6 +96,16 @@ class OpenIrisDevice:
                         response_buffer
                     ):
                         return parsed_response
+                    else:
+                        # if it's not a valid response just yet,
+                        # we might've stumbled a case where we got a valid response
+                        # but to the end of it, we've got some leftovers attached
+                        # so, we can try and find the ending
+                        ending_idx = response_buffer[::-1].find("}")
+                        if reparsed_response := self.__check_if_response_is_complete(
+                            response_buffer[: len(response_buffer) - ending_idx]
+                        ):
+                            return reparsed_response
             else:
                 time.sleep(0.1)
         return None

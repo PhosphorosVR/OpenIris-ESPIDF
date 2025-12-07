@@ -331,14 +331,11 @@ public:
       {
         for (auto i = 0; i < this->networks.size() - 1; i++)
         {
-          printf("we're at %d while networks size is %d ", i, this->networks.size() - 2);
           WifiConfigRepresentation += Helpers::format_string("%s, ", this->networks[i].toRepresentation().c_str());
         }
       }
 
       WifiConfigRepresentation += Helpers::format_string("%s", this->networks[networks.size() - 1].toRepresentation().c_str());
-      printf(WifiConfigRepresentation.c_str());
-      printf("\n");
     }
 
     return Helpers::format_string(

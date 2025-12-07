@@ -23,6 +23,17 @@ void SerialManager::setup()
                CONFIG_UART_RX_PIN,
                UART_PIN_NO_CHANGE,
                UART_PIN_NO_CHANGE);
+
+  gpio_set_pull_mode(static_cast<gpio_num_t>(CONFIG_UART_RX_PIN), GPIO_PULLDOWN_ONLY);
+
+  // ----- Startup Flush -----
+  uart_flush(uart_num);
+
+  uint8_t dump_buf[256];
+  // clean up initial onslaught of logs
+  while (uart_read_bytes(uart_num, dump_buf, sizeof(dump_buf), 10 / portTICK_PERIOD_MS) > 0)
+  {
+  }
 }
 
 void uart_write_bytes_chunked(uart_port_t uart_num, const void *src, size_t size)

@@ -1,7 +1,7 @@
 #include "scan_commands.hpp"
 #include "sdkconfig.h"
 
-CommandResult scanNetworksCommand(std::shared_ptr<DependencyRegistry> registry)
+CommandResult scanNetworksCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json &json)
 {
 #if !CONFIG_GENERAL_ENABLE_WIRELESS
     return CommandResult::getErrorResult("Not supported by current firmware");
@@ -12,7 +12,14 @@ CommandResult scanNetworksCommand(std::shared_ptr<DependencyRegistry> registry)
         return CommandResult::getErrorResult("Not supported by current firmware");
     }
 
-    auto networks = wifiManager->ScanNetworks();
+    // Extract timeout from JSON if provided, default to 15000ms (15 seconds)
+    int timeout_ms = 15000;
+    if (json.contains("timeout_ms") && json["timeout_ms"].is_number_integer())
+    {
+        timeout_ms = json["timeout_ms"].get<int>();
+    }
+
+    auto networks = wifiManager->ScanNetworks(timeout_ms);
 
     nlohmann::json result;
     std::vector<nlohmann::json> networksJson;

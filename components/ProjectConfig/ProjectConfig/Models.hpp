@@ -104,13 +104,7 @@ struct MDNSConfig_t : BaseConfigModel
   void load()
   {
     // Default hostname comes from GENERAL_ADVERTISED_NAME (unified advertised name)
-    std::string default_hostname =
-#ifdef CONFIG_GENERAL_ADVERTISED_NAME
-        CONFIG_GENERAL_ADVERTISED_NAME;
-#else
-        "openiristracker";
-#endif
-
+    std::string default_hostname = CONFIG_GENERAL_ADVERTISED_NAME;
     if (default_hostname.empty())
     {
       default_hostname = "openiristracker";

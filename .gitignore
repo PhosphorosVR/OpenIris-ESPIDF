@@ -90,7 +90,7 @@ sdkconfig
 
 # Local History for Visual Studio Code
 .history/
-
+tests/.env
 # Built Visual Studio Code Extensions
 *.vsix
 
@@ -98,3 +98,4 @@ sdkconfig
 # Ignore all local history of files
 .history
 .ionide
+*\__pycache__

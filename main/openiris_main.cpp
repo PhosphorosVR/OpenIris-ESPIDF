@@ -22,7 +22,10 @@
 #include <SerialManager.hpp>
 #include <RestAPI.hpp>
 #include <main_globals.hpp>
+
+#ifdef CONFIG_MONITORING_LED_CURRENT
 #include <MonitoringManager.hpp>
+#endif
 
 #ifdef CONFIG_GENERAL_INCLUDE_UVC_MODE
 #include <UVCStream.hpp>
@@ -36,7 +39,7 @@
 #define BLINK_GPIO (gpio_num_t) CONFIG_LED_DEBUG_GPIO
 #else
 // Use an invalid / unused GPIO when debug LED disabled to avoid accidental toggles
-#define BLINK_GPIO (gpio_num_t) - 1
+#define BLINK_GPIO (gpio_num_t)(-1)
 #endif
 #define CONFIG_LED_C_PIN_GPIO (gpio_num_t) CONFIG_LED_EXTERNAL_GPIO
 
@@ -61,14 +64,18 @@ MDNSManager mdnsManager(deviceConfig, eventQueue);
 std::shared_ptr<CameraManager> cameraHandler = std::make_shared<CameraManager>(deviceConfig, eventQueue);
 StreamServer streamServer(80, stateManager);
 
-auto *restAPI = new RestAPI("http://0.0.0.0:81", commandManager);
+std::shared_ptr<RestAPI> restAPI = std::make_shared<RestAPI>("http://0.0.0.0:81", commandManager);
 
 #ifdef CONFIG_GENERAL_INCLUDE_UVC_MODE
 UVCStreamManager uvcStream;
 #endif
 
 auto ledManager = std::make_shared<LEDManager>(BLINK_GPIO, CONFIG_LED_C_PIN_GPIO, ledStateQueue, deviceConfig);
+
+#ifdef CONFIG_MONITORING_LED_CURRENT
 std::shared_ptr<MonitoringManager> monitoringManager = std::make_shared<MonitoringManager>();
+#endif
+
 auto *serialManager = new SerialManager(commandManager, &timerHandle);
 
 void startWiFiMode();
@@ -165,7 +172,6 @@ void startWiredMode(bool shouldCloseSerialManager)
 #ifndef CONFIG_GENERAL_INCLUDE_UVC_MODE
     ESP_LOGE("[MAIN]", "UVC mode selected but the board likely does not support it.");
     ESP_LOGI("[MAIN]", "Falling back to WiFi mode if credentials available");
-    deviceMode = StreamingMode::WIFI;
     startWiFiMode();
 #else
     ESP_LOGI("[MAIN]", "Starting UVC streaming mode.");
@@ -216,6 +222,7 @@ void startWiFiMode()
     mdnsManager.start();
     restAPI->begin();
     StreamingMode mode = deviceConfig->getDeviceMode();
+    // don't enable in SETUP mode
     if (mode == StreamingMode::WIFI)
     {
         streamServer.startStreamServer();
@@ -223,8 +230,8 @@ void startWiFiMode()
     xTaskCreate(
         HandleRestAPIPollTask,
         "HandleRestAPIPollTask",
-        1024 * 2,
-        restAPI,
+        2024 * 2,
+        restAPI.get(),
         1, // it's the rest API, we only serve commands over it so we don't really need a higher priority
         nullptr);
 #else
@@ -265,18 +272,23 @@ extern "C" void app_main(void)
     dependencyRegistry->registerService<WiFiManager>(DependencyType::wifi_manager, wifiManager);
 #endif
     dependencyRegistry->registerService<LEDManager>(DependencyType::led_manager, ledManager);
+
+#ifdef CONFIG_MONITORING_LED_CURRENT
     dependencyRegistry->registerService<MonitoringManager>(DependencyType::monitoring_manager, monitoringManager);
+#endif
 
     // add endpoint to check firmware version
-    // setup CI and building for other boards
 
     // esp_log_set_vprintf(&websocket_logger);
     Logo::printASCII();
     initNVSStorage();
     deviceConfig->load();
     ledManager->setup();
+
+#ifdef CONFIG_MONITORING_LED_CURRENT
     monitoringManager->setup();
     monitoringManager->start();
+#endif
 
     xTaskCreate(
         HandleStateManagerTask,

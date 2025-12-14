@@ -26,7 +26,7 @@ std::unordered_map<std::string, CommandType> commandTypeMap = {
     {"get_led_duty_cycle", CommandType::GET_LED_DUTY_CYCLE},
     {"get_serial", CommandType::GET_SERIAL},
     {"get_led_current", CommandType::GET_LED_CURRENT},
-  {"get_who_am_i", CommandType::GET_WHO_AM_I},
+    {"get_who_am_i", CommandType::GET_WHO_AM_I},
 };
 
 std::function<CommandResult()> CommandManager::createCommand(const CommandType type, const nlohmann::json &json) const
@@ -161,5 +161,5 @@ CommandManagerResponse CommandManager::executeFromType(const CommandType type, c
     return CommandManagerResponse({{"command", type}, {"error", "Unknown command"}});
   }
 
-  return CommandManagerResponse({"result", command()});
+  return CommandManagerResponse(nlohmann::json{{"result", command()}});
 }

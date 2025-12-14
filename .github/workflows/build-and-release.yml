@@ -1,0 +1,119 @@
+name: Build nad Release the OpenIris bin files
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "*.*.*"
+    branches:
+      - "main"
+      - "beta"
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: write
+  deployments: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - id: set-matrix
+        run: echo "matrix={\"firmware_config\":[{\"board_name\":\"esp32AIThinker\", \"target\":\"esp32\"}, {\"board_name\":\"esp32M5Stack\", \"target\":\"esp32\"}, {\"board_name\":\"esp32cam\", \"target\":\"esp32\"}, {\"board_name\":\"esp_eye\", \"target\":\"esp32s3\"}, {\"board_name\":\"facefocusvr_eye_L\", \"target\":\"esp32s3\"}, {\"board_name\":\"facefocusvr_eye_R\", \"target\":\"esp32s3\"}, {\"board_name\":\"facefocusvr_face\", \"target\":\"esp32s3\"}, {\"board_name\":\"project_babble\", \"target\":\"esp32s3\"}, {\"board_name\":\"seed_studio_xiao_esp32s3\", \"target\":\"esp32s3\"}, {\"board_name\":\"wrooms3\", \"target\":\"esp32s3\"}, {\"board_name\":\"wrooms3QIO\", \"target\":\"esp32s3\"}, {\"board_name\":\"wrover\", \"target\":\"esp32s3\"}]}" >> $GITHUB_OUTPUT
+
+  build:
+    needs: setup
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.setup.outputs.matrix)}}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v5
+        with:
+          submodules: "recursive"
+
+      - name: Setup UV
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Setup SDKConfig
+        run: uv run ./tools/switchBoardType.py --board ${{ matrix.firmware_config.board_name }} --diff
+
+      - name: Show SDKConfig
+        run: cat ./sdkconfig
+
+      - name: Build
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.4.2
+          target: ${{ matrix.firmware_config.target }}
+          path: ./
+
+      - name: Merge bins
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.4.2
+          target: ${{ matrix.firmware_config.target }}
+          path: ./
+          command: idf.py merge-bin -f raw
+
+      - name: Zip the resulting bin
+        run: zip -r ${{matrix.firmware_config.board_name}}.zip build/merged-binary.bin
+
+      - name: Archive Firmware binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{matrix.firmware_config.board_name}}-firmware
+          path: ./${{matrix.firmware_config.board_name}}.zip
+          retention-days: 5
+          if-no-files-found: error
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v5
+
+      - name: Prepare directory
+        run: mkdir -p build
+
+      - name: Download firmware builds
+        uses: actions/download-artifact@v4
+        with:
+          path: build/
+
+      - name: Make Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
+        with:
+          files: build/*.zip
+          prerelease: ${{contains(github.ref_type, 'rc')}}
+
+  cleanup:
+    needs: [setup, release]
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.setup.outputs.matrix)}}
+    name: Cleanup actions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: "♻️ remove build artifacts"
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: ${{matrix.firmware_config.board_name}}-firmware

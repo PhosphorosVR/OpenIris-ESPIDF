@@ -18,10 +18,18 @@ struct RequestContext
   std::string body;
 };
 
+struct RequestBaseData
+{
+  std::string allowed_method;
+  CommandType command_type;
+  int success_code;
+  int error_code;
+  RequestBaseData(std::string allowed_method, CommandType command_type, int success_code, int error_code) : allowed_method(allowed_method), command_type(command_type), success_code(success_code), error_code(error_code) {};
+};
+
 class RestAPI
 {
-  using route_handler = void (RestAPI::*)(RequestContext *);
-  typedef std::unordered_map<std::string, route_handler> route_map;
+  typedef std::unordered_map<std::string, RequestBaseData> route_map;
   std::string url;
   route_map routes;
 
@@ -29,26 +37,7 @@ class RestAPI
   std::shared_ptr<CommandManager> command_manager;
 
 private:
-  // updates
-  void handle_update_wifi(RequestContext *context);
-  void handle_update_device(RequestContext *context);
-  void handle_update_camera(RequestContext *context);
-
-  // gets
-  void handle_get_config(RequestContext *context);
-
-  // resets
-  void handle_reset_config(RequestContext *context);
-
-  // reboots
-  void handle_reboot(RequestContext *context);
-  void handle_camera_reboot(RequestContext *context);
-
-  // heartbeat
-  void pong(RequestContext *context);
-
-  // special
-  void handle_save(RequestContext *context);
+  void handle_endpoint_command(RequestContext *context, std::string allowed_method, CommandType command_type, int success_code, int error_code);
 
 public:
   // this will also need command manager

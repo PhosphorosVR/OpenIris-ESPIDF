@@ -74,10 +74,11 @@ esp_err_t StreamHelpers::stream(httpd_req_t *req)
     }
     if (response != ESP_OK)
       break;
-    
+
     // Only log every 100 frames to reduce overhead
     static int frame_count = 0;
-    if (++frame_count % 100 == 0) {
+    if (++frame_count % 100 == 0)
+    {
       long request_end = Helpers::getTimeInMillis();
       long latency = (request_end - last_request_time);
       last_request_time = request_end;
@@ -98,13 +99,12 @@ esp_err_t StreamServer::startStreamServer()
 {
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
   config.stack_size = 20480;
-  // todo bring this back to 1 once we're done with logs over websockets
   config.max_uri_handlers = 10;
   config.server_port = STREAM_SERVER_PORT;
   config.ctrl_port = STREAM_SERVER_PORT;
-  config.recv_wait_timeout = 5;    // 5 seconds for receiving
-  config.send_wait_timeout = 5;    // 5 seconds for sending
-  config.lru_purge_enable = true;  // Enable LRU purge for better connection handling
+  config.recv_wait_timeout = 5;   // 5 seconds for receiving
+  config.send_wait_timeout = 5;   // 5 seconds for sending
+  config.lru_purge_enable = true; // Enable LRU purge for better connection handling
 
   httpd_uri_t stream_page = {
       .uri = "/",
@@ -139,7 +139,6 @@ esp_err_t StreamServer::startStreamServer()
   httpd_register_uri_handler(camera_stream, &stream_page);
 
   ESP_LOGI(STREAM_SERVER_TAG, "Stream server started on port %d", STREAM_SERVER_PORT);
-  // todo add printing IP addr here
 
   return ESP_OK;
 }

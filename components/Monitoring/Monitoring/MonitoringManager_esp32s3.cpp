@@ -2,11 +2,11 @@
 #include <esp_log.h>
 #include "sdkconfig.h"
 
-static const char* TAG_MM = "[MonitoringManager]";
+static const char *TAG_MM = "[MonitoringManager]";
 
 void MonitoringManager::setup()
 {
-#if CONFIG_MONITORING_LED_CURRENT
+#ifdef CONFIG_MONITORING_LED_CURRENT
     cm_.setup();
     ESP_LOGI(TAG_MM, "Monitoring enabled. Interval=%dms, Samples=%d, Gain=%d, R=%dmΩ",
              CONFIG_MONITORING_LED_INTERVAL_MS,
@@ -20,7 +20,7 @@ void MonitoringManager::setup()
 
 void MonitoringManager::start()
 {
-#if CONFIG_MONITORING_LED_CURRENT
+#ifdef CONFIG_MONITORING_LED_CURRENT
     if (task_ == nullptr)
     {
         xTaskCreate(&MonitoringManager::taskEntry, "MonitoringTask", 2048, this, 1, &task_);
@@ -38,14 +38,14 @@ void MonitoringManager::stop()
     }
 }
 
-void MonitoringManager::taskEntry(void* arg)
+void MonitoringManager::taskEntry(void *arg)
 {
-    static_cast<MonitoringManager*>(arg)->run();
+    static_cast<MonitoringManager *>(arg)->run();
 }
 
 void MonitoringManager::run()
 {
-#if CONFIG_MONITORING_LED_CURRENT
+#ifdef CONFIG_MONITORING_LED_CURRENT
     while (true)
     {
         float ma = cm_.pollAndGetMilliAmps();

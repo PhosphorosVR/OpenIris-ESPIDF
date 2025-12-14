@@ -596,6 +596,14 @@ CONFIG_WIFI_AP_PASSWORD="12345678"
 # end of OpenIris: WiFi Configuration
 
 #
+# OpenIris: Serial Communication Settings
+#
+CONFIG_UART_PORT_NUMBER=0
+CONFIG_UART_RX_PIN=-1
+CONFIG_UART_TX_PIN=-1
+# end of OpenIris: Serial Communication Settings
+
+#
 # OpenIris: LED Configuration
 #
 CONFIG_LED_DEBUG_ENABLE=y

@@ -35,14 +35,14 @@ struct DeviceMode_t : BaseConfigModel
 
   void load()
   {
-  // Default mode can be controlled via sdkconfig:
-  // - If CONFIG_START_IN_UVC_MODE is enabled, default to UVC
-  // - Otherwise default to SETUP
+    // Default mode can be controlled via sdkconfig:
+    // - If CONFIG_START_IN_UVC_MODE is enabled, default to UVC
+    // - Otherwise default to SETUP
     int default_mode =
 #if CONFIG_START_IN_UVC_MODE
         static_cast<int>(StreamingMode::UVC);
 #else
-    static_cast<int>(StreamingMode::SETUP);
+        static_cast<int>(StreamingMode::SETUP);
 #endif
 
     int stored_mode = this->pref->getInt("mode", default_mode);
@@ -103,14 +103,8 @@ struct MDNSConfig_t : BaseConfigModel
 
   void load()
   {
-  // Default hostname comes from GENERAL_ADVERTISED_NAME (unified advertised name)
-  std::string default_hostname =
-#ifdef CONFIG_GENERAL_ADVERTISED_NAME
-  CONFIG_GENERAL_ADVERTISED_NAME;
-#else
-  "openiristracker";
-#endif
-
+    // Default hostname comes from GENERAL_ADVERTISED_NAME (unified advertised name)
+    std::string default_hostname = CONFIG_GENERAL_ADVERTISED_NAME;
     if (default_hostname.empty())
     {
       default_hostname = "openiristracker";
@@ -146,7 +140,7 @@ struct CameraConfig_t : BaseConfigModel
   {
     this->vflip = this->pref->getInt("vflip", 0);
     this->href = this->pref->getInt("href", 0);
-    this->framesize = this->pref->getInt("framesize", 4);
+    this->framesize = this->pref->getInt("framesize", 5);
     this->quality = this->pref->getInt("quality", 7);
     this->brightness = this->pref->getInt("brightness", 2);
   };
@@ -331,14 +325,11 @@ public:
       {
         for (auto i = 0; i < this->networks.size() - 1; i++)
         {
-          printf("we're at %d while networks size is %d ", i, this->networks.size() - 2);
           WifiConfigRepresentation += Helpers::format_string("%s, ", this->networks[i].toRepresentation().c_str());
         }
       }
 
       WifiConfigRepresentation += Helpers::format_string("%s", this->networks[networks.size() - 1].toRepresentation().c_str());
-      printf(WifiConfigRepresentation.c_str());
-      printf("\n");
     }
 
     return Helpers::format_string(

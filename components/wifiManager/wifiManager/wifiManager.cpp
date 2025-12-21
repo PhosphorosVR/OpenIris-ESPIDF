@@ -102,7 +102,12 @@ void WiFiManager::ConnectWithHardcodedCredentials()
 {
   SystemEvent event = {EventSource::WIFI, WiFiState_e::WiFiState_ReadyToConnect};
   this->SetCredentials(CONFIG_WIFI_SSID, CONFIG_WIFI_PASSWORD);
-  // Skip esp_wifi_stop() on first connection - WiFi not started yet
+
+  wifi_mode_t mode;
+  if (esp_wifi_get_mode(&mode) == ESP_OK) {
+    esp_wifi_stop();
+  }
+
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
   ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &_wifi_cfg));
 

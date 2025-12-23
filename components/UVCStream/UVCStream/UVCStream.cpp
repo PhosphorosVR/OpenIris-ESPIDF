@@ -203,6 +203,9 @@ esp_err_t UVCStreamManager::setup()
   }
   ESP_LOGI(UVC_STREAM_TAG, "Initialized UVC Device");
 
+  // Initial state is OFF
+  SendStreamEvent(eventQueue, StreamState_e::Stream_OFF);
+
   return ESP_OK;
 }
 

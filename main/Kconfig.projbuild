@@ -204,7 +204,9 @@ menu "OpenIris: Monitoring"
         range 0 48
         default 3
         help
-            GPIO connected to the current sense input (ADC1 on ESP32-S3: 1..10 supported).
+            GPIO connected to the current sense input. On ESP32-S3 ADC1 channels
+            0..9 map to GPIO1..10; On ESP32 ADC1 channels 0..3 map to GPIO36..39,
+            channels 4..7 map to GPIO32..35; adjust if your board uses a different pin.
 
     config MONITORING_LED_GAIN
         int "Analog front-end gain/divider"
@@ -240,7 +242,7 @@ menu "OpenIris: Monitoring"
 
     config MONITORING_BATTERY_ENABLE
         bool "Enable battery voltage monitoring"
-        default y
+        default n
         help
             Enables an ADC-based readout of the lithium battery voltage so the software
             can report remaining charge in commands or REST endpoints.
@@ -252,7 +254,8 @@ menu "OpenIris: Monitoring"
         default 1
         help
             GPIO that is wired to the battery sense divider. On ESP32-S3 ADC1 channels
-            1..10 map to GPIO1..10; adjust if your board uses a different pin.
+            0..9 map to GPIO1..10; On ESP32 ADC1 channels 0..3 map to GPIO36..39;
+            channels 4..7 map to GPIO32..35; adjust if your board uses a different pin.
 
     config MONITORING_BATTERY_DIVIDER_R_TOP_OHM
         int "Battery divider top resistor (ohms)"

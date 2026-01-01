@@ -1,34 +1,62 @@
-#include "BatteryMonitor.hpp"
+/**
+ * @file BatteryMonitor.cpp
+ * @brief Business Logic Layer - Battery monitoring implementation
+ *
+ * Platform-independent battery monitoring logic.
+ * Uses AdcSampler (BSP layer) for hardware abstraction.
+ */
 
+#include "BatteryMonitor.hpp"
 #include <esp_log.h>
 
-static const char *TAG_BAT = "[BatteryMonitor]";
+static const char *TAG = "[BatteryMonitor]";
 
 bool BatteryMonitor::setup()
 {
-#if defined(CONFIG_IDF_TARGET_ESP32S3)
-    if (CONFIG_MONITORING_BATTERY_DIVIDER_R_TOP_OHM <= 0)
+#if CONFIG_MONITORING_BATTERY_ENABLE
+    if (!AdcSampler::isSupported())
     {
-        ESP_LOGE(TAG_BAT, "Invalid divider bottom resistor: %d", CONFIG_MONITORING_BATTERY_DIVIDER_R_TOP_OHM);
+        ESP_LOGI(TAG, "Battery monitoring not supported on this target");
         return false;
     }
-    scale_ = 1.0f + static_cast<float>(CONFIG_MONITORING_BATTERY_DIVIDER_R_TOP_OHM) / static_cast<float>(CONFIG_MONITORING_BATTERY_DIVIDER_R_BOTTOM_OHM);
+
+    // Validate divider resistor configuration
+    if (CONFIG_MONITORING_BATTERY_DIVIDER_R_BOTTOM_OHM == 0)
+    {
+        ESP_LOGE(TAG, "Invalid divider bottom resistor: %d", CONFIG_MONITORING_BATTERY_DIVIDER_R_BOTTOM_OHM);
+        return false;
+    }
+    if (CONFIG_MONITORING_BATTERY_DIVIDER_R_TOP_OHM <= 0 || CONFIG_MONITORING_BATTERY_DIVIDER_R_BOTTOM_OHM < 0)
+    {
+        scale_ = 1.0f;
+    }
+    else
+    {
+        // Calculate voltage divider scaling factor
+        // Vbat = Vadc * (R_TOP + R_BOTTOM) / R_BOTTOM
+        scale_ = 1.0f + static_cast<float>(CONFIG_MONITORING_BATTERY_DIVIDER_R_TOP_OHM) / static_cast<float>(CONFIG_MONITORING_BATTERY_DIVIDER_R_BOTTOM_OHM);
+    }
+
+    // Initialize ADC sampler (BSP layer)
     if (!adc_.init(CONFIG_MONITORING_BATTERY_ADC_GPIO, ADC_ATTEN_DB_12, ADC_BITWIDTH_DEFAULT, CONFIG_MONITORING_BATTERY_SAMPLES))
     {
-        ESP_LOGE(TAG_BAT, "Battery ADC init failed");
+        ESP_LOGE(TAG, "Battery ADC init failed");
         return false;
     }
-    ESP_LOGI(TAG_BAT, "Battery monitor enabled (GPIO=%d, scale=%.3f)", CONFIG_MONITORING_BATTERY_ADC_GPIO, scale_);
+    ESP_LOGI(TAG, "Battery monitor enabled (GPIO=%d, scale=%.3f)", CONFIG_MONITORING_BATTERY_ADC_GPIO, scale_);
     return true;
 #else
-    ESP_LOGI(TAG_BAT, "Battery monitoring not supported on this target");
+    ESP_LOGI(TAG, "Battery monitoring disabled by Kconfig");
     return false;
 #endif
 }
 
 int BatteryMonitor::getBatteryMilliVolts() const
 {
-#if defined(CONFIG_IDF_TARGET_ESP32S3)
+#if CONFIG_MONITORING_BATTERY_ENABLE
+    if (!AdcSampler::isSupported())
+        return 0;
+
     if (!adc_.sampleOnce())
         return 0;
 
@@ -36,7 +64,8 @@ int BatteryMonitor::getBatteryMilliVolts() const
     if (mv_at_adc <= 0)
         return 0;
 
-    const float battery_mv = mv_at_adc * scale_;
+    // Apply voltage divider scaling
+    const float battery_mv = static_cast<float>(mv_at_adc) * scale_;
     return static_cast<int>(std::lround(battery_mv));
 #else
     return 0;

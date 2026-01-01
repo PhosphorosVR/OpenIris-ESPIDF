@@ -16,6 +16,8 @@ public:
 
     // convenience: combined sampling and compute; returns mA
     float getCurrentMilliAmps() const;
+    // 
+    float getBatteryVoltageMilliVolts() const;
 
     // Whether monitoring is enabled by Kconfig
     static constexpr bool isEnabled()

@@ -71,3 +71,52 @@ int BatteryMonitor::getBatteryMilliVolts() const
     return 0;
 #endif
 }
+
+float BatteryMonitor::voltageToPercentage(int voltage_mv)
+{
+    const float volts = static_cast<float>(voltage_mv);
+
+    // Handle boundary conditions
+    if (volts >= soc_lookup_.front().voltage_mv)
+        return soc_lookup_.front().soc;
+
+    if (volts <= soc_lookup_.back().voltage_mv)
+        return soc_lookup_.back().soc;
+
+    // Linear interpolation between lookup table points
+    for (size_t i = 0; i < soc_lookup_.size() - 1; ++i)
+    {
+        const auto &high = soc_lookup_[i];
+        const auto &low = soc_lookup_[i + 1];
+
+        if (volts <= high.voltage_mv && volts >= low.voltage_mv)
+        {
+            const float voltage_span = high.voltage_mv - low.voltage_mv;
+            if (voltage_span <= 0.0f)
+            {
+                return low.soc;
+            }
+            const float ratio = (volts - low.voltage_mv) / voltage_span;
+            return low.soc + ratio * (high.soc - low.soc);
+        }
+    }
+
+    return 0.0f;
+}
+
+BatteryStatus BatteryMonitor::getBatteryStatus() const
+{
+    BatteryStatus status = {0, 0.0f, false};
+
+#if CONFIG_MONITORING_BATTERY_ENABLE
+    const int mv = getBatteryMilliVolts();
+    if (mv <= 0)
+        return status;
+
+    status.voltage_mv = mv;
+    status.percentage = std::clamp(voltageToPercentage(mv), 0.0f, 100.0f);
+    status.valid = true;
+#endif
+
+    return status;
+}

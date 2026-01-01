@@ -19,6 +19,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <atomic>
+#include <mutex>
 #include "BatteryMonitor.hpp"
 #include "CurrentMonitor.hpp"
 
@@ -47,8 +48,8 @@ public:
 
     // Latest filtered current in mA
     float getCurrentMilliAmps() const;
-    // Latest battery voltage in mV
-    float getBatteryVoltageMilliVolts() const;
+    // Get complete battery status (voltage + percentage + validity)
+    BatteryStatus getBatteryStatus() const;
 
     // Check if any monitoring feature is enabled
     static constexpr bool isEnabled()
@@ -62,7 +63,8 @@ private:
 
     TaskHandle_t task_{nullptr};
     std::atomic<float> last_current_ma_{0.0f};
-    std::atomic<int> last_battery_mv_{0};
+    BatteryStatus last_battery_status_{0, 0.0f, false};
+    mutable std::mutex battery_mutex_;  // Protect non-atomic BatteryStatus
 
     CurrentMonitor cm_;
     BatteryMonitor bm_;

@@ -127,10 +127,11 @@ void MonitoringManager::run()
 #if CONFIG_MONITORING_BATTERY_ENABLE
         if (BatteryMonitor::isEnabled() && now_tick >= next_tick_bat)
         {
-            const int mv = bm_.getBatteryMilliVolts();
-            if (mv > 0)
+            const auto status = bm_.getBatteryStatus();
+            if (status.valid)
             {
-                last_battery_mv_.store(mv);
+                std::lock_guard<std::mutex> lock(battery_mutex_);
+                last_battery_status_ = status;
             }
             next_tick_bat = now_tick + batt_period;
         }
@@ -161,11 +162,14 @@ float MonitoringManager::getCurrentMilliAmps() const
     return 0.0f;
 }
 
-float MonitoringManager::getBatteryVoltageMilliVolts() const
+BatteryStatus MonitoringManager::getBatteryStatus() const
 {
 #if CONFIG_MONITORING_BATTERY_ENABLE
     if (BatteryMonitor::isEnabled())
-        return static_cast<float>(last_battery_mv_.load());
+    {
+        std::lock_guard<std::mutex> lock(battery_mutex_);
+        return last_battery_status_;
+    }
 #endif
-    return 0.0f;
+    return {0, 0.0f, false};
 }

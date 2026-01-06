@@ -35,7 +35,7 @@
  */
 class MonitoringManager
 {
-public:
+   public:
     MonitoringManager() = default;
     ~MonitoringManager() = default;
 
@@ -57,8 +57,8 @@ public:
         return CurrentMonitor::isEnabled() || BatteryMonitor::isEnabled();
     }
 
-private:
-    static void taskEntry(void *arg);
+   private:
+    static void taskEntry(void* arg);
     void run();
 
     TaskHandle_t task_{nullptr};

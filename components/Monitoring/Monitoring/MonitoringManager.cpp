@@ -10,7 +10,7 @@
 #include <esp_log.h>
 #include "sdkconfig.h"
 
-static const char *TAG = "[MonitoringManager]";
+static const char* TAG = "[MonitoringManager]";
 
 void MonitoringManager::setup()
 {
@@ -18,11 +18,8 @@ void MonitoringManager::setup()
     if (CurrentMonitor::isEnabled())
     {
         cm_.setup();
-        ESP_LOGI(TAG, "LED current monitoring enabled. Interval=%dms, Samples=%d, Gain=%d, R=%dmΩ",
-                 CONFIG_MONITORING_LED_INTERVAL_MS,
-                 CONFIG_MONITORING_LED_SAMPLES,
-                 CONFIG_MONITORING_LED_GAIN,
-                 CONFIG_MONITORING_LED_SHUNT_MILLIOHM);
+        ESP_LOGI(TAG, "LED current monitoring enabled. Interval=%dms, Samples=%d, Gain=%d, R=%dmΩ", CONFIG_MONITORING_LED_INTERVAL_MS,
+                 CONFIG_MONITORING_LED_SAMPLES, CONFIG_MONITORING_LED_GAIN, CONFIG_MONITORING_LED_SHUNT_MILLIOHM);
     }
     else
     {
@@ -36,11 +33,8 @@ void MonitoringManager::setup()
     if (BatteryMonitor::isEnabled())
     {
         bm_.setup();
-        ESP_LOGI(TAG, "Battery monitoring enabled. Interval=%dms, Samples=%d, R-Top=%dΩ, R-Bottom=%dΩ",
-                 CONFIG_MONITORING_BATTERY_INTERVAL_MS,
-                 CONFIG_MONITORING_BATTERY_SAMPLES,
-                 CONFIG_MONITORING_BATTERY_DIVIDER_R_TOP_OHM,
-                 CONFIG_MONITORING_BATTERY_DIVIDER_R_BOTTOM_OHM);
+        ESP_LOGI(TAG, "Battery monitoring enabled. Interval=%dms, Samples=%d, R-Top=%dΩ, R-Bottom=%dΩ", CONFIG_MONITORING_BATTERY_INTERVAL_MS,
+                 CONFIG_MONITORING_BATTERY_SAMPLES, CONFIG_MONITORING_BATTERY_DIVIDER_R_TOP_OHM, CONFIG_MONITORING_BATTERY_DIVIDER_R_BOTTOM_OHM);
     }
     else
     {
@@ -77,9 +71,9 @@ void MonitoringManager::stop()
     }
 }
 
-void MonitoringManager::taskEntry(void *arg)
+void MonitoringManager::taskEntry(void* arg)
 {
-    static_cast<MonitoringManager *>(arg)->run();
+    static_cast<MonitoringManager*>(arg)->run();
 }
 
 void MonitoringManager::run()
@@ -105,7 +99,7 @@ void MonitoringManager::run()
     while (true)
     {
         now_tick = xTaskGetTickCount();
-        TickType_t wait_ticks = pdMS_TO_TICKS(50); // Default wait time
+        TickType_t wait_ticks = pdMS_TO_TICKS(50);  // Default wait time
 
 #if CONFIG_MONITORING_LED_CURRENT
         if (CurrentMonitor::isEnabled() && now_tick >= next_tick_led)

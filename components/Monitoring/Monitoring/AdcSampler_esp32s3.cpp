@@ -21,9 +21,9 @@
 
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
 
-bool AdcSampler::map_gpio_to_channel(int gpio, adc_unit_t &unit, adc_channel_t &channel)
+bool AdcSampler::map_gpio_to_channel(int gpio, adc_unit_t& unit, adc_channel_t& channel)
 {
-    unit = ADC_UNIT_1; // Only use ADC1 to avoid Wi-Fi conflict
+    unit = ADC_UNIT_1;  // Only use ADC1 to avoid Wi-Fi conflict
 
     // ESP32-S3: ADC1 on GPIO1–10 → CH0–CH9
     if (gpio >= 1 && gpio <= 10)
@@ -36,4 +36,4 @@ bool AdcSampler::map_gpio_to_channel(int gpio, adc_unit_t &unit, adc_channel_t &
     return false;
 }
 
-#endif // CONFIG_IDF_TARGET_ESP32S3
+#endif  // CONFIG_IDF_TARGET_ESP32S3

@@ -9,28 +9,28 @@
 
 struct async_resp_arg
 {
-  httpd_handle_t hd;
-  int fd;
+    httpd_handle_t hd;
+    int fd;
 };
 
 namespace LoggerHelpers
 {
-  void ws_async_send(void *arg);
+void ws_async_send(void* arg);
 }
 
 class WebSocketLogger
 {
-  async_resp_arg connected_socket_client{};
-  char ws_log_buffer[WS_LOG_BUFFER_LEN]{};
+    async_resp_arg connected_socket_client{};
+    char ws_log_buffer[WS_LOG_BUFFER_LEN]{};
 
-public:
-  WebSocketLogger();
+   public:
+    WebSocketLogger();
 
-  esp_err_t log_message(const char *format, va_list args);
-  esp_err_t register_socket_client(httpd_req_t *req);
-  void unregister_socket_client();
-  bool is_client_connected();
-  char *get_websocket_log_buffer();
+    esp_err_t log_message(const char* format, va_list args);
+    esp_err_t register_socket_client(httpd_req_t* req);
+    void unregister_socket_client();
+    bool is_client_connected();
+    char* get_websocket_log_buffer();
 };
 
 extern WebSocketLogger webSocketLogger;

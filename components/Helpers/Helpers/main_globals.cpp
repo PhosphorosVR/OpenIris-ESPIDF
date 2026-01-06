@@ -28,12 +28,18 @@ void setStartupPaused(bool startupPaused)
 }
 
 // Function to manually activate streaming
-void activateStreaming(void *arg)
+void activateStreaming(void* arg)
 {
     force_activate_streaming();
 }
 
 // USB handover state
 static bool s_usbHandoverDone = false;
-bool getUsbHandoverDone() { return s_usbHandoverDone; }
-void setUsbHandoverDone(bool done) { s_usbHandoverDone = done; }
+bool getUsbHandoverDone()
+{
+    return s_usbHandoverDone;
+}
+void setUsbHandoverDone(bool done)
+{
+    s_usbHandoverDone = done;
+}

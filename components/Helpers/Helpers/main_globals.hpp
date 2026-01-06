@@ -9,7 +9,7 @@
 // Function to manually activate streaming
 // designed to be scheduled as a task
 // so that the serial manager has time to return the response
-void activateStreaming(void *arg);
+void activateStreaming(void* arg);
 
 bool getStartupCommandReceived();
 void setStartupCommandReceived(bool startupCommandReceived);

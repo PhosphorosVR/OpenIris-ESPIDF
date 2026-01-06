@@ -6,10 +6,10 @@
 
 namespace Logo
 {
-  static const char *LOGO_TAG = "[LOGO]";
+static const char* LOGO_TAG = "[LOGO]";
 
-  inline static void printASCII()
-  {
+inline static void printASCII()
+{
     ESP_LOGI(LOGO_TAG, "                                                      : === WELCOME === TO === : ");
     ESP_LOGI(LOGO_TAG, " <===========================================================================================================================> ");
     ESP_LOGI(LOGO_TAG, "                                        ██████╗ ██████╗ ███████╗███╗   ██╗██╗██████╗ ██╗███████╗   ");
@@ -70,7 +70,7 @@ namespace Logo
     ESP_LOGI(LOGO_TAG, "                                               ████████                                                   ");
     ESP_LOGI(LOGO_TAG, "                                                                                                          ");
     ESP_LOGI(LOGO_TAG, " <============================================================================================================================> ");
-  }
-};
+}
+};  // namespace Logo
 
 #endif

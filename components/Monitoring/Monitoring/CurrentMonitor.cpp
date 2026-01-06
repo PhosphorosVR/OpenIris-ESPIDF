@@ -9,7 +9,7 @@
 #include "CurrentMonitor.hpp"
 #include <esp_log.h>
 
-static const char *TAG = "[CurrentMonitor]";
+static const char* TAG = "[CurrentMonitor]";
 
 void CurrentMonitor::setup()
 {
@@ -40,7 +40,7 @@ float CurrentMonitor::getCurrentMilliAmps() const
     if (!AdcSampler::isSupported())
         return 0.0f;
 
-    const int shunt_milliohm = CONFIG_MONITORING_LED_SHUNT_MILLIOHM; // mΩ
+    const int shunt_milliohm = CONFIG_MONITORING_LED_SHUNT_MILLIOHM;  // mΩ
     if (shunt_milliohm <= 0)
         return 0.0f;
 

@@ -15,6 +15,7 @@ Firmware and tools for OpenIris — Wi‑Fi, UVC streaming, and a Python setup C
   - `tools/setup_openiris.py` — interactive CLI for Wi‑Fi, MDNS/Name, Mode, LED PWM, Logs, and a Settings Summary
 - Composite USB (UVC + CDC) when UVC mode is enabled (`GENERAL_INCLUDE_UVC_MODE`) for simultaneous video streaming and command channel
 - LED current monitoring (if enabled via `MONITORING_LED_CURRENT`) with filtered mA readings
+- Battery voltage monitoring (if enabled via `MONITORING_BATTERY_ENABLE`) with Li-ion SOC percentage calculation
 - Configurable debug LED + external IR LED control with optional error mirroring (`LED_DEBUG_ENABLE`, `LED_EXTERNAL_AS_DEBUG`)
 - Auto‑discovered per‑board configuration overlays under `boards/`
 - Command framework (JSON over serial / CDC / REST) for mode switching, Wi‑Fi config, OTA credentials, LED brightness, info & monitoring
@@ -158,6 +159,8 @@ Runtime override: If the setup CLI (or a JSON command) provides a new device nam
   `{"commands":[{"command":"switch_mode","data":{"mode":"uvc"}}]}` then reboot.
 - Read filtered LED current (if enabled):
   `{"commands":[{"command":"get_led_current"}]}`
+- Read battery status (if enabled):
+  `{"commands":[{"command":"get_battery_status"}]}`
 
 ---
 
@@ -241,9 +244,25 @@ Responses are JSON blobs flushed immediately.
 
 ---
 
-### Monitoring (LED Current)
+### Monitoring (LED Current & Battery)
+
+**LED Current Monitoring**
 
 Enabled with `MONITORING_LED_CURRENT=y` plus shunt/gain settings. The task samples every `CONFIG_MONITORING_LED_INTERVAL_MS` ms and maintains a filtered moving average over `CONFIG_MONITORING_LED_SAMPLES` samples. Use `get_led_current` command to query.
+
+**Battery Monitoring**
+
+Enabled with `MONITORING_BATTERY_ENABLE=y`. Supports voltage divider configuration for measuring Li-ion/Li-Po battery voltage:
+
+| Kconfig | Description |
+|---------|-------------|
+| MONITORING_BATTERY_ADC_GPIO | GPIO pin connected to voltage divider output |
+| MONITORING_BATTERY_DIVIDER_R_TOP_OHM | Top resistor value (battery side) |
+| MONITORING_BATTERY_DIVIDER_R_BOTTOM_OHM | Bottom resistor value (GND side) |
+| MONITORING_BATTERY_INTERVAL_MS | Sampling interval in milliseconds |
+| MONITORING_BATTERY_SAMPLES | Moving average window size |
+
+The firmware includes a Li-ion discharge curve lookup table for SOC (State of Charge) percentage calculation with linear interpolation. Use `get_battery_status` command to query voltage (mV) and percentage (%).
 
 ### Debug & External LED Configuration
 

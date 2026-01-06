@@ -219,6 +219,31 @@ CommandResult getLEDCurrentCommand(std::shared_ptr<DependencyRegistry> registry)
 #endif
 }
 
+CommandResult getBatteryStatusCommand(std::shared_ptr<DependencyRegistry> registry)
+{
+#if CONFIG_MONITORING_BATTERY_ENABLE
+    auto mon = registry->resolve<MonitoringManager>(DependencyType::monitoring_manager);
+    if (!mon)
+    {
+        return CommandResult::getErrorResult("MonitoringManager unavailable");
+    }
+
+    const auto status = mon->getBatteryStatus();
+    if (!status.valid)
+    {
+        return CommandResult::getErrorResult("Battery voltage unavailable");
+    }
+
+    const auto json = nlohmann::json{
+        {"voltage_mv", std::format("{:.2f}", static_cast<double>(status.voltage_mv))},
+        {"percentage", std::format("{:.1f}", static_cast<double>(status.percentage))},
+    };
+    return CommandResult::getSuccessResult(json);
+#else
+    return CommandResult::getErrorResult("Battery monitor disabled");
+#endif
+}
+
 CommandResult getInfoCommand(std::shared_ptr<DependencyRegistry> /*registry*/)
 {
     const char *who = CONFIG_GENERAL_BOARD;

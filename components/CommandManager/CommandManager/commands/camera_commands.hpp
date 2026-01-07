@@ -1,16 +1,16 @@
 #ifndef CAMERA_COMMANDS_HPP
 #define CAMERA_COMMANDS_HPP
+#include <CameraManager.hpp>
 #include <ProjectConfig.hpp>
 #include <memory>
-#include <string>
+#include <nlohmann-json.hpp>
 #include <optional>
+#include <string>
 #include "CommandResult.hpp"
 #include "CommandSchema.hpp"
 #include "DependencyRegistry.hpp"
-#include <CameraManager.hpp>
-#include <nlohmann-json.hpp>
 
-CommandResult updateCameraCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json &json);
+CommandResult updateCameraCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json);
 
 #endif
 

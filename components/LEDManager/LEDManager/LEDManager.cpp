@@ -1,6 +1,6 @@
 #include "LEDManager.hpp"
 
-const char *LED_MANAGER_TAG = "[LED_MANAGER]";
+const char* LED_MANAGER_TAG = "[LED_MANAGER]";
 
 // Pattern design rules:
 //  - Error states: isError=true, repeat indefinitely, easily distinguishable (avoid overlap).
@@ -8,25 +8,25 @@ const char *LED_MANAGER_TAG = "[LED_MANAGER]";
 //  - Non-repeating notification (e.g. Connected) gives user a brief confirmation burst then turns off.
 // Durations in ms.
 ledStateMap_t LEDManager::ledStateMap = {
-    { LEDStates_e::LedStateNone, { /*isError*/false, /*repeat*/false, {{LED_OFF, 1000}} } },
-    { LEDStates_e::LedStateStreaming, { false, /*repeat steady*/true, {{LED_ON, 1000}} } },
-    { LEDStates_e::LedStateStoppedStreaming, { false, true, {{LED_OFF, 1000}} } },
+    {LEDStates_e::LedStateNone, {/*isError*/ false, /*repeat*/ false, {{LED_OFF, 1000}}}},
+    {LEDStates_e::LedStateStreaming, {false, /*repeat steady*/ true, {{LED_ON, 1000}}}},
+    {LEDStates_e::LedStateStoppedStreaming, {false, true, {{LED_OFF, 1000}}}},
     // CameraError: double blink pattern repeating
-    { LEDStates_e::CameraError, { true, true, {{ {LED_ON,300}, {LED_OFF,300}, {LED_ON,300}, {LED_OFF,700} }} } },
+    {LEDStates_e::CameraError, {true, true, {{{LED_ON, 300}, {LED_OFF, 300}, {LED_ON, 300}, {LED_OFF, 700}}}}},
     // WiFiStateConnecting: balanced slow blink 400/400
-    { LEDStates_e::WiFiStateConnecting, { false, true, {{ {LED_ON,400}, {LED_OFF,400} }} } },
+    {LEDStates_e::WiFiStateConnecting, {false, true, {{{LED_ON, 400}, {LED_OFF, 400}}}}},
     // WiFiStateConnected: short 3 quick flashes then done (was long noisy burst before)
-    { LEDStates_e::WiFiStateConnected, { false, false, {{ {LED_ON,150}, {LED_OFF,150}, {LED_ON,150}, {LED_OFF,150}, {LED_ON,150}, {LED_OFF,600} }} } },
+    {LEDStates_e::WiFiStateConnected, {false, false, {{{LED_ON, 150}, {LED_OFF, 150}, {LED_ON, 150}, {LED_OFF, 150}, {LED_ON, 150}, {LED_OFF, 600}}}}},
     // WiFiStateError: asymmetric attention pattern (fast, pause, long, pause, fast)
-    { LEDStates_e::WiFiStateError, { true, true, {{ {LED_ON,200}, {LED_OFF,100}, {LED_ON,500}, {LED_OFF,300} }} } },
+    {LEDStates_e::WiFiStateError, {true, true, {{{LED_ON, 200}, {LED_OFF, 100}, {LED_ON, 500}, {LED_OFF, 300}}}}},
 };
 
-LEDManager::LEDManager(gpio_num_t pin, gpio_num_t illumninator_led_pin,
-                       QueueHandle_t ledStateQueue, std::shared_ptr<ProjectConfig> deviceConfig) : blink_led_pin(pin),
-                                                                                                   illumninator_led_pin(illumninator_led_pin),
-                                                                                                   ledStateQueue(ledStateQueue),
-                                                                                                   currentState(LEDStates_e::LedStateNone),
-                                                                                                   deviceConfig(deviceConfig)
+LEDManager::LEDManager(gpio_num_t pin, gpio_num_t illumninator_led_pin, QueueHandle_t ledStateQueue, std::shared_ptr<ProjectConfig> deviceConfig)
+    : blink_led_pin(pin),
+      illumninator_led_pin(illumninator_led_pin),
+      ledStateQueue(ledStateQueue),
+      currentState(LEDStates_e::LedStateNone),
+      deviceConfig(deviceConfig)
 {
 }
 
@@ -52,22 +52,17 @@ void LEDManager::setup()
     ESP_LOGI(LED_MANAGER_TAG, "Setting dutyCycle to: %lu ", dutyCycle);
 
     ledc_timer_config_t ledc_timer = {
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .duty_resolution = resolution,
-        .timer_num = LEDC_TIMER_0,
-        .freq_hz = freq,
-        .clk_cfg = LEDC_AUTO_CLK};
+        .speed_mode = LEDC_LOW_SPEED_MODE, .duty_resolution = resolution, .timer_num = LEDC_TIMER_0, .freq_hz = freq, .clk_cfg = LEDC_AUTO_CLK};
 
     ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
 
-    ledc_channel_config_t ledc_channel = {
-        .gpio_num = this->illumninator_led_pin,
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .channel = LEDC_CHANNEL_0,
-        .intr_type = LEDC_INTR_DISABLE,
-        .timer_sel = LEDC_TIMER_0,
-        .duty = dutyCycle,
-        .hpoint = 0};
+    ledc_channel_config_t ledc_channel = {.gpio_num = this->illumninator_led_pin,
+                                          .speed_mode = LEDC_LOW_SPEED_MODE,
+                                          .channel = LEDC_CHANNEL_0,
+                                          .intr_type = LEDC_INTR_DISABLE,
+                                          .timer_sel = LEDC_TIMER_0,
+                                          .duty = dutyCycle,
+                                          .hpoint = 0};
 
     ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
 #endif
@@ -190,14 +185,14 @@ void LEDManager::setExternalLEDDutyCycle(uint8_t dutyPercent)
     ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, dutyCycle));
     ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
 #else
-    (void)dutyPercent; // unused
+    (void)dutyPercent;  // unused
     ESP_LOGW(LED_MANAGER_TAG, "CONFIG_LED_EXTERNAL_CONTROL not enabled; ignoring duty update");
 #endif
 }
 
-void HandleLEDDisplayTask(void *pvParameter)
+void HandleLEDDisplayTask(void* pvParameter)
 {
-    auto *ledManager = static_cast<LEDManager *>(pvParameter);
+    auto* ledManager = static_cast<LEDManager*>(pvParameter);
     TickType_t lastWakeTime = xTaskGetTickCount();
 
     while (true)

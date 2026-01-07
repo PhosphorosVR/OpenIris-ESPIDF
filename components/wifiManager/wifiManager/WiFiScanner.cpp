@@ -2,14 +2,13 @@
 #include <cstring>
 #include "esp_timer.h"
 
-static const char *TAG = "WiFiScanner";
+static const char* TAG = "WiFiScanner";
 
 WiFiScanner::WiFiScanner() {}
 
-void WiFiScanner::scanResultCallback(void *arg, esp_event_base_t event_base,
-                                     int32_t event_id, void *event_data)
+void WiFiScanner::scanResultCallback(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
-    auto *scanner = static_cast<WiFiScanner *>(arg);
+    auto* scanner = static_cast<WiFiScanner*>(arg);
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_SCAN_DONE)
     {
         uint16_t ap_count = 0;
@@ -21,14 +20,14 @@ void WiFiScanner::scanResultCallback(void *arg, esp_event_base_t event_base,
             return;
         }
 
-        wifi_ap_record_t *ap_records = new wifi_ap_record_t[ap_count];
+        wifi_ap_record_t* ap_records = new wifi_ap_record_t[ap_count];
         ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&ap_count, ap_records));
 
         scanner->networks.clear();
         for (uint16_t i = 0; i < ap_count; i++)
         {
             WiFiNetwork network;
-            network.ssid = std::string(reinterpret_cast<char *>(ap_records[i].ssid));
+            network.ssid = std::string(reinterpret_cast<char*>(ap_records[i].ssid));
             network.channel = ap_records[i].primary;
             network.rssi = ap_records[i].rssi;
             memcpy(network.mac, ap_records[i].bssid, 6);
@@ -63,7 +62,7 @@ std::vector<WiFiNetwork> WiFiScanner::scanNetworks(int timeout_ms)
     esp_wifi_scan_stop();
 
     // Try sequential channel scanning as a workaround
-    bool try_sequential_scan = true; // Enable sequential scan
+    bool try_sequential_scan = true;  // Enable sequential scan
 
     if (!try_sequential_scan)
     {
@@ -71,17 +70,17 @@ std::vector<WiFiNetwork> WiFiScanner::scanNetworks(int timeout_ms)
         wifi_scan_config_t scan_config = {
             .ssid = nullptr,
             .bssid = nullptr,
-            .channel = 0, // 0 means scan all channels
+            .channel = 0,  // 0 means scan all channels
             .show_hidden = true,
-            .scan_type = WIFI_SCAN_TYPE_ACTIVE, // Active scan
-            .scan_time = {
-                .active = {
-                    .min = 120, // Min per channel
-                    .max = 300  // Max per channel
-                },
-                .passive = 360},
-            .home_chan_dwell_time = 0, // 0 for default
-            .channel_bitmap = 0        // 0 for all channels
+            .scan_type = WIFI_SCAN_TYPE_ACTIVE,  // Active scan
+            .scan_time = {.active =
+                              {
+                                  .min = 120,  // Min per channel
+                                  .max = 300   // Max per channel
+                              },
+                          .passive = 360},
+            .home_chan_dwell_time = 0,  // 0 for default
+            .channel_bitmap = 0         // 0 for all channels
         };
 
         err = esp_wifi_scan_start(&scan_config, false);
@@ -95,7 +94,7 @@ std::vector<WiFiNetwork> WiFiScanner::scanNetworks(int timeout_ms)
     {
         // Sequential channel scan - scan each channel individually with timeout tracking
         std::vector<wifi_ap_record_t> all_records;
-        int64_t start_time = esp_timer_get_time() / 1000; // Convert to ms
+        int64_t start_time = esp_timer_get_time() / 1000;  // Convert to ms
 
         for (uint8_t ch = 1; ch <= 13; ch++)
         {
@@ -109,28 +108,23 @@ std::vector<WiFiNetwork> WiFiScanner::scanNetworks(int timeout_ms)
                 break;
             }
 
-            wifi_scan_config_t scan_config = {
-                .ssid = nullptr,
-                .bssid = nullptr,
-                .channel = ch,
-                .show_hidden = true,
-                .scan_type = WIFI_SCAN_TYPE_ACTIVE,
-                .scan_time = {
-                    .active = {
-                        .min = 100,
-                        .max = 200},
-                    .passive = 300},
-                .home_chan_dwell_time = 0,
-                .channel_bitmap = 0};
+            wifi_scan_config_t scan_config = {.ssid = nullptr,
+                                              .bssid = nullptr,
+                                              .channel = ch,
+                                              .show_hidden = true,
+                                              .scan_type = WIFI_SCAN_TYPE_ACTIVE,
+                                              .scan_time = {.active = {.min = 100, .max = 200}, .passive = 300},
+                                              .home_chan_dwell_time = 0,
+                                              .channel_bitmap = 0};
 
-            err = esp_wifi_scan_start(&scan_config, true); // Blocking scan
+            err = esp_wifi_scan_start(&scan_config, true);  // Blocking scan
             if (err == ESP_OK)
             {
                 uint16_t ch_count = 0;
                 esp_wifi_scan_get_ap_num(&ch_count);
                 if (ch_count > 0)
                 {
-                    wifi_ap_record_t *ch_records = new wifi_ap_record_t[ch_count];
+                    wifi_ap_record_t* ch_records = new wifi_ap_record_t[ch_count];
                     if (esp_wifi_scan_get_ap_records(&ch_count, ch_records) == ESP_OK)
                     {
                         for (uint16_t i = 0; i < ch_count; i++)
@@ -145,10 +139,10 @@ std::vector<WiFiNetwork> WiFiScanner::scanNetworks(int timeout_ms)
         }
 
         // Process all collected records
-        for (const auto &record : all_records)
+        for (const auto& record : all_records)
         {
             WiFiNetwork network;
-            network.ssid = std::string(reinterpret_cast<const char *>(record.ssid));
+            network.ssid = std::string(reinterpret_cast<const char*>(record.ssid));
             network.channel = record.primary;
             network.rssi = record.rssi;
             memcpy(network.mac, record.bssid, 6);
@@ -164,7 +158,7 @@ std::vector<WiFiNetwork> WiFiScanner::scanNetworks(int timeout_ms)
     }
 
     // Wait for scan completion with timeout
-    int64_t start_time = esp_timer_get_time() / 1000; // Convert to ms
+    int64_t start_time = esp_timer_get_time() / 1000;  // Convert to ms
     int64_t elapsed_ms = 0;
     bool scan_done = false;
 
@@ -206,7 +200,7 @@ std::vector<WiFiNetwork> WiFiScanner::scanNetworks(int timeout_ms)
         return scan_results;
     }
 
-    wifi_ap_record_t *ap_records = new wifi_ap_record_t[ap_count];
+    wifi_ap_record_t* ap_records = new wifi_ap_record_t[ap_count];
     err = esp_wifi_scan_get_ap_records(&ap_count, ap_records);
     if (err != ESP_OK)
     {
@@ -216,12 +210,12 @@ std::vector<WiFiNetwork> WiFiScanner::scanNetworks(int timeout_ms)
     }
 
     // Build the results vector and track channels found
-    bool channels_found[15] = {false}; // Track channels 0-14
+    bool channels_found[15] = {false};  // Track channels 0-14
 
     for (uint16_t i = 0; i < ap_count; i++)
     {
         WiFiNetwork network;
-        network.ssid = std::string(reinterpret_cast<char *>(ap_records[i].ssid));
+        network.ssid = std::string(reinterpret_cast<char*>(ap_records[i].ssid));
         network.channel = ap_records[i].primary;
         network.rssi = ap_records[i].rssi;
         memcpy(network.mac, ap_records[i].bssid, 6);

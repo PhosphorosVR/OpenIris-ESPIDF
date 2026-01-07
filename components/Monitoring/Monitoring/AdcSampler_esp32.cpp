@@ -19,9 +19,9 @@
 
 #if defined(CONFIG_IDF_TARGET_ESP32)
 
-bool AdcSampler::map_gpio_to_channel(int gpio, adc_unit_t &unit, adc_channel_t &channel)
+bool AdcSampler::map_gpio_to_channel(int gpio, adc_unit_t& unit, adc_channel_t& channel)
 {
-    unit = ADC_UNIT_1; // Only use ADC1 to avoid Wi-Fi conflict
+    unit = ADC_UNIT_1;  // Only use ADC1 to avoid Wi-Fi conflict
 
     // ESP32: ADC1 GPIO mapping (GPIO32-39)
     switch (gpio)

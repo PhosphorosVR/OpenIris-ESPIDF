@@ -1,13 +1,13 @@
 #ifndef SIMPLE_COMMANDS
 #define SIMPLE_COMMANDS
 
+#include <nlohmann-json.hpp>
 #include <string>
 #include "CommandResult.hpp"
-#include "main_globals.hpp"
 #include "esp_log.h"
-#include <nlohmann-json.hpp>
+#include "main_globals.hpp"
 
 CommandResult PingCommand();
-CommandResult PauseCommand(const nlohmann::json &json);
+CommandResult PauseCommand(const nlohmann::json& json);
 
 #endif

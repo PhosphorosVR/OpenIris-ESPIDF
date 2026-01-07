@@ -13,7 +13,7 @@
 #if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32)
 #include <esp_log.h>
 
-static const char *TAG = "[AdcSampler]";
+static const char* TAG = "[AdcSampler]";
 
 // Static member initialization
 adc_oneshot_unit_handle_t AdcSampler::shared_unit_ = nullptr;
@@ -22,11 +22,11 @@ AdcSampler::~AdcSampler()
 {
     if (cali_handle_)
     {
-        #if defined(CONFIG_IDF_TARGET_ESP32S3)
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
         adc_cali_delete_scheme_curve_fitting(cali_handle_);
-        #elif defined(CONFIG_IDF_TARGET_ESP32)
+#elif defined(CONFIG_IDF_TARGET_ESP32)
         adc_cali_delete_scheme_line_fitting(cali_handle_);
-        #endif
+#endif
         cali_handle_ = nullptr;
     }
 }
@@ -68,8 +68,8 @@ bool AdcSampler::init(int gpio, adc_atten_t atten, adc_bitwidth_t bitwidth, size
     // Try calibration (requires eFuse data)
     // ESP32-S3 uses curve-fitting, ESP32 uses line-fitting
     esp_err_t cal_err = ESP_FAIL;
-    
-    #if defined(CONFIG_IDF_TARGET_ESP32S3)
+
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
     // ESP32-S3 curve fitting calibration
     adc_cali_curve_fitting_config_t cal_cfg = {
         .unit_id = unit_,
@@ -78,7 +78,7 @@ bool AdcSampler::init(int gpio, adc_atten_t atten, adc_bitwidth_t bitwidth, size
         .bitwidth = bitwidth_,
     };
     cal_err = adc_cali_create_scheme_curve_fitting(&cal_cfg, &cali_handle_);
-    #elif defined(CONFIG_IDF_TARGET_ESP32)
+#elif defined(CONFIG_IDF_TARGET_ESP32)
     // ESP32 line-fitting calibration is per-unit, not per-channel
     adc_cali_line_fitting_config_t cal_cfg = {
         .unit_id = unit_,
@@ -86,8 +86,8 @@ bool AdcSampler::init(int gpio, adc_atten_t atten, adc_bitwidth_t bitwidth, size
         .bitwidth = bitwidth_,
     };
     cal_err = adc_cali_create_scheme_line_fitting(&cal_cfg, &cali_handle_);
-    #endif
-    
+#endif
+
     if (cal_err == ESP_OK)
     {
         cali_inited_ = true;
@@ -187,11 +187,10 @@ bool AdcSampler::configure_channel(int gpio, adc_atten_t atten, adc_bitwidth_t b
     esp_err_t err = adc_oneshot_config_channel(shared_unit_, channel_, &chan_cfg);
     if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "adc_oneshot_config_channel failed (GPIO %d, CH %d): %s",
-                 gpio, static_cast<int>(channel_), esp_err_to_name(err));
+        ESP_LOGE(TAG, "adc_oneshot_config_channel failed (GPIO %d, CH %d): %s", gpio, static_cast<int>(channel_), esp_err_to_name(err));
         return false;
     }
     return true;
 }
 
-#endif // CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32
+#endif  // CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32

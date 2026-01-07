@@ -1,27 +1,27 @@
 #include <cstdio>
 #include <string>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_timer.h"
-#include "sdkconfig.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/task.h"
 #include "nvs_flash.h"
+#include "sdkconfig.h"
 
-#include <openiris_logo.hpp>
-#include <wifiManager.hpp>
-#include <ProjectConfig.hpp>
-#include <StateManager.hpp>
+#include <CameraManager.hpp>
+#include <CommandManager.hpp>
 #include <LEDManager.hpp>
 #include <MDNSManager.hpp>
-#include <CameraManager.hpp>
-#include <WebSocketLogger.hpp>
-#include <StreamServer.hpp>
-#include <CommandManager.hpp>
-#include <SerialManager.hpp>
+#include <ProjectConfig.hpp>
 #include <RestAPI.hpp>
+#include <SerialManager.hpp>
+#include <StateManager.hpp>
+#include <StreamServer.hpp>
+#include <WebSocketLogger.hpp>
 #include <main_globals.hpp>
+#include <openiris_logo.hpp>
+#include <wifiManager.hpp>
 
 #if CONFIG_MONITORING_LED_CURRENT || CONFIG_MONITORING_BATTERY_ENABLE
 #include <MonitoringManager.hpp>
@@ -50,7 +50,7 @@ QueueHandle_t eventQueue = xQueueCreate(10, sizeof(SystemEvent));
 QueueHandle_t ledStateQueue = xQueueCreate(10, sizeof(uint32_t));
 QueueHandle_t cdcMessageQueue = xQueueCreate(3, sizeof(cdc_command_packet_t));
 
-auto *stateManager = new StateManager(eventQueue, ledStateQueue);
+auto* stateManager = new StateManager(eventQueue, ledStateQueue);
 auto dependencyRegistry = std::make_shared<DependencyRegistry>();
 auto commandManager = std::make_shared<CommandManager>(dependencyRegistry);
 
@@ -76,7 +76,7 @@ auto ledManager = std::make_shared<LEDManager>(BLINK_GPIO, CONFIG_LED_C_PIN_GPIO
 std::shared_ptr<MonitoringManager> monitoringManager = std::make_shared<MonitoringManager>();
 #endif
 
-auto *serialManager = new SerialManager(commandManager, &timerHandle);
+auto* serialManager = new SerialManager(commandManager, &timerHandle);
 
 void startWiFiMode();
 void startWiredMode(bool shouldCloseSerialManager);
@@ -92,7 +92,7 @@ static void initNVSStorage()
     ESP_ERROR_CHECK(ret);
 }
 
-int websocket_logger(const char *format, va_list args)
+int websocket_logger(const char* format, va_list args)
 {
     webSocketLogger.log_message(format, args);
     return vprintf(format, args);
@@ -129,10 +129,9 @@ void launch_streaming()
 }
 
 // Callback for automatic startup after delay
-void startup_timer_callback(void *arg)
+void startup_timer_callback(void* arg)
 {
-    ESP_LOGI("[MAIN]", "Startup timer fired, startupCommandReceived=%s, startupPaused=%s",
-             getStartupCommandReceived() ? "true" : "false",
+    ESP_LOGI("[MAIN]", "Startup timer fired, startupCommandReceived=%s, startupPaused=%s", getStartupCommandReceived() ? "true" : "false",
              getStartupPaused() ? "true" : "false");
 
     if (!getStartupCommandReceived() && !getStartupPaused())
@@ -199,13 +198,7 @@ void startWiredMode(bool shouldCloseSerialManager)
     }
 
     ESP_LOGI("[MAIN]", "Starting CDC Serial Manager Task");
-    xTaskCreate(
-        HandleCDCSerialManagerTask,
-        "HandleCDCSerialManagerTask",
-        1024 * 6,
-        commandManager.get(),
-        1,
-        nullptr);
+    xTaskCreate(HandleCDCSerialManagerTask, "HandleCDCSerialManagerTask", 1024 * 6, commandManager.get(), 1, nullptr);
 
     ESP_LOGI("[MAIN]", "Starting UVC streaming");
 
@@ -227,13 +220,9 @@ void startWiFiMode()
     {
         streamServer.startStreamServer();
     }
-    xTaskCreate(
-        HandleRestAPIPollTask,
-        "HandleRestAPIPollTask",
-        2024 * 2,
-        restAPI.get(),
-        1, // it's the rest API, we only serve commands over it so we don't really need a higher priority
-        nullptr);
+    xTaskCreate(HandleRestAPIPollTask, "HandleRestAPIPollTask", 2024 * 2, restAPI.get(),
+                1,  // it's the rest API, we only serve commands over it so we don't really need a higher priority
+                nullptr);
 #else
     ESP_LOGW("[MAIN]", "Wireless is disabled by configuration; skipping WiFi/mDNS/REST startup.");
 #endif
@@ -251,11 +240,7 @@ void startSetupMode()
 
     // Create a one-shot timer for 20 seconds
     const esp_timer_create_args_t startup_timer_args = {
-        .callback = &startup_timer_callback,
-        .arg = nullptr,
-        .dispatch_method = ESP_TIMER_TASK,
-        .name = "startup_timer",
-        .skip_unhandled_events = false};
+        .callback = &startup_timer_callback, .arg = nullptr, .dispatch_method = ESP_TIMER_TASK, .name = "startup_timer", .skip_unhandled_events = false};
 
     ESP_ERROR_CHECK(esp_timer_create(&startup_timer_args, &timerHandle));
     ESP_ERROR_CHECK(esp_timer_start_once(timerHandle, startup_delay_s * 1000000));
@@ -290,35 +275,18 @@ extern "C" void app_main(void)
     monitoringManager->start();
 #endif
 
-    xTaskCreate(
-        HandleStateManagerTask,
-        "HandleStateManagerTask",
-        1024 * 2,
-        stateManager,
-        3,
-        nullptr // it's fine for us not get a handle back, we don't need it
+    xTaskCreate(HandleStateManagerTask, "HandleStateManagerTask", 1024 * 2, stateManager, 3,
+                nullptr  // it's fine for us not get a handle back, we don't need it
     );
 
-    xTaskCreate(
-        HandleLEDDisplayTask,
-        "HandleLEDDisplayTask",
-        1024 * 2,
-        ledManager.get(),
-        3,
-        nullptr);
+    xTaskCreate(HandleLEDDisplayTask, "HandleLEDDisplayTask", 1024 * 2, ledManager.get(), 3, nullptr);
 
     cameraHandler->setupCamera();
 
     // let's keep the serial manager running for the duration of the setup
     // we'll clean it up later if need be
     serialManager->setup();
-    xTaskCreate(
-        HandleSerialManagerTask,
-        "HandleSerialManagerTask",
-        1024 * 6,
-        serialManager,
-        1,
-        &serialManagerHandle);
+    xTaskCreate(HandleSerialManagerTask, "HandleSerialManagerTask", 1024 * 6, serialManager, 1, &serialManagerHandle);
 
     StreamingMode mode = deviceConfig->getDeviceMode();
     if (mode == StreamingMode::UVC)

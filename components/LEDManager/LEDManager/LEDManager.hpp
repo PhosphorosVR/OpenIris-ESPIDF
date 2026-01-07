@@ -11,13 +11,13 @@
 #endif
 
 #include <esp_log.h>
+#include <ProjectConfig.hpp>
+#include <StateManager.hpp>
 #include <algorithm>
 #include <cstdint>
+#include <helpers.hpp>
 #include <unordered_map>
 #include <vector>
-#include <StateManager.hpp>
-#include <ProjectConfig.hpp>
-#include <helpers.hpp>
 
 // it kinda looks like different boards have these states swapped
 #define LED_OFF 1
@@ -25,57 +25,62 @@
 
 struct BlinkPatterns_t
 {
-  int state;
-  int delayTime;
+    int state;
+    int delayTime;
 };
 
 struct LEDStage
 {
-  bool isError;
-  bool isRepeatable;
-  std::vector<BlinkPatterns_t> patterns;
+    bool isError;
+    bool isRepeatable;
+    std::vector<BlinkPatterns_t> patterns;
 };
 
-typedef std::unordered_map<LEDStates_e, LEDStage>
-    ledStateMap_t;
+typedef std::unordered_map<LEDStates_e, LEDStage> ledStateMap_t;
 
 class LEDManager
 {
-public:
-  LEDManager(gpio_num_t blink_led_pin, gpio_num_t illumninator_led_pin, QueueHandle_t ledStateQueue, std::shared_ptr<ProjectConfig> deviceConfig);
+   public:
+    LEDManager(gpio_num_t blink_led_pin, gpio_num_t illumninator_led_pin, QueueHandle_t ledStateQueue, std::shared_ptr<ProjectConfig> deviceConfig);
 
-  void setup();
-  void handleLED();
-  size_t getTimeToDelayFor() const { return timeToDelayFor; }
+    void setup();
+    void handleLED();
+    size_t getTimeToDelayFor() const
+    {
+        return timeToDelayFor;
+    }
 
-  // Apply new external LED PWM duty cycle immediately (0-100)
-  void setExternalLEDDutyCycle(uint8_t dutyPercent);
-  uint8_t getExternalLEDDutyCycle() const { return deviceConfig ? deviceConfig->getDeviceConfig().led_external_pwm_duty_cycle : 0; }
+    // Apply new external LED PWM duty cycle immediately (0-100)
+    void setExternalLEDDutyCycle(uint8_t dutyPercent);
+    uint8_t getExternalLEDDutyCycle() const
+    {
+        return deviceConfig ? deviceConfig->getDeviceConfig().led_external_pwm_duty_cycle : 0;
+    }
 
-private:
-  void toggleLED(bool state) const;
-  void displayCurrentPattern();
-  void updateState(LEDStates_e newState);
+   private:
+    void toggleLED(bool state) const;
+    void displayCurrentPattern();
+    void updateState(LEDStates_e newState);
 
-  gpio_num_t blink_led_pin;
-  gpio_num_t illumninator_led_pin;
-  QueueHandle_t ledStateQueue;
+    gpio_num_t blink_led_pin;
+    gpio_num_t illumninator_led_pin;
+    QueueHandle_t ledStateQueue;
 
-  static ledStateMap_t ledStateMap;
+    static ledStateMap_t ledStateMap;
 
-  LEDStates_e buffer;
-  LEDStates_e currentState;
-  std::shared_ptr<ProjectConfig> deviceConfig;
+    LEDStates_e buffer;
+    LEDStates_e currentState;
+    std::shared_ptr<ProjectConfig> deviceConfig;
 
-  size_t currentPatternIndex = 0;
-  size_t timeToDelayFor = 100;
-  bool finishedPattern = false;
+    size_t currentPatternIndex = 0;
+    size_t timeToDelayFor = 100;
+    bool finishedPattern = false;
 
 #if defined(CONFIG_LED_EXTERNAL_CONTROL) && defined(CONFIG_LED_EXTERNAL_AS_DEBUG)
-  bool hasStoredExternalDuty = false;
-  uint32_t storedExternalDuty = 0; // raw 0-255
+    bool hasStoredExternalDuty = false;
+    uint32_t storedExternalDuty = 0;  // raw 0-255
 #endif
 };
 
-void HandleLEDDisplayTask(void *pvParameter);
+void HandleLEDDisplayTask(void* pvParameter);
 #endif

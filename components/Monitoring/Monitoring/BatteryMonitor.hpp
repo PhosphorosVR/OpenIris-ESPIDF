@@ -20,7 +20,6 @@
 #include "AdcSampler.hpp"
 #include "sdkconfig.h"
 
-
 /**
  * @struct BatteryStatus
  * @brief Battery status information
@@ -48,7 +47,7 @@ struct BatteryStatus
  */
 class BatteryMonitor
 {
-public:
+   public:
     BatteryMonitor() = default;
     ~BatteryMonitor() = default;
 
@@ -87,7 +86,7 @@ public:
 #endif
     }
 
-private:
+   private:
     /**
      * @brief Li-ion/Li-Po voltage to SOC lookup table entry
      */
@@ -102,7 +101,7 @@ private:
      * Based on typical 3.7V nominal Li-ion/Li-Po cell characteristics
      */
     static constexpr std::array<VoltageSOC, 12> soc_lookup_ = {{
-        {4200.0f, 100.0f}, // Fully charged
+        {4200.0f, 100.0f},  // Fully charged
         {4060.0f, 90.0f},
         {3980.0f, 80.0f},
         {3920.0f, 70.0f},
@@ -112,10 +111,10 @@ private:
         {3770.0f, 30.0f},
         {3740.0f, 20.0f},
         {3680.0f, 10.0f},
-        {3450.0f, 5.0f}, // Low battery warning
-        {3300.0f, 0.0f}, // Empty / cutoff voltage
+        {3450.0f, 5.0f},  // Low battery warning
+        {3300.0f, 0.0f},  // Empty / cutoff voltage
     }};
 
-    float scale_{1.0f};      // Voltage divider scaling factor
-    mutable AdcSampler adc_; // ADC sampler instance (BSP layer)
+    float scale_{1.0f};       // Voltage divider scaling factor
+    mutable AdcSampler adc_;  // ADC sampler instance (BSP layer)
 };

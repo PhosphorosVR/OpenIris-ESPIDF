@@ -2,10 +2,10 @@
 #ifndef WIFI_SCANNER_HPP
 #define WIFI_SCANNER_HPP
 
-#include <vector>
 #include <string>
-#include "esp_wifi.h"
+#include <vector>
 #include "esp_log.h"
+#include "esp_wifi.h"
 
 struct WiFiNetwork
 {
@@ -18,12 +18,12 @@ struct WiFiNetwork
 
 class WiFiScanner
 {
-public:
+   public:
     WiFiScanner();
     std::vector<WiFiNetwork> scanNetworks(int timeout_ms = 15000);
-    static void scanResultCallback(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
+    static void scanResultCallback(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 
-private:
+   private:
     std::vector<WiFiNetwork> networks;
 };
 

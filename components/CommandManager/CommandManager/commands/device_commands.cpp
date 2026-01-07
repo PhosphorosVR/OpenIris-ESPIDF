@@ -1,10 +1,10 @@
 #include "device_commands.hpp"
+#include <cstdio>
 #include "LEDManager.hpp"
 #include "MonitoringManager.hpp"
 #include "esp_mac.h"
-#include <cstdio>
 
-CommandResult setDeviceModeCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json &json)
+CommandResult setDeviceModeCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json)
 {
     if (!json.contains("mode") || !json["mode"].is_number_integer())
     {
@@ -23,9 +23,8 @@ CommandResult setDeviceModeCommand(std::shared_ptr<DependencyRegistry> registry,
     return CommandResult::getSuccessResult("Device mode set");
 }
 
-CommandResult updateOTACredentialsCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json &json)
+CommandResult updateOTACredentialsCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json)
 {
-
     const auto projectConfig = registry->resolve<ProjectConfig>(DependencyType::project_config);
     const auto oldDeviceConfig = projectConfig->getDeviceConfig();
     auto OTALogin = oldDeviceConfig.OTALogin;
@@ -57,7 +56,7 @@ CommandResult updateOTACredentialsCommand(std::shared_ptr<DependencyRegistry> re
     return CommandResult::getSuccessResult("OTA Config set");
 }
 
-CommandResult updateLEDDutyCycleCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json &json)
+CommandResult updateLEDDutyCycleCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json)
 {
     if (!json.contains("dutyCycle") || !json["dutyCycle"].is_number_integer())
     {
@@ -105,10 +104,7 @@ CommandResult startStreamingCommand()
     // from *inside* the serial handler, we'd deadlock.
     // we can just pass nullptr to the vtaskdelete(),
     // but then we won't get any response, so we schedule a timer instead
-    esp_timer_create_args_t args{
-        .callback = activateStreaming,
-        .arg = nullptr,
-        .name = "activateStreaming"};
+    esp_timer_create_args_t args{.callback = activateStreaming, .arg = nullptr, .name = "activateStreaming"};
 
     esp_timer_handle_t activateStreamingTimer;
     esp_timer_create(&args, &activateStreamingTimer);
@@ -117,9 +113,8 @@ CommandResult startStreamingCommand()
     return CommandResult::getSuccessResult("Streaming starting");
 }
 
-CommandResult switchModeCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json &json)
+CommandResult switchModeCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json)
 {
-
     if (!json.contains("mode") || !json["mode"].is_string())
     {
         return CommandResult::getErrorResult("Invalid payload - missing mode");
@@ -159,7 +154,7 @@ CommandResult getDeviceModeCommand(std::shared_ptr<DependencyRegistry> registry)
     const auto projectConfig = registry->resolve<ProjectConfig>(DependencyType::project_config);
     StreamingMode currentMode = projectConfig->getDeviceMode();
 
-    const char *modeStr = "unknown";
+    const char* modeStr = "unknown";
     switch (currentMode)
     {
     case StreamingMode::UVC:
@@ -188,13 +183,11 @@ CommandResult getSerialNumberCommand(std::shared_ptr<DependencyRegistry> /*regis
 
     char serial_no_sep[13];
     // Serial without separators (12 hex chars)
-    std::snprintf(serial_no_sep, sizeof(serial_no_sep), "%02X%02X%02X%02X%02X%02X",
-                  mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    std::snprintf(serial_no_sep, sizeof(serial_no_sep), "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     char mac_colon[18];
     // MAC with colons
-    std::snprintf(mac_colon, sizeof(mac_colon), "%02X:%02X:%02X:%02X:%02X:%02X",
-                  mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    std::snprintf(mac_colon, sizeof(mac_colon), "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     const auto json = nlohmann::json{
         {"serial", serial_no_sep},
@@ -246,8 +239,8 @@ CommandResult getBatteryStatusCommand(std::shared_ptr<DependencyRegistry> regist
 
 CommandResult getInfoCommand(std::shared_ptr<DependencyRegistry> /*registry*/)
 {
-    const char *who = CONFIG_GENERAL_BOARD;
-    const char *ver = CONFIG_GENERAL_VERSION;
+    const char* who = CONFIG_GENERAL_BOARD;
+    const char* ver = CONFIG_GENERAL_VERSION;
     // Ensure non-null strings
     if (!who)
         who = "";

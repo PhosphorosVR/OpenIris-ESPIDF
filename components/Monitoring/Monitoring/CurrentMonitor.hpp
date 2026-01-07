@@ -17,8 +17,8 @@
  */
 
 #include <cstdint>
-#include "sdkconfig.h"
 #include "AdcSampler.hpp"
+#include "sdkconfig.h"
 
 /**
  * @class CurrentMonitor
@@ -34,7 +34,7 @@
  */
 class CurrentMonitor
 {
-public:
+   public:
     CurrentMonitor() = default;
     ~CurrentMonitor() = default;
 
@@ -54,8 +54,8 @@ public:
 #endif
     }
 
-private:
-    mutable AdcSampler adc_; // ADC sampler instance (BSP layer)
+   private:
+    mutable AdcSampler adc_;  // ADC sampler instance (BSP layer)
 };
 
 #endif

@@ -9,7 +9,7 @@
 #include "BatteryMonitor.hpp"
 #include <esp_log.h>
 
-static const char *TAG = "[BatteryMonitor]";
+static const char* TAG = "[BatteryMonitor]";
 
 bool BatteryMonitor::setup()
 {
@@ -86,8 +86,8 @@ float BatteryMonitor::voltageToPercentage(int voltage_mv)
     // Linear interpolation between lookup table points
     for (size_t i = 0; i < soc_lookup_.size() - 1; ++i)
     {
-        const auto &high = soc_lookup_[i];
-        const auto &low = soc_lookup_[i + 1];
+        const auto& high = soc_lookup_[i];
+        const auto& low = soc_lookup_[i + 1];
 
         if (volts <= high.voltage_mv && volts >= low.voltage_mv)
         {

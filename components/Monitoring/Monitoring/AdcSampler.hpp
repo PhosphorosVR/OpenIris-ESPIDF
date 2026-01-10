@@ -20,7 +20,17 @@
 #include <cstdint>
 #include "sdkconfig.h"
 
-#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32)
+// Supported ESP32 platforms with ADC1 oneshot driver
+// - ESP32: Tested
+// - ESP32-S3: Tested
+// - ESP32-S2: UNTESTED - GPIO mapping based on datasheet
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
+#define ADC_SAMPLER_SUPPORTED 1
+#else
+#define ADC_SAMPLER_SUPPORTED 0
+#endif
+
+#if ADC_SAMPLER_SUPPORTED
 #include <vector>
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
@@ -86,9 +96,21 @@ class AdcSampler
 
     /**
      * @brief Platform-specific GPIO to ADC channel mapping
-     * @note Implemented separately in AdcSampler_esp32.cpp and AdcSampler_esp32s3.cpp
+     * @note Implemented in AdcSampler_esp32.cpp, AdcSampler_esp32s3 and AdcSampler_esp32s2.cpp
      */
     static bool map_gpio_to_channel(int gpio, adc_unit_t& unit, adc_channel_t& channel);
+
+    /**
+     * @brief Platform-specific ADC calibration initialization
+     * @note Implemented in AdcSampler_esp32.cpp, AdcSampler_esp32s3 and AdcSampler_esp32s2.cpp
+     */
+    bool create_calibration(adc_cali_handle_t* handle);
+
+    /**
+     * @brief Platform-specific ADC calibration cleanup
+     * @note Implemented in AdcSampler_esp32.cpp, AdcSampler_esp32s3 and AdcSampler_esp32s2.cpp
+     */
+    void delete_calibration(adc_cali_handle_t handle);
 
     // Shared ADC1 oneshot handle (single instance for all AdcSampler objects)
     static adc_oneshot_unit_handle_t shared_unit_;
@@ -109,7 +131,7 @@ class AdcSampler
     int filtered_mv_{0};
 };
 
-#else
+#else  // !ADC_SAMPLER_SUPPORTED
 // Stub for unsupported targets to keep interfaces consistent
 class AdcSampler
 {
@@ -131,4 +153,4 @@ class AdcSampler
         return false;
     }
 };
-#endif
+#endif  // ADC_SAMPLER_SUPPORTED

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstring>
 #include <string>
+#include <vector>
 #include "WiFiScanner.hpp"
 
 #include "esp_event.h"
@@ -40,10 +41,11 @@ class WiFiManager
 
     int8_t power;
 
-    void SetCredentials(const char* ssid, const char* password);
+    void SetCredentials(const char* ssid, const std::vector<uint8_t> bssid, const char* password, bool use_bssid);
     void ConnectWithHardcodedCredentials();
     void ConnectWithStoredCredentials();
     void SetupAccessPoint();
+    std::vector<uint8_t> ParseBSSID(std::string_view bssid_string);
 
    public:
     WiFiManager(std::shared_ptr<ProjectConfig> deviceConfig, QueueHandle_t eventQueue, StateManager* stateManager);

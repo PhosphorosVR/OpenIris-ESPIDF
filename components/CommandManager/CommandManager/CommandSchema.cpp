@@ -13,6 +13,11 @@ void from_json(const nlohmann::json& j, UpdateWifiPayload& payload)
         payload.ssid = j.at("ssid").get<std::string>();
     }
 
+    if (j.contains("bssid"))
+    {
+        payload.ssid = j.at("bssid").get<std::string>();
+    }
+
     if (j.contains("password"))
     {
         payload.password = j.at("password").get<std::string>();

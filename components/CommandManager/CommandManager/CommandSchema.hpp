@@ -10,17 +10,19 @@ struct WifiPayload : BasePayload
 {
     std::string name;
     std::string ssid;
+    std::string bssid;
     std::string password;
     uint8_t channel;
     uint8_t power;
 };
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WifiPayload, name, ssid, password, channel, power)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WifiPayload, name, ssid, bssid, password, channel, power)
 
 struct UpdateWifiPayload : BasePayload
 {
     std::string name;
     std::optional<std::string> ssid;
+    std::optional<std::string> bssid;
     std::optional<std::string> password;
     std::optional<uint8_t> channel;
     std::optional<uint8_t> power;

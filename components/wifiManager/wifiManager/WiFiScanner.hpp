@@ -21,7 +21,6 @@ class WiFiScanner
    public:
     WiFiScanner();
     std::vector<WiFiNetwork> scanNetworks(int timeout_ms = 15000);
-    static void scanResultCallback(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 
    private:
     std::vector<WiFiNetwork> networks;

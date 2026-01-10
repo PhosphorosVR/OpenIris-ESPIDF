@@ -170,14 +170,23 @@ struct WiFiConfig_t : BaseConfigModel
     // default constructor used for loading
     WiFiConfig_t(Preferences* pref) : BaseConfigModel(pref) {}
 
-    WiFiConfig_t(Preferences* pref, const uint8_t index, std::string name, std::string ssid, std::string password, const uint8_t channel, const uint8_t power)
-        : BaseConfigModel(pref), index(index), name(std::move(name)), ssid(std::move(ssid)), password(std::move(password)), channel(channel), power(power)
+    WiFiConfig_t(Preferences* pref, const uint8_t index, std::string name, std::string ssid, std::string bssid, std::string password, const uint8_t channel,
+                 const uint8_t power)
+        : BaseConfigModel(pref),
+          index(index),
+          name(std::move(name)),
+          ssid(std::move(ssid)),
+          bssid(std::move(bssid)),
+          password(std::move(password)),
+          channel(channel),
+          power(power)
     {
     }
 
     uint8_t index;
     std::string name;
     std::string ssid;
+    std::string bssid;
     std::string password;
     uint8_t channel;
     uint8_t power;
@@ -190,6 +199,7 @@ struct WiFiConfig_t : BaseConfigModel
         auto const iter_str = std::string(Helpers::itoa(index, buffer, 10));
         this->name = this->pref->getString(("name" + iter_str).c_str(), "");
         this->ssid = this->pref->getString(("ssid" + iter_str).c_str(), "");
+        this->bssid = this->pref->getString(("bssid" + iter_str).c_str(), "");
         this->password = this->pref->getString(("password" + iter_str).c_str(), "");
         this->channel = this->pref->getUInt(("channel" + iter_str).c_str());
         this->power = this->pref->getUInt(("power" + iter_str).c_str());
@@ -204,6 +214,7 @@ struct WiFiConfig_t : BaseConfigModel
 
         this->pref->putString(("name" + iter_str).c_str(), this->name.c_str());
         this->pref->putString(("ssid" + iter_str).c_str(), this->ssid.c_str());
+        this->pref->putString(("bssid" + iter_str).c_str(), this->bssid.c_str());
         this->pref->putString(("password" + iter_str).c_str(), this->password.c_str());
         this->pref->putUInt(("channel" + iter_str).c_str(), this->channel);
         this->pref->putUInt(("power" + iter_str).c_str(), this->power);
@@ -213,8 +224,8 @@ struct WiFiConfig_t : BaseConfigModel
 
     std::string toRepresentation()
     {
-        return Helpers::format_string("{\"name\": \"%s\", \"ssid\": \"%s\", \"password\": \"%s\", \"channel\": %u, \"power\": %u}", this->name.c_str(),
-                                      this->ssid.c_str(), this->password.c_str(), this->channel, this->power);
+        return Helpers::format_string("{\"name\": \"%s\", \"ssid\": \"%s\", \"bssid\": \"%s\", \"password\": \"%s\", \"channel\": %u, \"power\": %u}",
+                                      this->name.c_str(), this->ssid.c_str(), this->bssid.c_str(), this->password.c_str(), this->channel, this->power);
     };
 };
 

@@ -93,6 +93,10 @@ menu "OpenIris: WiFi Configuration"
         string "WiFi network name (SSID)"
         default ""
 
+    config WIFI_BSSID
+        string "WiFi network MAC Address (BSSID), completely optional, used in special cases"
+        default ""
+
     config WIFI_PASSWORD
         string "WiFi password"
         default ""

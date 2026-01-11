@@ -10,13 +10,14 @@ struct WifiPayload : BasePayload
 {
     std::string name;
     std::string ssid;
-    std::string bssid;
+    std::optional<std::string> bssid;
     std::string password;
     uint8_t channel;
     uint8_t power;
 };
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WifiPayload, name, ssid, bssid, password, channel, power)
+void to_json(nlohmann::json& j, const WifiPayload& payload);
+void from_json(const nlohmann::json& j, WifiPayload& payload);
 
 struct UpdateWifiPayload : BasePayload
 {

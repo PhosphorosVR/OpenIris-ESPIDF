@@ -19,14 +19,16 @@ CommandResult setWiFiCommand(std::shared_ptr<DependencyRegistry> registry, const
         return CommandResult::getErrorResult("Invalid payload: missing SSID");
     }
 
-    auto bssid_len = payload.bssid.length();
-    if (bssid_len > 0 && bssid_len != 11)
+    // format is XX:XX:XX:XX:XX:XX
+    const std::string bssid = payload.bssid.has_value() ? payload.bssid.value() : "";
+    const auto bssid_len = bssid.length();
+    if (bssid_len > 0 && bssid_len != 17)
     {
         return CommandResult::getErrorResult("BSSID is malformed");
     }
 
     std::shared_ptr<ProjectConfig> projectConfig = registry->resolve<ProjectConfig>(DependencyType::project_config);
-    projectConfig->setWifiConfig(payload.name, payload.ssid, payload.bssid, payload.password, payload.channel, payload.power);
+    projectConfig->setWifiConfig(payload.name, payload.ssid, bssid, payload.password, payload.channel, payload.power);
 
     return CommandResult::getSuccessResult("Config updated");
 }

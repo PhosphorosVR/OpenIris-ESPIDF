@@ -37,7 +37,8 @@ class ProjectConfig
     void setLEDDUtyCycleConfig(int led_external_pwm_duty_cycle);
     void setMDNSConfig(const std::string& hostname);
     void setCameraConfig(uint8_t vflip, uint8_t framesize, uint8_t href, uint8_t quality, uint8_t brightness);
-    void setWifiConfig(const std::string& networkName, const std::string& ssid, const std::string& password, uint8_t channel, uint8_t power);
+    void setWifiConfig(const std::string& networkName, const std::string& ssid, const std::string& bssid, const std::string& password, uint8_t channel,
+                       uint8_t power);
 
     void deleteWifiConfig(const std::string& networkName);
 

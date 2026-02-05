@@ -19,8 +19,16 @@ CommandResult setWiFiCommand(std::shared_ptr<DependencyRegistry> registry, const
         return CommandResult::getErrorResult("Invalid payload: missing SSID");
     }
 
+    // format is XX:XX:XX:XX:XX:XX
+    const std::string bssid = payload.bssid.has_value() ? payload.bssid.value() : "";
+    const auto bssid_len = bssid.length();
+    if (bssid_len > 0 && bssid_len != 17)
+    {
+        return CommandResult::getErrorResult("BSSID is malformed");
+    }
+
     std::shared_ptr<ProjectConfig> projectConfig = registry->resolve<ProjectConfig>(DependencyType::project_config);
-    projectConfig->setWifiConfig(payload.name, payload.ssid, payload.password, payload.channel, payload.power);
+    projectConfig->setWifiConfig(payload.name, payload.ssid, bssid, payload.password, payload.channel, payload.power);
 
     return CommandResult::getSuccessResult("Config updated");
 }
@@ -53,12 +61,22 @@ CommandResult updateWiFiCommand(std::shared_ptr<DependencyRegistry> registry, co
         return CommandResult::getErrorResult("Invalid payload - missing network name");
     }
 
+    if (payload.bssid.has_value())
+    {
+        auto bssid_len = payload.bssid.value().length();
+        if (bssid_len > 0 && bssid_len != 11)
+        {
+            return CommandResult::getErrorResult("BSSID is malformed");
+        }
+    }
+
     auto projectConfig = registry->resolve<ProjectConfig>(DependencyType::project_config);
     auto storedNetworks = projectConfig->getWifiConfigs();
     if (const auto networkToUpdate = std::ranges::find_if(storedNetworks, [&](auto& network) { return network.name == payload.name; });
         networkToUpdate != storedNetworks.end())
     {
         projectConfig->setWifiConfig(payload.name, payload.ssid.has_value() ? payload.ssid.value() : networkToUpdate->ssid,
+                                     payload.bssid.has_value() ? payload.bssid.value() : networkToUpdate->bssid,
                                      payload.password.has_value() ? payload.password.value() : networkToUpdate->password,
                                      payload.channel.has_value() ? payload.channel.value() : networkToUpdate->channel,
                                      payload.power.has_value() ? payload.power.value() : networkToUpdate->power);

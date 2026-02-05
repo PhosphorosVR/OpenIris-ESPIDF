@@ -82,6 +82,7 @@ class Menu(SubMenu):
 @dataclass
 class WiFiNetwork:
     ssid: str
+    bssid: str
     channel: int
     rssi: int
     mac_address: str
@@ -119,7 +120,7 @@ class WiFiScanner:
             "scan_networks", params={"timeout_ms": timeout_ms}, timeout=timeout
         )
         if has_command_failed(response):
-            print(f"❌ Scan failed: {response['error']}")
+            print(f"❌ Scan failed: {get_response_error(response)}")
             return
 
         channels_found = set()
@@ -130,6 +131,7 @@ class WiFiScanner:
         for net in networks:
             network = WiFiNetwork(
                 ssid=net["ssid"],
+                bssid=net["mac_address"],
                 channel=net["channel"],
                 rssi=net["rssi"],
                 mac_address=net["mac_address"],
@@ -144,12 +146,16 @@ class WiFiScanner:
             f"✅ Found {len(self.networks)} networks on channels: {sorted(channels_found)}"
         )
 
-    def get_networks(self) -> list:
+    def get_networks(self) -> list[WiFiNetwork]:
         return self.networks
 
 
 def has_command_failed(result) -> bool:
     return "error" in result or result["results"][0]["result"]["status"] != "success"
+
+
+def get_response_error(result) -> str:
+    return result["results"][0]["result"]["data"]
 
 
 def get_device_mode(device: OpenIrisDevice) -> dict:
@@ -181,7 +187,7 @@ def get_led_duty_cycle(device: OpenIrisDevice) -> dict:
 def get_mdns_name(device: OpenIrisDevice) -> dict:
     response = device.send_command("get_mdns_name")
     if "error" in response:
-        print(f"❌ Failed to get device name: {response['error']}")
+        print(f"❌ Failed to get device name: {get_response_error(response)}")
         return {"name": "unknown"}
 
     return {"name": response["results"][0]["result"]["data"]["hostname"]}
@@ -190,7 +196,7 @@ def get_mdns_name(device: OpenIrisDevice) -> dict:
 def get_serial_info(device: OpenIrisDevice) -> dict:
     response = device.send_command("get_serial")
     if has_command_failed(response):
-        print(f"❌ Failed to get serial/MAC: {response['error']}")
+        print(f"❌ Failed to get serial/MAC: {get_response_error(response)}")
         return {"serial": None, "mac": None}
 
     return {
@@ -203,7 +209,7 @@ def get_device_info(device: OpenIrisDevice) -> dict:
     response = device.send_command("get_who_am_i")
 
     if has_command_failed(response):
-        print(f"❌ Failed to get device info: {response['error']}")
+        print(f"❌ Failed to get device info: {get_response_error(response)}")
         return {"who_am_i": None, "version": None}
 
     return {
@@ -215,7 +221,7 @@ def get_device_info(device: OpenIrisDevice) -> dict:
 def get_wifi_status(device: OpenIrisDevice) -> dict:
     response = device.send_command("get_wifi_status")
     if has_command_failed(response):
-        print(f"❌ Failed to get wifi status: {response['error']}")
+        print(f"❌ Failed to get wifi status: {get_response_error(response)}")
         return {"wifi_status": {"status": "unknown"}}
 
     return {"wifi_status": response["results"][0]["result"]["data"]}
@@ -267,7 +273,7 @@ def configure_device_name(device: OpenIrisDevice, *args, **kwargs):
 
     response = device.send_command("set_mdns", {"hostname": name_choice})
     if "error" in response:
-        print(f"❌ MDNS name setup failed: {response['error']}")
+        print(f"❌ MDNS name setup failed: {get_response_error(response)}")
         return
 
     print("✅ MDNS name set successfully")
@@ -278,7 +284,7 @@ def start_streaming(device: OpenIrisDevice, *args, **kwargs):
     response = device.send_command("start_streaming")
 
     if "error" in response:
-        print(f"❌ Failed to start streaming: {response['error']}")
+        print(f"❌ Failed to start streaming: {get_response_error(response)}")
         return
 
     print("✅ Streaming mode started")
@@ -336,7 +342,7 @@ def set_led_duty_cycle(device: OpenIrisDevice, *args, **kwargs):
                 "set_led_duty_cycle", {"dutyCycle": duty_cycle}
             )
             if has_command_failed(response):
-                print(f"❌ Failed to set LED duty cycle: {response['error']}")
+                print(f"❌ Failed to set LED duty cycle: {get_response_error(response)}")
                 return False
 
             print("✅ LED duty cycle set successfully")
@@ -400,7 +406,7 @@ def restart_device_command(device: OpenIrisDevice, *args, **kwargs):
     print("🔄 Restarting device...")
     response = device.send_command("restart_device")
     if has_command_failed(response):
-        print(f"❌ Failed to restart device: {response['error']}")
+        print(f"❌ Failed to restart device: {get_response_error(response)}")
         return
 
     print("✅ Device restart command sent successfully")
@@ -439,9 +445,9 @@ def display_networks(wifi_scanner: WiFiScanner, *args, **kwargs):
         return
 
     print("\n📡 Available WiFi Networks:")
-    print("-" * 85)
-    print(f"{'#':<3} {'SSID':<32} {'Channel':<8} {'Signal':<20} {'Security':<15}")
-    print("-" * 85)
+    print("-" * 110)
+    print(f"{'#':<3} {'SSID':<32} {'Channel':<8} {'Signal':<20} {'BSSID':<22} {'Security':<15}")
+    print("-" * 110)
 
     channels = {}
     for idx, network in enumerate(networks, 1):
@@ -452,10 +458,10 @@ def display_networks(wifi_scanner: WiFiScanner, *args, **kwargs):
         ssid_display = network.ssid if network.ssid else "<hidden>"
 
         print(
-            f"{idx:<3} {ssid_display:<32} {network.channel:<8} {signal_str:<20} {network.security_type:<15}"
+            f"{idx:<3} {ssid_display:<32} {network.channel:<8} {signal_str:<20} {network.bssid:<22} {network.security_type:<15}"
         )
 
-    print("-" * 85)
+    print("-" * 110)
 
     print("\n📊 Channel distribution: ", end="")
     for channel in sorted(channels.keys()):
@@ -483,7 +489,7 @@ def configure_wifi(device: OpenIrisDevice, wifi_scanner: WiFiScanner, *args, **k
 
         sorted_networks = wifi_scanner.get_networks()
         if 0 <= net_idx < len(sorted_networks):
-            selected_network = sorted_networks[net_idx]
+            selected_network  = sorted_networks[net_idx]
             ssid = selected_network.ssid
 
             print(f"\n🔐 Selected: {ssid}")
@@ -502,6 +508,7 @@ def configure_wifi(device: OpenIrisDevice, wifi_scanner: WiFiScanner, *args, **k
             params = {
                 "name": "main",
                 "ssid": ssid,
+                "bssid": selected_network.bssid,
                 "password": password,
                 "channel": 0,
                 "power": 0,
@@ -509,7 +516,7 @@ def configure_wifi(device: OpenIrisDevice, wifi_scanner: WiFiScanner, *args, **k
 
             response = device.send_command("set_wifi", params)
             if has_command_failed(response):
-                print(f"❌ WiFi setup failed: {response['error']}")
+                print(f"❌ WiFi setup failed: {get_response_error(response)}")
                 break
 
             print("✅ WiFi configured successfully!")
@@ -557,7 +564,7 @@ def attempt_wifi_connection(device: OpenIrisDevice, *args, **kwargs):
     print("🔗 Attempting WiFi connection...")
     response = device.send_command("connect_wifi")
     if has_command_failed(response):
-        print(f"❌ WiFi connection failed: {response['error']}")
+        print(f"❌ WiFi connection failed: {get_response_error(response)}")
         return
 
     print("✅ WiFi connection attempt started")

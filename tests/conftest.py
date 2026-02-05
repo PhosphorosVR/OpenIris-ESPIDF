@@ -37,7 +37,8 @@ def pytest_addoption(parser):
 
 def pytest_configure(config):
     config.addinivalue_line(
-        "markers", "has_capability(caps): skip if the board does not have the capability"
+        "markers",
+        "has_capability(caps): skip if the board does not have the capability",
     )
     config.addinivalue_line(
         "markers", "lacks_capability(caps): skip if the board DOES have the capability"
@@ -60,7 +61,7 @@ def check_capability_marker(request, board_lacks_capability):
                 "has_capability marker must be provided with a capability to check"
             )
 
-        for capability in marker.args: 
+        for capability in marker.args:
             if board_lacks_capability(capability):
                 pytest.skip(f"Board does not have capability {capability}")
 
@@ -72,7 +73,7 @@ def check_lacks_capability_marker(request, board_lacks_capability):
             raise ValueError(
                 "lacks_capability marker must be provided with a capability to check"
             )
-        
+
         for capability in lacks_capability_marker.args:
             if not board_lacks_capability(capability):
                 pytest.skip(
@@ -119,6 +120,7 @@ def board_connection(request):
 @dataclass
 class TestConfig:
     WIFI_SSID: str
+    WIFI_BSSID: str
     WIFI_PASS: str
     SWITCH_MODE_REBOOT_TIME: int
     WIFI_CONNECTION_TIMEOUT: int
@@ -127,12 +129,14 @@ class TestConfig:
     def __init__(
         self,
         WIFI_SSID: str,
+        WIFI_BSSID: str,
         WIFI_PASS: str,
         SWITCH_MODE_REBOOT_TIME: int,
         WIFI_CONNECTION_TIMEOUT: int,
         INVALID_WIFI_CONNECTION_TIMEOUT: int,
     ):
         self.WIFI_SSID = WIFI_SSID
+        self.WIFI_BSSID = WIFI_BSSID
         self.WIFI_PASS = WIFI_PASS
         self.SWITCH_MODE_REBOOT_TIME = int(SWITCH_MODE_REBOOT_TIME)
         self.WIFI_CONNECTION_TIMEOUT = int(WIFI_CONNECTION_TIMEOUT)

@@ -127,7 +127,8 @@ void ProjectConfig::setCameraConfig(const uint8_t vflip, const uint8_t framesize
     ESP_LOGD(CONFIGURATION_TAG, "Updating Camera config");
 }
 
-void ProjectConfig::setWifiConfig(const std::string& networkName, const std::string& ssid, const std::string& password, uint8_t channel, uint8_t power)
+void ProjectConfig::setWifiConfig(const std::string& networkName, const std::string& ssid, const std::string& bssid, const std::string& password,
+                                  uint8_t channel, uint8_t power)
 {
     const auto size = this->config.networks.size();
 
@@ -139,6 +140,7 @@ void ProjectConfig::setWifiConfig(const std::string& networkName, const std::str
 
         it->name = networkName;
         it->ssid = ssid;
+        it->bssid = bssid;
         it->password = password;
         it->channel = channel;
         it->power = power;
@@ -150,7 +152,7 @@ void ProjectConfig::setWifiConfig(const std::string& networkName, const std::str
     if (size == 0)
     {
         ESP_LOGI(CONFIGURATION_TAG, "No networks, We're adding a new network");
-        this->config.networks.emplace_back(this->pref, static_cast<uint8_t>(0), networkName, ssid, password, channel, power);
+        this->config.networks.emplace_back(this->pref, static_cast<uint8_t>(0), networkName, ssid, bssid, password, channel, power);
         // Save the new network immediately
         this->config.networks.back().save();
         saveNetworkCount(this->pref, 1);
@@ -162,10 +164,10 @@ void ProjectConfig::setWifiConfig(const std::string& networkName, const std::str
     {
         ESP_LOGI(CONFIGURATION_TAG, "We're adding a new network");
         // we don't have that network yet, we can add it as we still have some
-        // space we're using emplace_back as push_back will create a copy of it,
+        // space, we're using emplace_back as push_back will create a copy of it,
         // we want to avoid that
         uint8_t last_index = getNetworkCount(this->pref);
-        this->config.networks.emplace_back(this->pref, last_index, networkName, ssid, password, channel, power);
+        this->config.networks.emplace_back(this->pref, last_index, networkName, ssid, bssid, password, channel, power);
         // Save the new network immediately
         this->config.networks.back().save();
         saveNetworkCount(this->pref, static_cast<int>(this->config.networks.size()));

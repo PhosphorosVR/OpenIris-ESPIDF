@@ -1,4 +1,8 @@
 #include "wifiManager.hpp"
+#include <charconv>
+#include <cstdint>
+#include <ranges>
+#include <string_view>
 
 static auto WIFI_MANAGER_TAG = "[WIFI_MANAGER]";
 
@@ -47,7 +51,25 @@ WiFiManager::WiFiManager(std::shared_ptr<ProjectConfig> deviceConfig, QueueHandl
 {
 }
 
-void WiFiManager::SetCredentials(const char* ssid, const char* password)
+std::vector<uint8_t> WiFiManager::ParseBSSID(std::string_view bssid_string)
+{
+    return bssid_string
+           // We format the bssid/mac address as XX:XX:XX:XX:XX:XX
+           | std::views::split(':')
+           // Once we have that, we can convert each sub range into a proper uint8_t value
+           | std::views::transform(
+                 [](auto&& subrange) -> uint8_t
+                 {
+                     auto view = std::string_view(subrange);
+                     uint8_t result{};
+                     std::from_chars(view.begin(), view.end(), result, 16);
+                     return result;
+                 })
+           // and now group them into the vector we need
+           | std::ranges::to<std::vector<uint8_t>>();
+}
+
+void WiFiManager::SetCredentials(const char* ssid, const std::vector<uint8_t> bssid, const char* password, bool use_bssid)
 {
     // Clear the config first
     memset(&_wifi_cfg, 0, sizeof(_wifi_cfg));
@@ -61,6 +83,13 @@ void WiFiManager::SetCredentials(const char* ssid, const char* password)
     size_t pass_len = std::min(strlen(password), sizeof(_wifi_cfg.sta.password) - 1);
     memcpy(_wifi_cfg.sta.password, password, pass_len);
     _wifi_cfg.sta.password[pass_len] = '\0';
+
+    // if we can use bssid, just copy it. Parser makes sure we do not exceed 6 elements so we should be safe here
+    // if we fail to parse, the vec will be empty, so use_bssid won't be set
+    if (use_bssid)
+    {
+        std::copy(bssid.begin(), bssid.end(), _wifi_cfg.sta.bssid);
+    }
 
     // Set other required fields
     // Use open auth if no password, otherwise allow any WPA variant
@@ -81,8 +110,8 @@ void WiFiManager::SetCredentials(const char* ssid, const char* password)
 
     // OPTIMIZATION: Use fast scan instead of all channel scan for quicker connection
     _wifi_cfg.sta.scan_method = WIFI_FAST_SCAN;
-    _wifi_cfg.sta.bssid_set = 0;  // Don't use specific BSSID
-    _wifi_cfg.sta.channel = 0;    // Auto channel detection
+    _wifi_cfg.sta.bssid_set = use_bssid;  // Don't use specific BSSID
+    _wifi_cfg.sta.channel = 0;            // Auto channel detection
 
     // Additional settings that might help with compatibility
     _wifi_cfg.sta.listen_interval = 0;                      // Default listen interval
@@ -101,7 +130,8 @@ void WiFiManager::SetCredentials(const char* ssid, const char* password)
 void WiFiManager::ConnectWithHardcodedCredentials()
 {
     SystemEvent event = {EventSource::WIFI, WiFiState_e::WiFiState_ReadyToConnect};
-    this->SetCredentials(CONFIG_WIFI_SSID, CONFIG_WIFI_PASSWORD);
+    const auto bssid = this->ParseBSSID(std::string_view(CONFIG_WIFI_BSSID));
+    this->SetCredentials(CONFIG_WIFI_SSID, bssid, CONFIG_WIFI_PASSWORD, bssid.size());
 
     wifi_mode_t mode;
     if (esp_wifi_get_mode(&mode) == ESP_OK)
@@ -170,7 +200,8 @@ void WiFiManager::ConnectWithStoredCredentials()
         // Reset retry counter for each network attempt
         s_retry_num = 0;
         xEventGroupClearBits(s_wifi_event_group, WIFI_FAIL_BIT | WIFI_CONNECTED_BIT);
-        this->SetCredentials(network.ssid.c_str(), network.password.c_str());
+        auto bssid = this->ParseBSSID(std::string_view(network.bssid));
+        this->SetCredentials(network.ssid.c_str(), bssid, network.password.c_str(), bssid.size());
 
         // Update config without stopping WiFi again
         ESP_LOGI(WIFI_MANAGER_TAG, "Attempting to connect to SSID: '%s'", network.ssid.c_str());

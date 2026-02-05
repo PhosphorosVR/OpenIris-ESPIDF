@@ -3,14 +3,15 @@
  * @brief BSP Layer - Common ADC sampling implementation
  *
  * This file contains platform-independent ADC sampling logic.
- * Platform-specific GPIO-to-channel mapping is in separate files:
- * - AdcSampler_esp32.cpp
- * - AdcSampler_esp32s3.cpp
+ * Platform-specific implementations are in separate files:
+ * - AdcSampler_esp32.cpp   (Tested)
+ * - AdcSampler_esp32s3.cpp (Tested)
+ * - AdcSampler_esp32s2.cpp (UNTESTED)
  */
 
 #include "AdcSampler.hpp"
 
-#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32)
+#if ADC_SAMPLER_SUPPORTED
 #include <esp_log.h>
 
 static const char* TAG = "[AdcSampler]";
@@ -22,11 +23,7 @@ AdcSampler::~AdcSampler()
 {
     if (cali_handle_)
     {
-#if defined(CONFIG_IDF_TARGET_ESP32S3)
-        adc_cali_delete_scheme_curve_fitting(cali_handle_);
-#elif defined(CONFIG_IDF_TARGET_ESP32)
-        adc_cali_delete_scheme_line_fitting(cali_handle_);
-#endif
+        delete_calibration(cali_handle_);
         cali_handle_ = nullptr;
     }
 }
@@ -66,29 +63,8 @@ bool AdcSampler::init(int gpio, adc_atten_t atten, adc_bitwidth_t bitwidth, size
     }
 
     // Try calibration (requires eFuse data)
-    // ESP32-S3 uses curve-fitting, ESP32 uses line-fitting
-    esp_err_t cal_err = ESP_FAIL;
-
-#if defined(CONFIG_IDF_TARGET_ESP32S3)
-    // ESP32-S3 curve fitting calibration
-    adc_cali_curve_fitting_config_t cal_cfg = {
-        .unit_id = unit_,
-        .chan = channel_,
-        .atten = atten_,
-        .bitwidth = bitwidth_,
-    };
-    cal_err = adc_cali_create_scheme_curve_fitting(&cal_cfg, &cali_handle_);
-#elif defined(CONFIG_IDF_TARGET_ESP32)
-    // ESP32 line-fitting calibration is per-unit, not per-channel
-    adc_cali_line_fitting_config_t cal_cfg = {
-        .unit_id = unit_,
-        .atten = atten_,
-        .bitwidth = bitwidth_,
-    };
-    cal_err = adc_cali_create_scheme_line_fitting(&cal_cfg, &cali_handle_);
-#endif
-
-    if (cal_err == ESP_OK)
+    // Platform-specific: ESP32-S3/S2 use curve-fitting, ESP32 uses line-fitting
+    if (create_calibration(&cali_handle_))
     {
         cali_inited_ = true;
         ESP_LOGI(TAG, "ADC calibration initialized");
@@ -193,4 +169,4 @@ bool AdcSampler::configure_channel(int gpio, adc_atten_t atten, adc_bitwidth_t b
     return true;
 }
 
-#endif  // CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32
+#endif  // ADC_SAMPLER_SUPPORTED

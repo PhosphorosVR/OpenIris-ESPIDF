@@ -1,6 +1,6 @@
 /**
  * @file AdcSampler_esp32.cpp
- * @brief BSP Layer - ESP32 specific GPIO to ADC channel mapping
+ * @brief BSP Layer - ESP32 specific ADC implementation
  *
  * ESP32 ADC1 GPIO mapping:
  * - GPIO32 → ADC1_CH4
@@ -54,6 +54,22 @@ bool AdcSampler::map_gpio_to_channel(int gpio, adc_unit_t& unit, adc_channel_t& 
         channel = ADC_CHANNEL_0;
         return false;
     }
+}
+
+bool AdcSampler::create_calibration(adc_cali_handle_t* handle)
+{
+    // ESP32 uses line fitting calibration (per-unit, not per-channel)
+    adc_cali_line_fitting_config_t cal_cfg = {
+        .unit_id = unit_,
+        .atten = atten_,
+        .bitwidth = bitwidth_,
+    };
+    return adc_cali_create_scheme_line_fitting(&cal_cfg, handle) == ESP_OK;
+}
+
+void AdcSampler::delete_calibration(adc_cali_handle_t handle)
+{
+    adc_cali_delete_scheme_line_fitting(handle);
 }
 
 #endif  // CONFIG_IDF_TARGET_ESP32

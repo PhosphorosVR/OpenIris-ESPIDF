@@ -142,7 +142,11 @@ CommandResult startStreamingCommand()
     // from *inside* the serial handler, we'd deadlock.
     // we can just pass nullptr to the vtaskdelete(),
     // but then we won't get any response, so we schedule a timer instead
-    esp_timer_create_args_t args{.callback = activateStreaming, .arg = nullptr, .name = "activateStreaming"};
+    esp_timer_create_args_t args{.callback = activateStreaming,
+                                 .arg = nullptr,
+                                 .dispatch_method = ESP_TIMER_TASK,
+                                 .name = "activateStreaming",
+                                 .skip_unhandled_events = false};
 
     esp_timer_handle_t activateStreamingTimer;
     esp_timer_create(&args, &activateStreamingTimer);

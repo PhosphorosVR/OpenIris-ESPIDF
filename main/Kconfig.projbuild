@@ -70,10 +70,10 @@ endmenu
 
 menu "OpenIris: Camera Configuration"
 
-    config CAMERA_USB_XCLK_FREQ
+    config CAMERA_USB_XCLK_FREQ_DEFAULT
         int "USB XCLK frequency (Hz)"
         default 10000000 # should be set in individual board config 
-        range 1 24000000
+        range 1 40000000
         help
             USB XCLK frequency in Hz.
 
@@ -83,6 +83,24 @@ menu "OpenIris: Camera Configuration"
         range 1 24000000
         help
             WIFI XCLK frequency in Hz.
+
+    config CAMERA_XCLK_FREQ_OV2640_OVERRIDE
+        int "Override XCLK for OV2640 (Hz, 0=default)"
+        default 0
+        range 0 40000000
+        help
+            Optional per-sensor XCLK override for OV2640. Leave at 0 to use the global WIFI/USB
+            XCLK settings. Values are applied after sensor detection; non-zero values should be
+            multiples of 1 MHz because the sensor driver API accepts MHz granularity.
+
+    config CAMERA_XCLK_FREQ_OV3660_OVERRIDE
+        int "Override XCLK for OV3660 (Hz, 0=default)"
+        default 0
+        range 0 40000000
+        help
+            Optional per-sensor XCLK override for OV3660. Leave at 0 to use the global WIFI/USB
+            XCLK settings. Values are applied after sensor detection; non-zero values should be
+            multiples of 1 MHz because the sensor driver API accepts MHz granularity.
 
 endmenu
 

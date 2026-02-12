@@ -48,7 +48,7 @@ void CameraManager::setupCameraPinout()
     ESP_LOGI(CAMERA_MANAGER_TAG, "CAM_BOARD");
 #endif
 #if CONFIG_GENERAL_INCLUDE_UVC_MODE
-    xclk_freq_hz = CONFIG_CAMERA_USB_XCLK_FREQ;
+    xclk_freq_hz = CONFIG_CAMERA_USB_XCLK_FREQ_DEFAULT;
 #endif
 
     config = {
@@ -170,6 +170,69 @@ bool CameraManager::setupCamera()
         constexpr auto event = SystemEvent{EventSource::CAMERA, CameraState_e::Camera_Error};
         xQueueSend(this->eventQueue, &event, 10);
         return false;
+    }
+
+    // Per-sensor XCLK override applied after detection so SCCB probe stays stable.
+    if (auto* detected_sensor = esp_camera_sensor_get())
+    {
+        auto* info = esp_camera_sensor_get_info(&detected_sensor->id);
+        const uint32_t requested_xclk = [detected_sensor]() {
+            switch (detected_sensor->id.PID)
+            {
+                case OV2640_PID:
+                    return static_cast<uint32_t>(CONFIG_CAMERA_XCLK_FREQ_OV2640_OVERRIDE);
+                case OV3660_PID:
+                    return static_cast<uint32_t>(CONFIG_CAMERA_XCLK_FREQ_OV3660_OVERRIDE);
+                default:
+                    return static_cast<uint32_t>(0);
+            }
+        }();
+
+        if (requested_xclk > 0)
+        {
+            uint32_t mhz = requested_xclk / 1000000U;
+            if (mhz == 0)
+            {
+                ESP_LOGW(CAMERA_MANAGER_TAG, "XCLK override %lu Hz too low; keeping %lu Hz",
+                         static_cast<unsigned long>(requested_xclk), static_cast<unsigned long>(config.xclk_freq_hz));
+            }
+            else
+            {
+                if ((requested_xclk % 1000000U) != 0)
+                {
+                    ESP_LOGW(CAMERA_MANAGER_TAG,
+                             "XCLK override %lu Hz not multiple of 1MHz; rounding to %lu MHz (driver granularity)",
+                             static_cast<unsigned long>(requested_xclk), static_cast<unsigned long>(mhz));
+                }
+
+                if (detected_sensor->set_xclk(detected_sensor, config.ledc_timer, static_cast<int>(mhz)) == 0)
+                {
+                    config.xclk_freq_hz = mhz * 1000000U;
+                    ESP_LOGI(CAMERA_MANAGER_TAG,
+                             "Camera %s (PID 0x%02x): applied XCLK override %lu Hz",
+                             info ? info->name : "unknown", detected_sensor->id.PID,
+                             static_cast<unsigned long>(config.xclk_freq_hz));
+                }
+                else
+                {
+                    ESP_LOGW(CAMERA_MANAGER_TAG,
+                             "Camera %s (PID 0x%02x): failed to apply XCLK override %lu Hz, keeping %lu Hz",
+                             info ? info->name : "unknown", detected_sensor->id.PID,
+                             static_cast<unsigned long>(requested_xclk), static_cast<unsigned long>(config.xclk_freq_hz));
+                }
+            }
+        }
+        else
+        {
+            ESP_LOGI(CAMERA_MANAGER_TAG,
+                     "Camera %s (PID 0x%02x): using default XCLK %lu Hz",
+                     info ? info->name : "unknown", detected_sensor->id.PID,
+                     static_cast<unsigned long>(config.xclk_freq_hz));
+        }
+    }
+    else
+    {
+        ESP_LOGW(CAMERA_MANAGER_TAG, "Camera sensor handle unavailable for XCLK override");
     }
 
 #if CONFIG_GENERAL_INCLUDE_UVC_MODE

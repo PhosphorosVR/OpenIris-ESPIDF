@@ -534,7 +534,7 @@ CONFIG_ENV_GPIO_OUT_RANGE_MAX=48
 CONFIG_GENERAL_VERSION="0.0.1"
 # end of OpenIris: General Configuration
 # OpenIris: Camera Configuration
-CONFIG_CAMERA_USB_XCLK_FREQ=23000000
+CONFIG_CAMERA_USB_XCLK_FREQ_DEFAULT=23000000
 CONFIG_CAMERA_WIFI_XCLK_FREQ=16500000
 # end of OpenIris: Camera Configuration
 # OpenIris: WiFi Configuration

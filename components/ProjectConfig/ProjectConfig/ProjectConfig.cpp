@@ -1,5 +1,7 @@
 #include "ProjectConfig.hpp"
 
+#include <algorithm>
+
 static auto CONFIGURATION_TAG = "[CONFIGURATION]";
 
 int getNetworkCount(Preferences* pref)
@@ -109,8 +111,11 @@ void ProjectConfig::setLEDDUtyCycleConfig(int led_external_pwm_duty_cycle)
 
 void ProjectConfig::setFanDutyCycleConfig(int fan_pwm_duty_cycle)
 {
-    this->config.device.fan_pwm_duty_cycle = fan_pwm_duty_cycle;
-    ESP_LOGI(CONFIGURATION_TAG, "Setting fan duty cycle to %d", fan_pwm_duty_cycle);
+    const int lo = std::min(CONFIG_FAN_PWM_DUTY_MIN, CONFIG_FAN_PWM_DUTY_MAX);
+    const int hi = std::max(CONFIG_FAN_PWM_DUTY_MIN, CONFIG_FAN_PWM_DUTY_MAX);
+    const int clamped = std::clamp(fan_pwm_duty_cycle, lo, hi);
+    this->config.device.fan_pwm_duty_cycle = clamped;
+    ESP_LOGI(CONFIGURATION_TAG, "Setting fan duty cycle to %d (clamped %d-%d)", fan_pwm_duty_cycle, lo, hi);
     this->config.device.save();
 }
 

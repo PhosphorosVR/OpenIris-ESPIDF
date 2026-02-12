@@ -218,6 +218,22 @@ menu "OpenIris: Fan Configuration"
         help
             PWM frequency for the fan. 25 kHz is common to reduce audible noise.
 
+    config FAN_PWM_DUTY_MIN
+        int "Fan PWM minimum duty (%)"
+        depends on FAN_PWM_ENABLE
+        range 0 100
+        default 0
+        help
+            Lower bound for allowed fan PWM duty in percent. Commands below this value are clamped/rejected.
+
+    config FAN_PWM_DUTY_MAX
+        int "Fan PWM maximum duty (%)"
+        depends on FAN_PWM_ENABLE
+        range 0 100
+        default 100
+        help
+            Upper bound for allowed fan PWM duty in percent. Commands above this value are clamped/rejected.
+
     config FAN_PWM_DUTY_CYCLE
         int "Fan PWM duty cycle (%)"
         depends on FAN_PWM_ENABLE

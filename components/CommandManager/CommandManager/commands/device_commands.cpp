@@ -93,9 +93,11 @@ CommandResult updateFanDutyCycleCommand(std::shared_ptr<DependencyRegistry> regi
 
     const auto dutyCycle = json["dutyCycle"].get<int>();
 
-    if (dutyCycle < 0 || dutyCycle > 100)
+    const int lo = std::min(CONFIG_FAN_PWM_DUTY_MIN, CONFIG_FAN_PWM_DUTY_MAX);
+    const int hi = std::max(CONFIG_FAN_PWM_DUTY_MIN, CONFIG_FAN_PWM_DUTY_MAX);
+    if (dutyCycle < lo || dutyCycle > hi)
     {
-        return CommandResult::getErrorResult("Invalid payload - unsupported dutyCycle");
+        return CommandResult::getErrorResult("Invalid payload - dutyCycle outside allowed range");
     }
 
     const auto projectConfig = registry->resolve<ProjectConfig>(DependencyType::project_config);

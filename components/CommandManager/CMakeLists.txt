@@ -13,5 +13,5 @@ idf_component_register(
   INCLUDE_DIRS
      "CommandManager"
      "CommandManager/commands"
-  REQUIRES ProjectConfig nlohmann-json CameraManager OpenIrisTasks wifiManager Helpers LEDManager Monitoring
+  REQUIRES ProjectConfig nlohmann-json CameraManager OpenIrisTasks wifiManager Helpers LEDManager FanManager Monitoring
 )

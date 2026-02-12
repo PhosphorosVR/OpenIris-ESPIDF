@@ -151,11 +151,22 @@ class WiFiScanner:
 
 
 def has_command_failed(result) -> bool:
-    return "error" in result or result["results"][0]["result"]["status"] != "success"
+    if "error" in result:
+        return True
+
+    try:
+        return result["results"][0]["result"]["status"] != "success"
+    except Exception:
+        return True
 
 
 def get_response_error(result) -> str:
-    return result["results"][0]["result"]["data"]
+    if "error" in result:
+        return result.get("error", "unknown error")
+    try:
+        return result["results"][0]["result"]["data"]
+    except Exception:
+        return "unknown error"
 
 
 def get_device_mode(device: OpenIrisDevice) -> dict:
@@ -181,6 +192,23 @@ def get_led_duty_cycle(device: OpenIrisDevice) -> dict:
         }
     except ValueError as e:
         print(f"❌ Failed to parse LED duty cycle: {e}")
+        return {"duty_cycle": "unknown"}
+
+
+def get_fan_duty_cycle(device: OpenIrisDevice) -> dict:
+    command_result = device.send_command("get_fan_duty_cycle")
+    if has_command_failed(command_result):
+        print(f"❌ Failed to get fan duty cycle: {get_response_error(command_result)}")
+        return {"duty_cycle": "unknown"}
+
+    try:
+        return {
+            "duty_cycle": int(
+                command_result["results"][0]["result"]["data"]["fan_pwm_duty_cycle"]
+            )
+        }
+    except ValueError as e:
+        print(f"❌ Failed to parse fan duty cycle: {e}")
         return {"duty_cycle": "unknown"}
 
 
@@ -350,6 +378,38 @@ def set_led_duty_cycle(device: OpenIrisDevice, *args, **kwargs):
             print(f"💡 Current LED duty cycle: {updated}%")
 
 
+def set_fan_duty_cycle(device: OpenIrisDevice, *args, **kwargs):
+    current_duty_cycle = get_fan_duty_cycle(device)["duty_cycle"]
+    print(f"🌀 Current fan duty cycle: {current_duty_cycle}%")
+
+    while True:
+        desired_pwd = input(
+            "Enter fan PWM duty cycle (0-100) or `back` to exit: \n>> "
+        )
+        if is_back(desired_pwd):
+            break
+
+        try:
+            duty_cycle = int(desired_pwd)
+        except ValueError:
+            print("❌ Invalid input. Please enter a number between 0 and 100.")
+            continue
+
+        if duty_cycle < 0 or duty_cycle > 100:
+            print("❌ Duty cycle must be between 0 and 100.")
+        else:
+            response = device.send_command(
+                "set_fan_duty_cycle", {"dutyCycle": duty_cycle}
+            )
+            if has_command_failed(response):
+                print(f"❌ Failed to set fan duty cycle: {get_response_error(response)}")
+                return False
+
+            print("✅ Fan duty cycle set successfully")
+            updated = get_fan_duty_cycle(device)["duty_cycle"]
+            print(f"🌀 Current fan duty cycle: {updated}%")
+
+
 def get_settings_summary(device: OpenIrisDevice, *args, **kwargs):
     print("🧩 Collecting device settings...\n")
 
@@ -358,6 +418,7 @@ def get_settings_summary(device: OpenIrisDevice, *args, **kwargs):
         ("AdvertisedName", get_mdns_name),
         ("Info", get_device_info),
         ("LED", get_led_duty_cycle),
+        ("Fan", get_fan_duty_cycle),
         ("Current", get_led_current),
         ("Battery", get_battery_status),
         ("Mode", get_device_mode),
@@ -371,6 +432,7 @@ def get_settings_summary(device: OpenIrisDevice, *args, **kwargs):
 
     print(f"🔑 Serial: {summary['Identity']}")
     print(f"💡 LED PWM Duty: {summary['LED']['duty_cycle']}%")
+    print(f"🌀 Fan PWM Duty: {summary['Fan']['duty_cycle']}%")
     print(f"🎚️  Mode: {summary['Mode']['mode']}")
 
     current_section = summary.get("Current", {})
@@ -598,6 +660,7 @@ def handle_menu(menu_context: dict | None = None) -> str:
     menu.add_action("🚀 Start streaming mode", start_streaming)
     menu.add_action("🔄 Switch device mode (WiFi/UVC/Auto)", switch_device_mode_command)
     menu.add_action("💡 Update PWM Duty Cycle", set_led_duty_cycle)
+    menu.add_action("🌀 Update Fan PWM Duty", set_fan_duty_cycle)
     menu.add_action("🧩 Get settings summary", get_settings_summary)
     menu.add_action("🔪 Restart device", restart_device_command)
     menu.show()

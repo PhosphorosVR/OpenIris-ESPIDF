@@ -64,6 +64,7 @@ struct DeviceConfig_t : BaseConfigModel
     std::string OTALogin;
     std::string OTAPassword;
     int led_external_pwm_duty_cycle;
+    int fan_pwm_duty_cycle;
     int OTAPort;
 
     void load()
@@ -76,6 +77,11 @@ struct DeviceConfig_t : BaseConfigModel
 #else
         this->led_external_pwm_duty_cycle = this->pref->getInt("led_ext_pwm", 100);
 #endif
+#if CONFIG_FAN_PWM_DUTY_CYCLE
+    this->fan_pwm_duty_cycle = this->pref->getInt("fan_pwm", CONFIG_FAN_PWM_DUTY_CYCLE);
+#else
+    this->fan_pwm_duty_cycle = this->pref->getInt("fan_pwm", 0);
+#endif
     };
 
     void save() const
@@ -84,14 +90,15 @@ struct DeviceConfig_t : BaseConfigModel
         this->pref->putString("OTAPassword", this->OTAPassword.c_str());
         this->pref->putInt("OTAPort", this->OTAPort);
         this->pref->putInt("led_ext_pwm", this->led_external_pwm_duty_cycle);
+        this->pref->putInt("fan_pwm", this->fan_pwm_duty_cycle);
     };
 
     std::string toRepresentation() const
     {
         return Helpers::format_string(
             "\"device_config\": {\"OTALogin\": \"%s\", \"OTAPassword\": \"%s\", "
-            "\"OTAPort\": %u, \"led_external_pwm_duty_cycle\": %u}",
-            this->OTALogin.c_str(), this->OTAPassword.c_str(), this->OTAPort, this->led_external_pwm_duty_cycle);
+            "\"OTAPort\": %u, \"led_external_pwm_duty_cycle\": %u, \"fan_pwm_duty_cycle\": %u}",
+            this->OTALogin.c_str(), this->OTAPassword.c_str(), this->OTAPort, this->led_external_pwm_duty_cycle, this->fan_pwm_duty_cycle);
     };
 };
 

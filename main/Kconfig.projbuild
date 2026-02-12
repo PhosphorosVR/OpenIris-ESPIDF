@@ -194,6 +194,40 @@ menu "OpenIris: LED Configuration"
 
 endmenu
 
+menu "OpenIris: Fan Configuration"
+
+    config FAN_PWM_ENABLE
+        bool "Enable PWM-controlled fan"
+        default false
+        help
+            Enable control of an external fan via LEDC PWM. Disable if no fan is connected.
+
+    config FAN_PWM_GPIO
+        int "Fan PWM GPIO number"
+        depends on FAN_PWM_ENABLE
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+        default 6
+        help
+            GPIO pin driving the fan PWM input.
+
+    config FAN_PWM_FREQ
+        int "Fan PWM frequency (Hz)"
+        depends on FAN_PWM_ENABLE
+        range 1 40000
+        default 25000
+        help
+            PWM frequency for the fan. 25 kHz is common to reduce audible noise.
+
+    config FAN_PWM_DUTY_CYCLE
+        int "Fan PWM duty cycle (%)"
+        depends on FAN_PWM_ENABLE
+        range 0 100
+        default 30
+        help
+            Default fan duty cycle in percent. 0 means off.
+
+endmenu
+
 menu "OpenIris: Monitoring"
 
     config MONITORING_LED_CURRENT

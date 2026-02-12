@@ -44,6 +44,7 @@ RestAPI::RestAPI(std::string url, std::shared_ptr<CommandManager> commandManager
     routes.emplace("/api/update/ota/credentials", RequestBaseData(PATCH_METHOD, CommandType::UPDATE_OTA_CREDENTIALS, 200, 400));
     routes.emplace("/api/update/ap/", RequestBaseData(PATCH_METHOD, CommandType::UPDATE_AP_WIFI, 200, 400));
     routes.emplace("/api/update/led_duty_cycle/", RequestBaseData(PATCH_METHOD, CommandType::SET_LED_DUTY_CYCLE, 200, 400));
+    routes.emplace("/api/update/fan_duty_cycle/", RequestBaseData(PATCH_METHOD, CommandType::SET_FAN_DUTY_CYCLE, 200, 400));
 
     // POST will set the data
     routes.emplace("/api/set/pause/", RequestBaseData(POST_METHOD, CommandType::PAUSE, 200, 400));
@@ -59,6 +60,7 @@ RestAPI::RestAPI(std::string url, std::shared_ptr<CommandManager> commandManager
     routes.emplace("/api/get/config/", RequestBaseData(GET_METHOD, CommandType::GET_CONFIG, 200, 400));
     routes.emplace("/api/get/mdns/", RequestBaseData(GET_METHOD, CommandType::GET_MDNS_NAME, 200, 400));
     routes.emplace("/api/get/led_duty_cycle/", RequestBaseData(GET_METHOD, CommandType::GET_LED_DUTY_CYCLE, 200, 400));
+    routes.emplace("/api/get/fan_duty_cycle/", RequestBaseData(GET_METHOD, CommandType::GET_FAN_DUTY_CYCLE, 200, 400));
     routes.emplace("/api/get/serial_number/", RequestBaseData(GET_METHOD, CommandType::GET_SERIAL, 200, 400));
     routes.emplace("/api/get/led_current/", RequestBaseData(GET_METHOD, CommandType::GET_LED_CURRENT, 200, 400));
     routes.emplace("/api/get/who_am_i/", RequestBaseData(GET_METHOD, CommandType::GET_WHO_AM_I, 200, 400));

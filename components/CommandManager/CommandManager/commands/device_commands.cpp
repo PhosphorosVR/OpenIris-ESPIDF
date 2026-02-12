@@ -2,6 +2,7 @@
 #include <cstdio>
 #include "LEDManager.hpp"
 #include "MonitoringManager.hpp"
+#include "FanManager.hpp"
 #include "esp_mac.h"
 
 CommandResult setDeviceModeCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json)
@@ -83,6 +84,32 @@ CommandResult updateLEDDutyCycleCommand(std::shared_ptr<DependencyRegistry> regi
     return CommandResult::getSuccessResult("LED duty cycle set");
 }
 
+CommandResult updateFanDutyCycleCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json)
+{
+    if (!json.contains("dutyCycle") || !json["dutyCycle"].is_number_integer())
+    {
+        return CommandResult::getErrorResult("Invalid payload - missing dutyCycle");
+    }
+
+    const auto dutyCycle = json["dutyCycle"].get<int>();
+
+    if (dutyCycle < 0 || dutyCycle > 100)
+    {
+        return CommandResult::getErrorResult("Invalid payload - unsupported dutyCycle");
+    }
+
+    const auto projectConfig = registry->resolve<ProjectConfig>(DependencyType::project_config);
+    projectConfig->setFanDutyCycleConfig(dutyCycle);
+
+    auto fanMgr = registry->resolve<FanManager>(DependencyType::fan_manager);
+    if (fanMgr)
+    {
+        fanMgr->setFanDutyCycle(static_cast<uint8_t>(dutyCycle));
+    }
+
+    return CommandResult::getSuccessResult("Fan duty cycle set");
+}
+
 CommandResult restartDeviceCommand()
 {
     OpenIrisTasks::ScheduleRestart(2000);
@@ -95,6 +122,15 @@ CommandResult getLEDDutyCycleCommand(std::shared_ptr<DependencyRegistry> registr
     const auto deviceCfg = projectConfig->getDeviceConfig();
     int duty = deviceCfg.led_external_pwm_duty_cycle;
     const auto json = nlohmann::json{{"led_external_pwm_duty_cycle", duty}};
+    return CommandResult::getSuccessResult(json);
+}
+
+CommandResult getFanDutyCycleCommand(std::shared_ptr<DependencyRegistry> registry)
+{
+    const auto projectConfig = registry->resolve<ProjectConfig>(DependencyType::project_config);
+    const auto deviceCfg = projectConfig->getDeviceConfig();
+    int duty = deviceCfg.fan_pwm_duty_cycle;
+    const auto json = nlohmann::json{{"fan_pwm_duty_cycle", duty}};
     return CommandResult::getSuccessResult(json);
 }
 

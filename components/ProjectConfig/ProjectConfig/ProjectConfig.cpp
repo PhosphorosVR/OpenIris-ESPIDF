@@ -107,6 +107,13 @@ void ProjectConfig::setLEDDUtyCycleConfig(int led_external_pwm_duty_cycle)
     this->config.device.save();
 }
 
+void ProjectConfig::setFanDutyCycleConfig(int fan_pwm_duty_cycle)
+{
+    this->config.device.fan_pwm_duty_cycle = fan_pwm_duty_cycle;
+    ESP_LOGI(CONFIGURATION_TAG, "Setting fan duty cycle to %d", fan_pwm_duty_cycle);
+    this->config.device.save();
+}
+
 void ProjectConfig::setMDNSConfig(const std::string& hostname)
 {
     ESP_LOGD(CONFIGURATION_TAG, "Updating MDNS config");

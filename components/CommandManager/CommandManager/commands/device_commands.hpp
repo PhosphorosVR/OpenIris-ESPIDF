@@ -13,6 +13,8 @@ CommandResult updateOTACredentialsCommand(std::shared_ptr<DependencyRegistry> re
 
 CommandResult updateLEDDutyCycleCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json);
 CommandResult getLEDDutyCycleCommand(std::shared_ptr<DependencyRegistry> registry);
+CommandResult updateFanDutyCycleCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json);
+CommandResult getFanDutyCycleCommand(std::shared_ptr<DependencyRegistry> registry);
 
 CommandResult restartDeviceCommand();
 

@@ -24,6 +24,8 @@ std::unordered_map<std::string, CommandType> commandTypeMap = {
     {"get_device_mode", CommandType::GET_DEVICE_MODE},
     {"set_led_duty_cycle", CommandType::SET_LED_DUTY_CYCLE},
     {"get_led_duty_cycle", CommandType::GET_LED_DUTY_CYCLE},
+    {"set_fan_duty_cycle", CommandType::SET_FAN_DUTY_CYCLE},
+    {"get_fan_duty_cycle", CommandType::GET_FAN_DUTY_CYCLE},
     {"get_serial", CommandType::GET_SERIAL},
     {"get_led_current", CommandType::GET_LED_CURRENT},
     {"get_battery_status", CommandType::GET_BATTERY_STATUS},
@@ -78,6 +80,10 @@ std::function<CommandResult()> CommandManager::createCommand(const CommandType t
         return [this, json] { return updateLEDDutyCycleCommand(this->registry, json); };
     case CommandType::GET_LED_DUTY_CYCLE:
         return [this] { return getLEDDutyCycleCommand(this->registry); };
+    case CommandType::SET_FAN_DUTY_CYCLE:
+        return [this, json] { return updateFanDutyCycleCommand(this->registry, json); };
+    case CommandType::GET_FAN_DUTY_CYCLE:
+        return [this] { return getFanDutyCycleCommand(this->registry); };
     case CommandType::GET_SERIAL:
         return [this] { return getSerialNumberCommand(this->registry); };
     case CommandType::GET_LED_CURRENT:

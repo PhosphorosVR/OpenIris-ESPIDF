@@ -2,6 +2,12 @@
 
 const char* LED_MANAGER_TAG = "[LED_MANAGER]";
 
+// Dedicated LEDC resources for the external illuminator to avoid clashing with the camera XCLK
+#ifdef CONFIG_LED_EXTERNAL_CONTROL
+constexpr ledc_timer_t EXTERNAL_LED_TIMER = LEDC_TIMER_1;
+constexpr ledc_channel_t EXTERNAL_LED_CHANNEL = LEDC_CHANNEL_1;
+#endif
+
 // Pattern design rules:
 //  - Error states: isError=true, repeat indefinitely, easily distinguishable (avoid overlap).
 //  - Non-error repeating: show continuous activity (e.g. streaming ON steady, connecting blink).
@@ -52,15 +58,15 @@ void LEDManager::setup()
     ESP_LOGI(LED_MANAGER_TAG, "Setting dutyCycle to: %lu ", dutyCycle);
 
     ledc_timer_config_t ledc_timer = {
-        .speed_mode = LEDC_LOW_SPEED_MODE, .duty_resolution = resolution, .timer_num = LEDC_TIMER_0, .freq_hz = freq, .clk_cfg = LEDC_AUTO_CLK};
+        .speed_mode = LEDC_LOW_SPEED_MODE, .duty_resolution = resolution, .timer_num = EXTERNAL_LED_TIMER, .freq_hz = freq, .clk_cfg = LEDC_AUTO_CLK};
 
     ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
 
     ledc_channel_config_t ledc_channel = {.gpio_num = this->illumninator_led_pin,
                                           .speed_mode = LEDC_LOW_SPEED_MODE,
-                                          .channel = LEDC_CHANNEL_0,
+                                          .channel = EXTERNAL_LED_CHANNEL,
                                           .intr_type = LEDC_INTR_DISABLE,
-                                          .timer_sel = LEDC_TIMER_0,
+                                          .timer_sel = EXTERNAL_LED_TIMER,
                                           .duty = dutyCycle,
                                           .hpoint = 0};
 
@@ -135,7 +141,7 @@ void LEDManager::updateState(const LEDStates_e newState)
         // store current duty once
         if (!hasStoredExternalDuty)
         {
-            storedExternalDuty = ledc_get_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+            storedExternalDuty = ledc_get_duty(LEDC_LOW_SPEED_MODE, EXTERNAL_LED_CHANNEL);
             hasStoredExternalDuty = true;
         }
     }
@@ -144,8 +150,8 @@ void LEDManager::updateState(const LEDStates_e newState)
         // restore duty
         if (hasStoredExternalDuty)
         {
-            ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, storedExternalDuty));
-            ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
+            ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_set_duty(LEDC_LOW_SPEED_MODE, EXTERNAL_LED_CHANNEL, storedExternalDuty));
+            ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_update_duty(LEDC_LOW_SPEED_MODE, EXTERNAL_LED_CHANNEL));
             hasStoredExternalDuty = false;
         }
     }
@@ -168,8 +174,8 @@ void LEDManager::toggleLED(const bool state) const
     {
         // For pattern ON use 50%, OFF use 0%
         uint32_t duty = (state == LED_ON) ? ((50 * 255) / 100) : 0;
-        ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty));
-        ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
+        ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_set_duty(LEDC_LOW_SPEED_MODE, EXTERNAL_LED_CHANNEL, duty));
+        ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_update_duty(LEDC_LOW_SPEED_MODE, EXTERNAL_LED_CHANNEL));
     }
 #endif
 }
@@ -181,9 +187,9 @@ void LEDManager::setExternalLEDDutyCycle(uint8_t dutyPercent)
     ESP_LOGI(LED_MANAGER_TAG, "Updating external LED duty to %u%% (raw %lu)", dutyPercent, dutyCycle);
 
     // Apply to LEDC hardware live
-    // We configured channel 0 in setup with LEDC_LOW_SPEED_MODE
-    ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, dutyCycle));
-    ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
+    // We configured a dedicated channel in setup with LEDC_LOW_SPEED_MODE
+    ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_set_duty(LEDC_LOW_SPEED_MODE, EXTERNAL_LED_CHANNEL, dutyCycle));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_update_duty(LEDC_LOW_SPEED_MODE, EXTERNAL_LED_CHANNEL));
 #else
     (void)dutyPercent;  // unused
     ESP_LOGW(LED_MANAGER_TAG, "CONFIG_LED_EXTERNAL_CONTROL not enabled; ignoring duty update");

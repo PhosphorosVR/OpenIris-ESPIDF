@@ -35,6 +35,7 @@ class ProjectConfig
 
     void setOTAConfig(const std::string& OTALogin, const std::string& OTAPassword, int OTAPort);
     void setLEDDUtyCycleConfig(int led_external_pwm_duty_cycle);
+    void setFanDutyCycleConfig(int fan_pwm_duty_cycle);
     void setMDNSConfig(const std::string& hostname);
     void setCameraConfig(uint8_t vflip, uint8_t framesize, uint8_t href, uint8_t quality, uint8_t brightness);
     void setWifiConfig(const std::string& networkName, const std::string& ssid, const std::string& bssid, const std::string& password, uint8_t channel,

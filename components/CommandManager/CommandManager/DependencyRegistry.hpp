@@ -10,6 +10,7 @@ enum class DependencyType
     camera_manager,
     wifi_manager,
     led_manager,
+    fan_manager,
     monitoring_manager
 };
 

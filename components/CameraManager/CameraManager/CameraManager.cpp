@@ -174,13 +174,35 @@ bool CameraManager::setupCamera()
 
 #if CONFIG_GENERAL_INCLUDE_UVC_MODE
     const auto temp_sensor = esp_camera_sensor_get();
+    const auto camera_id = temp_sensor->id.PID;
+    bool reinit_required = false;
 
-    // Thanks to lick_it, we discovered that OV5640 likes to overheat when
-    // running at higher than usual xclk frequencies.
-    // Hence, why we're limiting the faster ones for OV2640
-    if (const auto camera_id = temp_sensor->id.PID; camera_id == OV5640_PID)
+    // Thanks to lick_it, we discovered that OV5640 likes to overheat when running at higher than usual xclk frequencies.
+    // OV3660 is only stable at 27MHz
+    if (camera_id == OV5640_PID)
     {
-        config.xclk_freq_hz = OV5640_XCLK_FREQ_HZ;
+        if (config.xclk_freq_hz != OV5640_XCLK_FREQ_HZ)
+        {
+            config.xclk_freq_hz = OV5640_XCLK_FREQ_HZ;
+            reinit_required = true;
+        }
+    }
+
+#ifdef OV3660_PID
+    // OV3660 is stable at 27 MHz; keep lower defaults for other sensors.
+    if (camera_id == OV3660_PID)
+    {
+        if (config.xclk_freq_hz != CONFIG_CAMERA_OV3660_XCLK_FREQ)
+        {
+            config.xclk_freq_hz = CONFIG_CAMERA_OV3660_XCLK_FREQ;
+            reinit_required = true;
+        }
+    }
+#endif
+
+    if (reinit_required)
+    {
+        ESP_LOGI(CAMERA_MANAGER_TAG, "Reconfiguring XCLK for sensor PID 0x%02x to %d Hz", camera_id, config.xclk_freq_hz);
         esp_camera_deinit();
         esp_camera_init(&config);
     }

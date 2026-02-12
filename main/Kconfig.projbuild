@@ -73,16 +73,25 @@ menu "OpenIris: Camera Configuration"
     config CAMERA_USB_XCLK_FREQ
         int "USB XCLK frequency (Hz)"
         default 10000000 # should be set in individual board config 
-        range 1 24000000
+        range 1 27000000
         help
             USB XCLK frequency in Hz.
 
     config CAMERA_WIFI_XCLK_FREQ
         int "WIFI XCLK frequency (Hz)"
         default 16500000
-        range 1 24000000
+        range 1 27000000
         help
             WIFI XCLK frequency in Hz.
+
+    config CAMERA_OV3660_XCLK_FREQ
+        int "OV3660 XCLK frequency (Hz)"
+        default 27000000
+        range 1 27000000
+        help
+            Sensor-specific XCLK frequency for OV3660. Used when an OV3660 is
+            detected at runtime to avoid unstable clocks while keeping lower
+            defaults for other sensors.
 
 endmenu
 

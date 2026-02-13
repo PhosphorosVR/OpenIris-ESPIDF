@@ -75,7 +75,7 @@ void CameraManager::setupCameraPinout()
         .ledc_channel = LEDC_CHANNEL_0,
 
         .pixel_format = PIXFORMAT_JPEG,   // YUV422,GRAYSCALE,RGB565,JPEG
-        .frame_size = FRAMESIZE_240X240,  // QQVGA-UXGA, For ESP32, do not use sizes above QVGA when not JPEG. The performance of the ESP32-S series has
+        .frame_size = FRAMESIZE_320X320,  // QQVGA-UXGA, For ESP32, do not use sizes above QVGA when not JPEG. The performance of the ESP32-S series has
                                           // improved a lot, but JPEG mode always gives better frame rates.
 
         .jpeg_quality = 8,  // 0-63, for OV series camera sensors, lower number means higher quality // Below 6 stability problems
@@ -142,7 +142,7 @@ void CameraManager::setupCameraSensor()
                                            // 4 - Green Tint, 5 - Blue Tint, 6 - Sepia)
 
     // it gets overriden somewhere somehow
-    camera_sensor->set_framesize(camera_sensor, FRAMESIZE_240X240);
+    camera_sensor->set_framesize(camera_sensor, FRAMESIZE_320X320);
     ESP_LOGI(CAMERA_MANAGER_TAG, "Setting up camera sensor done");
 }
 

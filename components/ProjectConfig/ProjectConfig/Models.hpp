@@ -145,7 +145,7 @@ struct CameraConfig_t : BaseConfigModel
     {
         this->vflip = this->pref->getInt("vflip", 0);
         this->href = this->pref->getInt("href", 0);
-        this->framesize = this->pref->getInt("framesize", 5);
+        this->framesize = this->pref->getInt("framesize", 7);
         this->quality = this->pref->getInt("quality", 7);
         this->brightness = this->pref->getInt("brightness", 2);
     };

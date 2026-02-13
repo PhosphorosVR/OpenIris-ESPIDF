@@ -47,7 +47,7 @@ static esp_err_t UVCStreamHelpers::camera_start_cb(uvc_format_t format, int widt
 {
     ESP_LOGI(UVC_STREAM_TAG, "Camera Start");
     ESP_LOGI(UVC_STREAM_TAG, "Format: %d, width: %d, height: %d, rate: %d", format, width, height, rate);
-    framesize_t frame_size = FRAMESIZE_QVGA;
+    framesize_t frame_size = FRAMESIZE_320X320;
 
     if (format != UVC_FORMAT_JPEG)
     {
@@ -55,9 +55,13 @@ static esp_err_t UVCStreamHelpers::camera_start_cb(uvc_format_t format, int widt
         return ESP_ERR_NOT_SUPPORTED;
     }
 
-    if (width == 240 && height == 240)
+    if (width == 320 && height == 320)
     {
-        frame_size = FRAMESIZE_240X240;
+        frame_size = FRAMESIZE_320X320;
+    }
+    else if (width == 240 && height == 240)
+    {
+        frame_size = FRAMESIZE_240X240;  // legacy compatibility
     }
     else
     {

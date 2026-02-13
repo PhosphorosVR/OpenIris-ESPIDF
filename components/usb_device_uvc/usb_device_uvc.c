@@ -17,10 +17,23 @@
 #endif
 #include "tusb.h"
 #include "usb_device_uvc.h"
+#include "tusb/uvc_frame_config.h"
 
 static const char *TAG = "usbd_uvc";
 
 #define UVC_CAM_NUM 1
+
+const uvc_frame_info_t UVC_FRAMES_INFO_320[UVC_FRAME_NUM] = {
+    {320, 320, 60},
+};
+
+const uvc_frame_info_t UVC_FRAMES_INFO_240[UVC_FRAME_NUM] = {
+    {240, 240, 60},
+};
+
+static const uvc_frame_info_t *s_active_frames = UVC_FRAMES_INFO_320;
+static int s_active_frame_num = UVC_FRAME_NUM;
+static bool s_use_320 = true;
 
 typedef struct
 {
@@ -35,6 +48,18 @@ typedef struct
 } uvc_device_t;
 
 static uvc_device_t s_uvc_device;
+
+void uvc_select_frame_profile(bool use_320)
+{
+    s_use_320 = use_320;
+    s_active_frames = use_320 ? UVC_FRAMES_INFO_320 : UVC_FRAMES_INFO_240;
+    s_active_frame_num = UVC_FRAME_NUM;
+}
+
+bool uvc_is_frame_profile_320(void)
+{
+    return s_use_320;
+}
 
 static void usb_phy_init(void)
 {
@@ -183,14 +208,15 @@ int tud_video_commit_cb(uint_fast8_t ctl_idx, uint_fast8_t stm_idx,
     /* convert unit to ms from 100 ns */
     ESP_LOGI(TAG, "bFrameIndex: %u", parameters->bFrameIndex);
     ESP_LOGI(TAG, "dwFrameInterval: %" PRIu32 "", parameters->dwFrameInterval);
-    if (parameters->bFrameIndex > UVC_FRAME_NUM)
+    if (parameters->bFrameIndex == 0 || parameters->bFrameIndex > s_active_frame_num)
     {
         return VIDEO_ERROR_OUT_OF_RANGE;
     }
     s_uvc_device.interval_ms[ctl_idx] = parameters->dwFrameInterval / 10000;
     int frame_index = parameters->bFrameIndex - 1;
-    esp_err_t ret = s_uvc_device.user_config[ctl_idx].start_cb(s_uvc_device.format[ctl_idx], UVC_FRAMES_INFO[ctl_idx][frame_index].width,
-                                                               UVC_FRAMES_INFO[ctl_idx][frame_index].height, UVC_FRAMES_INFO[ctl_idx][frame_index].rate, s_uvc_device.user_config[ctl_idx].cb_ctx);
+    const uvc_frame_info_t *info = &s_active_frames[frame_index];
+    esp_err_t ret = s_uvc_device.user_config[ctl_idx].start_cb(s_uvc_device.format[ctl_idx], info->width,
+                                                               info->height, info->rate, s_uvc_device.user_config[ctl_idx].cb_ctx);
 
     if (ret != ESP_OK)
     {

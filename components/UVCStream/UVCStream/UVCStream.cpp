@@ -47,7 +47,9 @@ static esp_err_t UVCStreamHelpers::camera_start_cb(uvc_format_t format, int widt
 {
     ESP_LOGI(UVC_STREAM_TAG, "Camera Start");
     ESP_LOGI(UVC_STREAM_TAG, "Format: %d, width: %d, height: %d, rate: %d", format, width, height, rate);
-    framesize_t frame_size = FRAMESIZE_320X320;
+    framesize_t frame_size = FRAMESIZE_240X240;
+    auto* sensor = esp_camera_sensor_get();
+    uint16_t pid = sensor ? sensor->id.PID : 0;
 
     if (format != UVC_FORMAT_JPEG)
     {
@@ -55,18 +57,47 @@ static esp_err_t UVCStreamHelpers::camera_start_cb(uvc_format_t format, int widt
         return ESP_ERR_NOT_SUPPORTED;
     }
 
-    if (width == 320 && height == 320)
+    // Sensor-based allowance: OV3660 only 320x320; OV2640 only 240x240; others 240/320
+    if (pid == OV3660_PID)
     {
-        frame_size = FRAMESIZE_320X320;
+        if (width == 320 && height == 320)
+        {
+            frame_size = FRAMESIZE_320X320;
+        }
+        else
+        {
+            ESP_LOGE(UVC_STREAM_TAG, "OV3660 requires 320x320, requested %dx%d not allowed", width, height);
+            return ESP_ERR_NOT_SUPPORTED;
+        }
     }
-    else if (width == 240 && height == 240)
+    else if (pid == OV2640_PID)
     {
-        frame_size = FRAMESIZE_240X240;  // legacy compatibility
+        if (width == 240 && height == 240)
+        {
+            frame_size = FRAMESIZE_240X240;
+        }
+        else
+        {
+            ESP_LOGE(UVC_STREAM_TAG, "OV2640 limited to 240x240 for UVC, requested %dx%d", width, height);
+            return ESP_ERR_NOT_SUPPORTED;
+        }
     }
     else
     {
-        ESP_LOGE(UVC_STREAM_TAG, "Unsupported frame size %dx%d", width, height);
-        return ESP_ERR_NOT_SUPPORTED;
+        // Fallback: akzeptiere 320 oder 240
+        if (width == 320 && height == 320)
+        {
+            frame_size = FRAMESIZE_320X320;
+        }
+        else if (width == 240 && height == 240)
+        {
+            frame_size = FRAMESIZE_240X240;
+        }
+        else
+        {
+            ESP_LOGE(UVC_STREAM_TAG, "Unsupported frame size %dx%d", width, height);
+            return ESP_ERR_NOT_SUPPORTED;
+        }
     }
 
     cameraHandler->setCameraResolution(frame_size);
@@ -171,6 +202,18 @@ static void UVCStreamHelpers::camera_fb_return_cb(uvc_fb_t* fb, void* cb_ctx)
 esp_err_t UVCStreamManager::setup()
 {
     ESP_LOGI(UVC_STREAM_TAG, "Setting up UVC Stream");
+
+    // Select descriptor/profile based on detected sensor (OV3660 -> 320, OV2640 -> 240)
+    bool use_320 = true;
+    if (auto* sensor = esp_camera_sensor_get())
+    {
+        if (sensor->id.PID == OV2640_PID)
+        {
+            use_320 = false;
+        }
+    }
+    uvc_select_frame_profile(use_320);
+
     // Allocate a fixed-size transfer buffer (compile-time constant)
     uvc_buffer_size = UVCStreamManager::UVC_MAX_FRAMESIZE_SIZE;
     uvc_buffer = static_cast<uint8_t*>(malloc(uvc_buffer_size));

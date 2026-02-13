@@ -25,6 +25,7 @@
 
 #include "tusb.h"
 #include "usb_descriptors.h"
+#include "../include/usb_device_uvc.h"
 #include <string.h> // memcpy, strlen
 
 //--------------------------------------------------------------------+
@@ -80,112 +81,28 @@ uint8_t const *tud_descriptor_device_cb(void)
 // Endpoint numbers for UVC video IN endpoints (device -> host)
 #define EPNUM_CAM1_VIDEO_IN 0x83
 
-#if CFG_TUD_CAM1_VIDEO_STREAMING_BULK
-
-#if CONFIG_UVC_CAM1_MULTI_FRAMESIZE
-#if CONFIG_FORMAT_MJPEG_CAM1
-#define TUD_CAM1_VIDEO_CAPTURE_DESC_LEN (TUD_VIDEO_CAPTURE_DESC_MULTI_MJPEG_BULK_LEN(4))
-#elif CONFIG_FORMAT_H264_CAM1
-#define TUD_CAM1_VIDEO_CAPTURE_DESC_LEN (TUD_VIDEO_CAPTURE_DESC_MULTI_FRAME_BASED_BULK_LEN(4))
-#endif
-#else
-#if CONFIG_FORMAT_MJPEG_CAM1
+// Single-size MJPEG bulk descriptors; we return either 320 or 240 variant at runtime
 #define TUD_CAM1_VIDEO_CAPTURE_DESC_LEN (TUD_VIDEO_CAPTURE_DESC_MJPEG_BULK_LEN)
-#elif CONFIG_FORMAT_H264_CAM1
-#define TUD_CAM1_VIDEO_CAPTURE_DESC_LEN (TUD_VIDEO_CAPTURE_DESC_FRAME_BASED_BULK_LEN)
-#else
-#define TUD_CAM1_VIDEO_CAPTURE_DESC_LEN (TUD_VIDEO_CAPTURE_DESC_UNCOMPR_BULK_LEN)
-#endif
-#endif // CONFIG_UVC_CAM1_MULTI_FRAMESIZE
 
-#else
+#define CONFIG_TOTAL_LEN_320 (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_CAM1_VIDEO_CAPTURE_DESC_LEN)
+#define CONFIG_TOTAL_LEN_240 (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_CAM1_VIDEO_CAPTURE_DESC_LEN)
 
-#if CONFIG_UVC_CAM1_MULTI_FRAMESIZE
-#if CONFIG_FORMAT_MJPEG_CAM1
-#define TUD_CAM1_VIDEO_CAPTURE_DESC_LEN (TUD_VIDEO_CAPTURE_DESC_MULTI_MJPEG_LEN(4))
-#elif CONFIG_FORMAT_H264_CAM1
-#define TUD_CAM1_VIDEO_CAPTURE_DESC_LEN (TUD_VIDEO_CAPTURE_DESC_MULTI_FRAME_BASED_LEN(4))
-#endif
-#else
-#if CONFIG_FORMAT_MJPEG_CAM1
-#define TUD_CAM1_VIDEO_CAPTURE_DESC_LEN (TUD_VIDEO_CAPTURE_DESC_MJPEG_LEN)
-#elif CONFIG_FORMAT_H264_CAM1
-#define TUD_CAM1_VIDEO_CAPTURE_DESC_LEN (TUD_VIDEO_CAPTURE_DESC_FRAME_BASED_LEN)
-#else
-#define TUD_CAM1_VIDEO_CAPTURE_DESC_LEN (TUD_VIDEO_CAPTURE_DESC_UNCOMPR_LEN)
-#endif
-#endif // CONFIG_UVC_CAM1_MULTI_FRAMESIZE
-
-#endif // CFG_TUD_CAM1_VIDEO_STREAMING_BULK
-
-// Total length of this configuration
-#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_CAM1_VIDEO_CAPTURE_DESC_LEN)
-
-// Full-speed configuration descriptor
-static uint8_t const desc_fs_configuration[] = {
-    // TUD_CONFIG_DESCRIPTOR(config_number, interface_count, string_index,
-    //                       total_length, attributes, power_mA)
-    // attributes: 0 = bus-powered (default). Add TUSB_DESC_CONFIG_ATT_SELF_POWERED or _REMOTE_WAKEUP if needed.
-    // Advertise max bus power consumption: 200 mA
-    TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0, 200),
+static uint8_t const desc_fs_configuration_320[] = {
+    TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN_320, 0, 200),
     TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 6, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, 64),
-// IAD for Video Control
-#if CFG_TUD_CAM1_VIDEO_STREAMING_BULK
-#if CONFIG_UVC_CAM1_MULTI_FRAMESIZE
-#if CONFIG_FORMAT_MJPEG_CAM1
-    // Camera 1, multi-size MJPEG over BULK
-    TUD_VIDEO_CAPTURE_DESCRIPTOR_MULTI_MJPEG_BULK(STRID_UVC_CAM1, ITF_NUM_VIDEO_CONTROL, EPNUM_CAM1_VIDEO_IN, CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE),
-#elif CONFIG_FORMAT_H264_CAM1
-    // Camera 1, multi-size H.264 over BULK
-    TUD_VIDEO_CAPTURE_DESCRIPTOR_MULTI_H264_BULK(STRID_UVC_CAM1, ITF_NUM_VIDEO_CONTROL, EPNUM_CAM1_VIDEO_IN, CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE),
-#endif
-#else
-#if CONFIG_FORMAT_MJPEG_CAM1
-    // Camera 1, single-size MJPEG over BULK
+    // Camera 1, single-size MJPEG over BULK 320x320
     TUD_VIDEO_CAPTURE_DESCRIPTOR_MJPEG_BULK(STRID_UVC_CAM1, ITF_NUM_VIDEO_CONTROL, EPNUM_CAM1_VIDEO_IN,
-                                            UVC_CAM1_FRAME_WIDTH, UVC_CAM1_FRAME_HEIGHT, UVC_CAM1_FRAME_RATE,
+                                            320, 320, CONFIG_UVC_CAM1_FRAMERATE,
                                             CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE),
-#elif CONFIG_FORMAT_H264_CAM1
-    // Camera 1, single-size H.264 over BULK
-    TUD_VIDEO_CAPTURE_DESCRIPTOR_H264_BULK(STRID_UVC_CAM1, ITF_NUM_VIDEO_CONTROL, EPNUM_CAM1_VIDEO_IN,
-                                           UVC_CAM1_FRAME_WIDTH, UVC_CAM1_FRAME_HEIGHT, UVC_CAM1_FRAME_RATE,
-                                           CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE),
-#else
-    // Camera 1, single-size Uncompressed (YUY2/etc) over BULK
-    TUD_VIDEO_CAPTURE_DESCRIPTOR_UNCOMPR_BULK(STRID_UVC_CAM1, ITF_NUM_VIDEO_CONTROL, EPNUM_CAM1_VIDEO_IN,
-                                              UVC_CAM1_FRAME_WIDTH, UVC_CAM1_FRAME_HEIGHT, UVC_CAM1_FRAME_RATE,
-                                              CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE),
-#endif
-#endif // CONFIG_UVC_CAM1_MULTI_FRAMESIZE
-#else
-#if CONFIG_UVC_CAM1_MULTI_FRAMESIZE
-#if CONFIG_FORMAT_MJPEG_CAM1
-    // Camera 1, multi-size MJPEG over ISO
-    TUD_VIDEO_CAPTURE_DESCRIPTOR_MULTI_MJPEG(STRID_UVC_CAM1, ITF_NUM_VIDEO_CONTROL, EPNUM_CAM1_VIDEO_IN, CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE),
-#elif CONFIG_FORMAT_H264_CAM1
-    // Camera 1, multi-size H.264 over ISO
-    TUD_VIDEO_CAPTURE_DESCRIPTOR_MULTI_H264(STRID_UVC_CAM1, ITF_NUM_VIDEO_CONTROL, EPNUM_CAM1_VIDEO_IN, CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE),
-#endif
-#else
-#if CONFIG_FORMAT_MJPEG_CAM1
-    // Camera 1, single-size MJPEG over ISO
-    TUD_VIDEO_CAPTURE_DESCRIPTOR_MJPEG(STRID_UVC_CAM1, ITF_NUM_VIDEO_CONTROL, EPNUM_CAM1_VIDEO_IN,
-                                       UVC_CAM1_FRAME_WIDTH, UVC_CAM1_FRAME_HEIGHT, UVC_CAM1_FRAME_RATE,
-                                       CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE),
-#elif CONFIG_FORMAT_H264_CAM1
-    // Camera 1, single-size H.264 over ISO
-    TUD_VIDEO_CAPTURE_DESCRIPTOR_H264(STRID_UVC_CAM1, ITF_NUM_VIDEO_CONTROL, EPNUM_CAM1_VIDEO_IN,
-                                      UVC_CAM1_FRAME_WIDTH, UVC_CAM1_FRAME_HEIGHT, UVC_CAM1_FRAME_RATE,
-                                      CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE),
-#else
-    // Camera 1, single-size Uncompressed over ISO
-    TUD_VIDEO_CAPTURE_DESCRIPTOR_UNCOMPR(STRID_UVC_CAM1, ITF_NUM_VIDEO_CONTROL, EPNUM_CAM1_VIDEO_IN,
-                                         UVC_CAM1_FRAME_WIDTH, UVC_CAM1_FRAME_HEIGHT, UVC_CAM1_FRAME_RATE,
-                                         CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE),
-#endif
-#endif // CONFIG_UVC_CAM1_MULTI_FRAMESIZE
-#endif // CFG_TUD_CAM1_VIDEO_STREAMING_BULK
+};
 
+static uint8_t const desc_fs_configuration_240[] = {
+    TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN_240, 0, 200),
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 6, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, 64),
+    // Camera 1, single-size MJPEG over BULK 240x240
+    TUD_VIDEO_CAPTURE_DESCRIPTOR_MJPEG_BULK(STRID_UVC_CAM1, ITF_NUM_VIDEO_CONTROL, EPNUM_CAM1_VIDEO_IN,
+                                            240, 240, CONFIG_UVC_CAM1_FRAMERATE,
+                                            CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE),
 };
 
 // Invoked when received GET CONFIGURATION DESCRIPTOR
@@ -195,7 +112,11 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index)
 {
     (void)index; // for multiple configurations
 
-    return desc_fs_configuration;
+    if (uvc_is_frame_profile_320())
+    {
+        return desc_fs_configuration_320;
+    }
+    return desc_fs_configuration_240;
 }
 
 //--------------------------------------------------------------------+

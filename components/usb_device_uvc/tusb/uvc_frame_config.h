@@ -36,23 +36,14 @@
 #define UVC_CAM2_FRAME_RATE UVC_CAM1_FRAME_RATE
 #endif
 
-static const struct
+typedef struct
 {
     int width;
     int height;
     int rate;
-} UVC_FRAMES_INFO[][4] = {{
-                              {UVC_CAM1_FRAME_WIDTH, UVC_CAM1_FRAME_HEIGHT, UVC_CAM1_FRAME_RATE},
-                              {CONFIG_UVC_MULTI_FRAME_WIDTH_1, CONFIG_UVC_MULTI_FRAME_HEIGHT_1, CONFIG_UVC_MULTI_FRAME_FPS_1},
-                              {CONFIG_UVC_MULTI_FRAME_WIDTH_2, CONFIG_UVC_MULTI_FRAME_HEIGHT_2, CONFIG_UVC_MULTI_FRAME_FPS_2},
-                              {CONFIG_UVC_MULTI_FRAME_WIDTH_3, CONFIG_UVC_MULTI_FRAME_HEIGHT_3, CONFIG_UVC_MULTI_FRAME_FPS_3},
-                          },
-                          {
-                              {UVC_CAM2_FRAME_WIDTH, UVC_CAM2_FRAME_HEIGHT, UVC_CAM2_FRAME_RATE},
-                              {CONFIG_UVC_MULTI_FRAME_WIDTH_1, CONFIG_UVC_MULTI_FRAME_HEIGHT_1, CONFIG_UVC_MULTI_FRAME_FPS_1},
-                              {CONFIG_UVC_MULTI_FRAME_WIDTH_2, CONFIG_UVC_MULTI_FRAME_HEIGHT_2, CONFIG_UVC_MULTI_FRAME_FPS_2},
-                              {CONFIG_UVC_MULTI_FRAME_WIDTH_3, CONFIG_UVC_MULTI_FRAME_HEIGHT_3, CONFIG_UVC_MULTI_FRAME_FPS_3},
-                          }};
+} uvc_frame_info_t;
 
-#define UVC_FRAME_NUM (sizeof(UVC_FRAMES_INFO[0]) / sizeof(UVC_FRAMES_INFO[0][0]))
-_Static_assert(UVC_FRAME_NUM == 4, "UVC_FRAME_NUM must be 4");
+#define UVC_FRAME_NUM 1
+
+extern const uvc_frame_info_t UVC_FRAMES_INFO_320[UVC_FRAME_NUM];
+extern const uvc_frame_info_t UVC_FRAMES_INFO_240[UVC_FRAME_NUM];

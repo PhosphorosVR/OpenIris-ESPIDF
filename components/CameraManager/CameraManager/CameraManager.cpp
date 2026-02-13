@@ -141,8 +141,23 @@ void CameraManager::setupCameraSensor()
                                       2);  // 0 to 6 (0 - No Effect, 1 - Negative, 2 - Grayscale, 3 - Red Tint,
                                            // 4 - Green Tint, 5 - Blue Tint, 6 - Sepia)
 
-    // it gets overriden somewhere somehow
-    camera_sensor->set_framesize(camera_sensor, FRAMESIZE_320X320);
+    // Set sensor-specific default resolution (OV3660 => 320, OV2640 => 240)
+    framesize_t sensor_default = FRAMESIZE_240X240;
+    if (camera_sensor)
+    {
+        switch (camera_sensor->id.PID)
+        {
+            case OV3660_PID:
+                sensor_default = FRAMESIZE_320X320;
+                break;
+            case OV2640_PID:
+            default:
+                sensor_default = FRAMESIZE_240X240;
+                break;
+        }
+        ESP_LOGI(CAMERA_MANAGER_TAG, "Applying sensor default framesize %d for PID 0x%02x", sensor_default, camera_sensor->id.PID);
+        camera_sensor->set_framesize(camera_sensor, sensor_default);
+    }
     ESP_LOGI(CAMERA_MANAGER_TAG, "Setting up camera sensor done");
 }
 
@@ -260,7 +275,22 @@ void CameraManager::loadConfigData()
     CameraConfig_t cameraConfig = projectConfig->getCameraConfig();
     this->setHFlip(cameraConfig.href);
     this->setVFlip(cameraConfig.vflip);
-    this->setCameraResolution(static_cast<framesize_t>(cameraConfig.framesize));
+    framesize_t requested_frame = static_cast<framesize_t>(cameraConfig.framesize);
+    if (camera_sensor)
+    {
+        switch (camera_sensor->id.PID)
+        {
+            case OV3660_PID:
+                requested_frame = FRAMESIZE_320X320;
+                break;
+            case OV2640_PID:
+                requested_frame = FRAMESIZE_240X240;
+                break;
+            default:
+                break;
+        }
+    }
+    this->setCameraResolution(requested_frame);
     camera_sensor->set_quality(camera_sensor, cameraConfig.quality);
     camera_sensor->set_agc_gain(camera_sensor, cameraConfig.brightness);
     ESP_LOGD(CAMERA_MANAGER_TAG, "Loading camera config data done");

@@ -87,6 +87,10 @@ esp_err_t uvc_device_config(int index, uvc_device_config_t *config);
  */
 esp_err_t uvc_device_init(void);
 
+// Select active frame profile before uvc_device_init: true -> 320x320 only, false -> 240x240 only
+void uvc_select_frame_profile(bool use_320);
+bool uvc_is_frame_profile_320(void);
+
 /**
  * @brief Deinitialize the UVC device
  * @note  This function is not implemented yet because tinyusb does not support deinitialization

@@ -3,6 +3,7 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "esp_mac.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -195,6 +196,16 @@ void startWiredMode(bool shouldCloseSerialManager)
     // Leaving a small gap for the host to see COM disappear
     vTaskDelay(pdMS_TO_TICKS(200));
     setUsbHandoverDone(true);
+
+    // Stagger UVC bring-up so multiple hubs don't enumerate and request bandwidth at the exact same moment (Windows can start streams black)
+    uint8_t mac_addr[6] = {0};
+    uint32_t stagger_ms = 150;  // default mid-point fallback
+    if (esp_efuse_mac_get_default(mac_addr) == ESP_OK)
+    {
+        stagger_ms = 50 + (mac_addr[5] % 200);  // spread 50..249 ms per device using unique MAC
+    }
+    ESP_LOGI("[MAIN]", "Delaying UVC start by %lu ms to deconflict USB enumeration", static_cast<unsigned long>(stagger_ms));
+    vTaskDelay(pdMS_TO_TICKS(stagger_ms));
 
     ESP_LOGI("[MAIN]", "Setting up UVC Streamer");
 

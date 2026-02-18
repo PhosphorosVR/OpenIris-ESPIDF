@@ -111,11 +111,16 @@ void ProjectConfig::setLEDDUtyCycleConfig(int led_external_pwm_duty_cycle)
 
 void ProjectConfig::setFanDutyCycleConfig(int fan_pwm_duty_cycle)
 {
+#ifdef CONFIG_FAN_PWM_ENABLE
     const int lo = std::min(CONFIG_FAN_PWM_DUTY_MIN, CONFIG_FAN_PWM_DUTY_MAX);
     const int hi = std::max(CONFIG_FAN_PWM_DUTY_MIN, CONFIG_FAN_PWM_DUTY_MAX);
     const int clamped = std::clamp(fan_pwm_duty_cycle, lo, hi);
     this->config.device.fan_pwm_duty_cycle = clamped;
     ESP_LOGI(CONFIGURATION_TAG, "Setting fan duty cycle to %d (clamped %d-%d)", fan_pwm_duty_cycle, lo, hi);
+#else
+    ESP_LOGW(CONFIGURATION_TAG, "Fan PWM disabled; ignoring duty cycle %d", fan_pwm_duty_cycle);
+    this->config.device.fan_pwm_duty_cycle = 0;
+#endif
     this->config.device.save();
 }
 

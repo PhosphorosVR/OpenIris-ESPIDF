@@ -86,6 +86,7 @@ CommandResult updateLEDDutyCycleCommand(std::shared_ptr<DependencyRegistry> regi
 
 CommandResult updateFanDutyCycleCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json)
 {
+#ifdef CONFIG_FAN_PWM_ENABLE
     if (!json.contains("dutyCycle") || !json["dutyCycle"].is_number_integer())
     {
         return CommandResult::getErrorResult("Invalid payload - missing dutyCycle");
@@ -110,6 +111,9 @@ CommandResult updateFanDutyCycleCommand(std::shared_ptr<DependencyRegistry> regi
     }
 
     return CommandResult::getSuccessResult("Fan duty cycle set");
+#else
+    return CommandResult::getErrorResult("Fan PWM disabled in config");
+#endif
 }
 
 CommandResult restartDeviceCommand()
@@ -129,11 +133,15 @@ CommandResult getLEDDutyCycleCommand(std::shared_ptr<DependencyRegistry> registr
 
 CommandResult getFanDutyCycleCommand(std::shared_ptr<DependencyRegistry> registry)
 {
+#ifdef CONFIG_FAN_PWM_ENABLE
     const auto projectConfig = registry->resolve<ProjectConfig>(DependencyType::project_config);
     const auto deviceCfg = projectConfig->getDeviceConfig();
     int duty = deviceCfg.fan_pwm_duty_cycle;
     const auto json = nlohmann::json{{"fan_pwm_duty_cycle", duty}};
     return CommandResult::getSuccessResult(json);
+#else
+    return CommandResult::getErrorResult("Fan PWM disabled in config");
+#endif
 }
 
 CommandResult startStreamingCommand()

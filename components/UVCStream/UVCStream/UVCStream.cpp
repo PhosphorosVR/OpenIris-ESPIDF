@@ -93,7 +93,7 @@ static esp_err_t UVCStreamHelpers::camera_start_cb(uvc_format_t format, int widt
     }
     else
     {
-        // Fallback: akzeptiere 320 oder 240
+        // Fallback: accept 320 or 240
         if (width == 320 && height == 320)
         {
             frame_size = FRAMESIZE_320X320;

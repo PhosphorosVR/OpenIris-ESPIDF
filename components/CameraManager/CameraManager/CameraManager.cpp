@@ -141,6 +141,27 @@ void CameraManager::setupCameraSensor()
                                       2);  // 0 to 6 (0 - No Effect, 1 - Negative, 2 - Grayscale, 3 - Red Tint,
                                            // 4 - Green Tint, 5 - Blue Tint, 6 - Sepia)
 
+    // Sensor-specific tuning: aim for crisp black/white on OV3660
+    if (camera_sensor && camera_sensor->id.PID == OV3660_PID)
+    {
+        // Keep grayscale effect
+        camera_sensor->set_special_effect(camera_sensor, 2);
+        // Enable auto exposure/gain to avoid a washed-out veil
+        camera_sensor->set_exposure_ctrl(camera_sensor, 1);
+        camera_sensor->set_aec2(camera_sensor, 1);
+        camera_sensor->set_gain_ctrl(camera_sensor, 1);
+        // Tone tweaks
+        camera_sensor->set_brightness(camera_sensor, 0);  // neutral
+        camera_sensor->set_contrast(camera_sensor, 2);    // slightly punchier
+        camera_sensor->set_saturation(camera_sensor, -2); // reduce chroma noise in BW
+        // Correct lens/vignetting to reduce bright corners or haze
+        camera_sensor->set_lenc(camera_sensor, 1);
+        camera_sensor->set_dcw(camera_sensor, 1);
+        // Leave fine AEC/AGC values neutral; let auto handle it
+        camera_sensor->set_aec_value(camera_sensor, 0);
+        camera_sensor->set_agc_gain(camera_sensor, 0);
+    }
+
     // Set sensor-specific default resolution (OV3660 => 320, OV2640 => 240)
     framesize_t sensor_default = FRAMESIZE_240X240;
     if (camera_sensor)

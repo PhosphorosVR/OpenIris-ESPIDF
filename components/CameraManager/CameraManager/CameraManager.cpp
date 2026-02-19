@@ -2,6 +2,94 @@
 
 const char* CAMERA_MANAGER_TAG = "[CAMERA_MANAGER]";
 
+struct CameraProfile
+{
+    framesize_t default_framesize;
+    int brightness;
+    int contrast;
+    int saturation;
+    int whitebal;
+    int awb_gain;
+    int wb_mode;
+    int exposure_ctrl;
+    int aec2;
+    int ae_level;
+    int aec_value;
+    int gain_ctrl;
+    int agc_gain;
+    int gainceiling;
+    int bpc;
+    int wpc;
+    int dcw;
+    int raw_gma;
+    int lenc;
+    int colorbar;
+    int special_effect;
+};
+
+static const CameraProfile PROFILE_OV2640_BW = {
+    .default_framesize = FRAMESIZE_240X240,
+    .brightness = 2,
+    .contrast = 2,
+    .saturation = -2,
+    .whitebal = 1,
+    .awb_gain = 0,
+    .wb_mode = 0,
+    .exposure_ctrl = 0,
+    .aec2 = 0,
+    .ae_level = 0,
+    .aec_value = 300,
+    .gain_ctrl = 0,
+    .agc_gain = 2,
+    .gainceiling = 6,
+    .bpc = 1,
+    .wpc = 1,
+    .dcw = 0,
+    .raw_gma = 1,
+    .lenc = 0,
+    .colorbar = 0,
+    .special_effect = 2,  // grayscale
+};
+
+static const CameraProfile PROFILE_OV3660_BW = {
+    .default_framesize = FRAMESIZE_320X320,
+    .brightness = 0,
+    .contrast = 2,
+    .saturation = -2,
+    .whitebal = 1,
+    .awb_gain = 0,
+    .wb_mode = 0,
+    .exposure_ctrl = 1,
+    .aec2 = 1,
+    .ae_level = 0,
+    .aec_value = 0,
+    .gain_ctrl = 1,
+    .agc_gain = 0,
+    .gainceiling = 6,
+    .bpc = 1,
+    .wpc = 1,
+    .dcw = 1,
+    .raw_gma = 1,
+    .lenc = 1,
+    .colorbar = 0,
+    .special_effect = 2,  // grayscale
+};
+
+static const CameraProfile* select_profile(sensor_t* sensor)
+{
+    if (!sensor)
+    {
+        return &PROFILE_OV2640_BW;
+    }
+    switch (sensor->id.PID)
+    {
+        case OV3660_PID:
+            return &PROFILE_OV3660_BW;
+        default:
+            return &PROFILE_OV2640_BW;
+    }
+}
+
 CameraManager::CameraManager(std::shared_ptr<ProjectConfig> projectConfig, QueueHandle_t eventQueue) : projectConfig(projectConfig), eventQueue(eventQueue) {}
 
 void CameraManager::setupCameraPinout()
@@ -96,86 +184,45 @@ void CameraManager::setupCameraSensor()
                            0x00);                          // banksel, here we're directly writing to the registers.
                                                            // 0xFF==0x00 is the first bank, there's also 0xFF==0x01
     camera_sensor->set_reg(camera_sensor, 0xd3, 0xff, 5);  // clock
-    camera_sensor->set_brightness(camera_sensor, 2);       // -2 to 2
-    camera_sensor->set_contrast(camera_sensor, 2);         // -2 to 2
-    camera_sensor->set_saturation(camera_sensor, -2);      // -2 to 2
+    const CameraProfile* profile = select_profile(camera_sensor);
 
-    // white balance control
-    camera_sensor->set_whitebal(camera_sensor, 1);  // 0 = disable , 1 = enable
-    camera_sensor->set_awb_gain(camera_sensor, 0);  // 0 = disable , 1 = enable
-    camera_sensor->set_wb_mode(camera_sensor,
-                               0);  // 0 to 4 - if awb_gain enabled (0 - Auto, 1 -
-                                    // Sunny, 2 - Cloudy, 3 - Office, 4 - Home)
+    auto apply_profile = [](sensor_t* s, const CameraProfile* p) {
+        if (!s || !p)
+        {
+            return;
+        }
+        s->set_brightness(s, p->brightness);
+        s->set_contrast(s, p->contrast);
+        s->set_saturation(s, p->saturation);
 
-    // controls the exposure
-    camera_sensor->set_exposure_ctrl(camera_sensor,
-                                     0);               // 0 = disable , 1 = enable
-    camera_sensor->set_aec2(camera_sensor, 0);         // 0 = disable , 1 = enable
-    camera_sensor->set_ae_level(camera_sensor, 0);     // -2 to 2
-    camera_sensor->set_aec_value(camera_sensor, 300);  // 0 to 1200
+        s->set_whitebal(s, p->whitebal);
+        s->set_awb_gain(s, p->awb_gain);
+        s->set_wb_mode(s, p->wb_mode);
 
-    // controls the gain
-    camera_sensor->set_gain_ctrl(camera_sensor, 0);  // 0 = disable , 1 = enable
+        s->set_exposure_ctrl(s, p->exposure_ctrl);
+        s->set_aec2(s, p->aec2);
+        s->set_ae_level(s, p->ae_level);
+        s->set_aec_value(s, p->aec_value);
 
-    // automatic gain control gain, controls by how much the resulting image
-    // should be amplified
-    camera_sensor->set_agc_gain(camera_sensor, 2);                                 // 0 to 30
-    camera_sensor->set_gainceiling(camera_sensor, static_cast<gainceiling_t>(6));  // 0 to 6
+        s->set_gain_ctrl(s, p->gain_ctrl);
+        s->set_agc_gain(s, p->agc_gain);
+        s->set_gainceiling(s, static_cast<gainceiling_t>(p->gainceiling));
 
-    // black and white pixel correction, averages the white and black spots
-    camera_sensor->set_bpc(camera_sensor, 1);  // 0 = disable , 1 = enable
-    camera_sensor->set_wpc(camera_sensor, 1);  // 0 = disable , 1 = enable
-    // digital clamp white balance
-    camera_sensor->set_dcw(camera_sensor, 0);  // 0 = disable , 1 = enable
+        s->set_bpc(s, p->bpc);
+        s->set_wpc(s, p->wpc);
+        s->set_dcw(s, p->dcw);
 
-    // gamma correction
-    camera_sensor->set_raw_gma(camera_sensor,
-                               1);  // 0 = disable , 1 = enable (makes much lighter and noisy)
+        s->set_raw_gma(s, p->raw_gma);
+        s->set_lenc(s, p->lenc);
+        s->set_colorbar(s, p->colorbar);
+        s->set_special_effect(s, p->special_effect);
+    };
 
-    camera_sensor->set_lenc(camera_sensor, 0);  // 0 = disable , 1 = enable // 0 =
-                                                // disable , 1 = enable
+    apply_profile(camera_sensor, profile);
 
-    camera_sensor->set_colorbar(camera_sensor, 0);  // 0 = disable , 1 = enable
-
-    camera_sensor->set_special_effect(camera_sensor,
-                                      2);  // 0 to 6 (0 - No Effect, 1 - Negative, 2 - Grayscale, 3 - Red Tint,
-                                           // 4 - Green Tint, 5 - Blue Tint, 6 - Sepia)
-
-    // Sensor-specific tuning: aim for crisp black/white on OV3660
-    if (camera_sensor && camera_sensor->id.PID == OV3660_PID)
-    {
-        // Keep grayscale effect
-        camera_sensor->set_special_effect(camera_sensor, 2);
-        // Enable auto exposure/gain to avoid a washed-out veil
-        camera_sensor->set_exposure_ctrl(camera_sensor, 1);
-        camera_sensor->set_aec2(camera_sensor, 1);
-        camera_sensor->set_gain_ctrl(camera_sensor, 1);
-        // Tone tweaks
-        camera_sensor->set_brightness(camera_sensor, 0);  // neutral
-        camera_sensor->set_contrast(camera_sensor, 2);    // slightly punchier
-        camera_sensor->set_saturation(camera_sensor, -2); // reduce chroma noise in BW
-        // Correct lens/vignetting to reduce bright corners or haze
-        camera_sensor->set_lenc(camera_sensor, 1);
-        camera_sensor->set_dcw(camera_sensor, 1);
-        // Leave fine AEC/AGC values neutral; let auto handle it
-        camera_sensor->set_aec_value(camera_sensor, 0);
-        camera_sensor->set_agc_gain(camera_sensor, 0);
-    }
-
-    // Set sensor-specific default resolution (OV3660 => 320, OV2640 => 240)
-    framesize_t sensor_default = FRAMESIZE_240X240;
+    framesize_t sensor_default = profile ? profile->default_framesize : FRAMESIZE_240X240;
     if (camera_sensor)
     {
-        switch (camera_sensor->id.PID)
-        {
-            case OV3660_PID:
-                sensor_default = FRAMESIZE_320X320;
-                break;
-            case OV2640_PID:
-            default:
-                sensor_default = FRAMESIZE_240X240;
-                break;
-        }
         ESP_LOGI(CAMERA_MANAGER_TAG, "Applying sensor default framesize %d for PID 0x%02x", sensor_default, camera_sensor->id.PID);
         camera_sensor->set_framesize(camera_sensor, sensor_default);
     }
@@ -297,19 +344,10 @@ void CameraManager::loadConfigData()
     this->setHFlip(cameraConfig.href);
     this->setVFlip(cameraConfig.vflip);
     framesize_t requested_frame = static_cast<framesize_t>(cameraConfig.framesize);
-    if (camera_sensor)
+    const CameraProfile* profile = select_profile(camera_sensor);
+    if (camera_sensor && profile)
     {
-        switch (camera_sensor->id.PID)
-        {
-            case OV3660_PID:
-                requested_frame = FRAMESIZE_320X320;
-                break;
-            case OV2640_PID:
-                requested_frame = FRAMESIZE_240X240;
-                break;
-            default:
-                break;
-        }
+        requested_frame = profile->default_framesize;
     }
     this->setCameraResolution(requested_frame);
     camera_sensor->set_quality(camera_sensor, cameraConfig.quality);

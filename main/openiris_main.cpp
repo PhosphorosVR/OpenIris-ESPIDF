@@ -199,10 +199,10 @@ void startWiredMode(bool shouldCloseSerialManager)
 
     // Stagger UVC bring-up so multiple hubs don't enumerate and request bandwidth at the exact same moment (Windows can start streams black)
     uint8_t mac_addr[6] = {0};
-    uint32_t stagger_ms = 150;  // default mid-point fallback
+    uint32_t stagger_ms = 1000;  // default mid-point fallback
     if (esp_efuse_mac_get_default(mac_addr) == ESP_OK)
     {
-        stagger_ms = 50 + (mac_addr[5] % 200);  // spread 50..249 ms per device using unique MAC
+        stagger_ms = 500 + (mac_addr[5] % 1000);  // spread 500..1499 ms per device using unique MAC
     }
     ESP_LOGI("[MAIN]", "Delaying UVC start by %lu ms to deconflict USB enumeration", static_cast<unsigned long>(stagger_ms));
     vTaskDelay(pdMS_TO_TICKS(stagger_ms));

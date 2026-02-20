@@ -58,8 +58,9 @@ class UVCStreamManager
     uint32_t uvc_buffer_size = 0;
 
    public:
-    // Compile-time buffer size; headroom for MJPEG at 320x320
-    static constexpr uint32_t UVC_MAX_FRAMESIZE_SIZE = 120 * 1024;
+    // Compile-time buffer size; must be >= dwMaxVideoFrameBufferSize advertised
+    // in the USB descriptor (320*320*2 = 200 KB for the 320x320 profile).
+    static constexpr uint32_t UVC_MAX_FRAMESIZE_SIZE = 200 * 1024;
     esp_err_t setup();
     esp_err_t start();
     uint32_t getUvcBufferSize() const

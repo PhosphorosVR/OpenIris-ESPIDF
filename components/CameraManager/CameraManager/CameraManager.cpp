@@ -4,27 +4,27 @@ const char* CAMERA_MANAGER_TAG = "[CAMERA_MANAGER]";
 
 struct CameraProfile
 {
-    framesize_t default_framesize;
-    int brightness;
-    int contrast;
-    int saturation;
-    int whitebal;
-    int awb_gain;
-    int wb_mode;
-    int exposure_ctrl;
-    int aec2;
-    int ae_level;
-    int aec_value;
-    int gain_ctrl;
-    int agc_gain;
-    int gainceiling;
-    int bpc;
-    int wpc;
-    int dcw;
-    int raw_gma;
-    int lenc;
-    int colorbar;
-    int special_effect;
+    framesize_t default_framesize;  // default resolution for this sensor
+    int brightness;                 // image brightness offset
+    int contrast;                   // image contrast
+    int saturation;                 // color saturation (negative reduces chroma noise)
+    int whitebal;                   // auto white balance on/off
+    int awb_gain;                   // AWB gain on/off
+    int wb_mode;                    // preset white balance mode
+    int exposure_ctrl;              // auto exposure on/off
+    int aec2;                       // advanced auto exposure on/off
+    int ae_level;                   // exposure bias
+    int aec_value;                  // manual exposure value when auto is off
+    int gain_ctrl;                  // auto gain control on/off
+    int agc_gain;                   // manual gain value when auto is off
+    int gainceiling;                // max gain when auto gain is on
+    int bpc;                        // black pixel correction on/off
+    int wpc;                        // white pixel correction on/off
+    int dcw;                        // downsize/crop window on/off
+    int raw_gma;                    // raw gamma on/off
+    int lenc;                       // lens correction on/off
+    int colorbar;                   // test pattern on/off
+    int special_effect;             // special effect (e.g., grayscale)
 };
 
 static const CameraProfile PROFILE_OV2640_BW = {
@@ -56,19 +56,19 @@ static const CameraProfile PROFILE_OV3660_BW = {
     .brightness = 0,
     .contrast = 2,
     .saturation = -2,
-    .whitebal = 1,
+    .whitebal = 0,
     .awb_gain = 0,
     .wb_mode = 0,
-    .exposure_ctrl = 1,
-    .aec2 = 1,
-    .ae_level = 0,
-    .aec_value = 0,
-    .gain_ctrl = 1,
-    .agc_gain = 0,
-    .gainceiling = 6,
+    .exposure_ctrl = 0,
+    .aec2 = 0,
+    .ae_level = -1,
+    .aec_value = 250,
+    .gain_ctrl = 0,
+    .agc_gain = 2,
+    .gainceiling = 4,
     .bpc = 1,
     .wpc = 1,
-    .dcw = 1,
+    .dcw = 0,
     .raw_gma = 1,
     .lenc = 1,
     .colorbar = 0,
@@ -178,12 +178,18 @@ void CameraManager::setupCameraSensor()
     ESP_LOGI(CAMERA_MANAGER_TAG, "Setting up camera sensor");
 
     camera_sensor = esp_camera_sensor_get();
-    // fixes corrupted jpegs, https://github.com/espressif/esp32-camera/issues/203
+
+    // OV2640-only: fixes corrupted jpegs, https://github.com/espressif/esp32-camera/issues/203
     // documentation https://www.uctronics.com/download/cam_module/OV2640DS.pdf
-    camera_sensor->set_reg(camera_sensor, 0xff, 0xff,
-                           0x00);                          // banksel, here we're directly writing to the registers.
-                                                           // 0xFF==0x00 is the first bank, there's also 0xFF==0x01
-    camera_sensor->set_reg(camera_sensor, 0xd3, 0xff, 5);  // clock
+    // These registers (bank 0x00, reg 0xD3) have a different meaning on OV3660
+    // and writing them blindly can destabilise the sensor clock.
+    if (camera_sensor && camera_sensor->id.PID == OV2640_PID)
+    {
+        camera_sensor->set_reg(camera_sensor, 0xff, 0xff,
+                               0x00);                          // banksel
+        camera_sensor->set_reg(camera_sensor, 0xd3, 0xff, 5);  // clock divider
+    }
+
     const CameraProfile* profile = select_profile(camera_sensor);
 
     auto apply_profile = [](sensor_t* s, const CameraProfile* p) {
@@ -292,9 +298,15 @@ bool CameraManager::setupCamera()
                 {
                     config.xclk_freq_hz = mhz * 1000000U;
                     ESP_LOGI(CAMERA_MANAGER_TAG,
-                             "Camera %s (PID 0x%02x): applied XCLK override %lu Hz",
+                             "Camera %s (PID 0x%02x): applied XCLK override %lu Hz, waiting for PLL relock...",
                              info ? info->name : "unknown", detected_sensor->id.PID,
                              static_cast<unsigned long>(config.xclk_freq_hz));
+                    // The sensor PLL must re-lock after an XCLK frequency change.
+                    // Without this delay, subsequent I2C (SCCB) register writes
+                    // fail with NACK because the sensor's internal clocks are
+                    // still settling.  100 ms is conservative; typical PLL lock
+                    // time for OV sensors is 10-50 ms.
+                    vTaskDelay(pdMS_TO_TICKS(100));
                 }
                 else
                 {

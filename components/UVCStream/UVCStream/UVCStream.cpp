@@ -10,8 +10,6 @@ static const char* UVC_STREAM_TAG = "[UVC DEVICE]";
 // Tracks whether a frame has been handed to TinyUSB and not yet returned.
 // File scope so both get_cb and return_cb can access it safely.
 static bool s_frame_inflight = false;
-static int64_t s_next_deadline_us = 0;  // pacing state reset on stop
-static int s_rem_acc = 0;               // remainder accumulator for pacing
 
 extern "C"
 {
@@ -48,8 +46,6 @@ UVCStreamHelpers::fb_t UVCStreamHelpers::s_fb = {};
 static void reset_pacing_state()
 {
     s_frame_inflight = false;
-    s_next_deadline_us = 0;
-    s_rem_acc = 0;
 }
 
 static esp_err_t UVCStreamHelpers::camera_start_cb(uvc_format_t format, int width, int height, int rate, void* cb_ctx)
@@ -139,27 +135,16 @@ static uvc_fb_t* UVCStreamHelpers::camera_fb_get_cb(void* cb_ctx)
     // Guard against requesting a new frame while previous is still in flight.
     // This was causing intermittent corruption/glitches because the pointer
     // to the underlying camera buffer was overwritten before TinyUSB returned it.
-
-    // --- Frame pacing BEFORE grabbing a new camera frame ---
-    static const int target_fps = 60;                             // desired FPS
-    static const int64_t us_per_sec = 1000000;                    // 1e6 microseconds
-    static const int base_interval_us = us_per_sec / target_fps;  // 16666
-    static const int rem_us = us_per_sec % target_fps;            // 40 (distributed)
-
-    const int64_t now_us = esp_timer_get_time();
-    if (s_next_deadline_us == 0)
+    if (s_frame_inflight)
     {
-        // First allowed capture immediately
-        s_next_deadline_us = now_us;
+        return nullptr;  // host / video_task will poll again
     }
 
-    // If a frame is still being transmitted or we are too early, just signal no frame
-    if (s_frame_inflight || now_us < s_next_deadline_us)
-    {
-        return nullptr;  // host will poll again
-    }
+    // NOTE: Frame-rate pacing is already handled by video_task (interval_ms).
+    // A second, independent pacing layer here was causing double-throttling
+    // and excessive frame drops that could starve the USB host.
 
-    // Acquire a fresh frame only when allowed and no frame in flight
+    // Acquire a fresh frame
     camera_fb_t* cam_fb = esp_camera_fb_get();
     if (!cam_fb)
     {
@@ -182,17 +167,6 @@ static uvc_fb_t* UVCStreamHelpers::camera_fb_get_cb(void* cb_ctx)
         s_fb.cam_fb_p = nullptr;
         return nullptr;
     }
-
-    // Schedule next frame time (distribute remainder for exact long‑term 60.000 fps)
-    s_rem_acc += rem_us;
-    int extra_us = 0;
-    if (s_rem_acc >= target_fps)
-    {
-        s_rem_acc -= target_fps;
-        extra_us = 1;
-    }
-    const int64_t candidate_next = s_next_deadline_us + base_interval_us + extra_us;
-    s_next_deadline_us = (candidate_next < now_us) ? now_us : candidate_next;
 
     s_frame_inflight = true;
     return &s_fb.uvc_fb;

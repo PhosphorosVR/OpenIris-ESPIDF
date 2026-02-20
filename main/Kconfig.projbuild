@@ -266,7 +266,7 @@ menu "OpenIris: Monitoring"
 
     config MONITORING_LED_CURRENT
         bool "Enable LED current monitoring"
-        default y
+        default n
         help
             Enable sampling LED current via ADC and report it over commands.
 

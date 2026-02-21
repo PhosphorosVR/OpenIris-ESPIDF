@@ -10,6 +10,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 
 #include <ProjectConfig.hpp>
@@ -20,7 +21,8 @@
 class CameraManager
 {
    private:
-    sensor_t* camera_sensor;
+    sensor_t* camera_sensor = nullptr;
+    SemaphoreHandle_t sensor_mutex;
     std::shared_ptr<ProjectConfig> projectConfig;
     QueueHandle_t eventQueue;
     camera_config_t config;

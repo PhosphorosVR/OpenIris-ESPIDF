@@ -1,30 +1,31 @@
 #include "main_globals.hpp"
 #include "esp_log.h"
+#include <atomic>
 
 // used to force starting the stream setup process via commands
 extern void force_activate_streaming();
 
-static bool s_startupCommandReceived = false;
+static std::atomic<bool> s_startupCommandReceived{false};
 bool getStartupCommandReceived()
 {
-    return s_startupCommandReceived;
+    return s_startupCommandReceived.load();
 }
 
 void setStartupCommandReceived(bool startupCommandReceived)
 {
-    s_startupCommandReceived = startupCommandReceived;
+    s_startupCommandReceived.store(startupCommandReceived);
 }
 
 // Global pause state
-static bool s_startupPaused = false;
+static std::atomic<bool> s_startupPaused{false};
 bool getStartupPaused()
 {
-    return s_startupPaused;
+    return s_startupPaused.load();
 }
 
 void setStartupPaused(bool startupPaused)
 {
-    s_startupPaused = startupPaused;
+    s_startupPaused.store(startupPaused);
 }
 
 // Function to manually activate streaming
@@ -34,12 +35,12 @@ void activateStreaming(void* arg)
 }
 
 // USB handover state
-static bool s_usbHandoverDone = false;
+static std::atomic<bool> s_usbHandoverDone{false};
 bool getUsbHandoverDone()
 {
-    return s_usbHandoverDone;
+    return s_usbHandoverDone.load();
 }
 void setUsbHandoverDone(bool done)
 {
-    s_usbHandoverDone = done;
+    s_usbHandoverDone.store(done);
 }

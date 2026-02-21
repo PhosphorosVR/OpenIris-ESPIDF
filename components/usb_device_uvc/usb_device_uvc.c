@@ -166,6 +166,11 @@ static void video_task(void *arg)
         }
 
         start_ms += s_uvc_device.interval_ms[0];
+        // Prevent burst catch-up if we fell far behind (e.g. preemption)
+        if (cur - start_ms > 3 * s_uvc_device.interval_ms[0])
+        {
+            start_ms = cur;
+        }
         ESP_LOGD(TAG, "frame %" PRIu32 " taking picture...", frame_num);
         pic = s_uvc_device.user_config[0].fb_get_cb(s_uvc_device.user_config[0].cb_ctx);
         if (pic)

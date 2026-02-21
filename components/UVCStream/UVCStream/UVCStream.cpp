@@ -1,6 +1,7 @@
 #include "UVCStream.hpp"
 
 #ifdef CONFIG_GENERAL_INCLUDE_UVC_MODE
+#include <atomic>
 #include <cstdio>  // for snprintf
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -8,8 +9,10 @@
 static const char* UVC_STREAM_TAG = "[UVC DEVICE]";
 
 // Tracks whether a frame has been handed to TinyUSB and not yet returned.
-// File scope so both get_cb and return_cb can access it safely.
-static bool s_frame_inflight = false;
+// Atomic because video_task and TinyUSB task (tud_suspend_cb) access it concurrently.
+static std::atomic<bool> s_frame_inflight{false};
+// Set by camera_stop_cb so camera_fb_get_cb skips new acquisitions during USB suspend.
+static std::atomic<bool> s_stopping{false};
 
 extern "C"
 {
@@ -45,7 +48,7 @@ UVCStreamHelpers::fb_t UVCStreamHelpers::s_fb = {};
 
 static void reset_pacing_state()
 {
-    s_frame_inflight = false;
+    s_frame_inflight.store(false);
 }
 
 static esp_err_t UVCStreamHelpers::camera_start_cb(uvc_format_t format, int width, int height, int rate, void* cb_ctx)
@@ -107,6 +110,7 @@ static esp_err_t UVCStreamHelpers::camera_start_cb(uvc_format_t format, int widt
 
     cameraHandler->setCameraResolution(frame_size);
 
+    s_stopping.store(false);
     reset_pacing_state();
     SendStreamEvent(eventQueue, StreamState_e::Stream_ON);
 
@@ -116,13 +120,19 @@ static esp_err_t UVCStreamHelpers::camera_start_cb(uvc_format_t format, int widt
 static void UVCStreamHelpers::camera_stop_cb(void* cb_ctx)
 {
     (void)cb_ctx;
-    if (s_fb.cam_fb_p)
+    s_stopping.store(true);
+
+    // Only return the frame directly if nothing is in flight.
+    // If a frame IS in flight, camera_fb_return_cb handles cleanup.
+    if (!s_frame_inflight.load())
     {
-        esp_camera_fb_return(s_fb.cam_fb_p);
-        s_fb.cam_fb_p = nullptr;
+        if (s_fb.cam_fb_p)
+        {
+            esp_camera_fb_return(s_fb.cam_fb_p);
+            s_fb.cam_fb_p = nullptr;
+        }
     }
 
-    // Ensure pacing state is cleared so the next START cannot get stuck if host stopped mid-transfer
     reset_pacing_state();
 
     SendStreamEvent(eventQueue, StreamState_e::Stream_OFF);
@@ -132,12 +142,11 @@ static uvc_fb_t* UVCStreamHelpers::camera_fb_get_cb(void* cb_ctx)
 {
     auto* mgr = static_cast<UVCStreamManager*>(cb_ctx);
 
-    // Guard against requesting a new frame while previous is still in flight.
-    // This was causing intermittent corruption/glitches because the pointer
-    // to the underlying camera buffer was overwritten before TinyUSB returned it.
-    if (s_frame_inflight)
+    // Guard against requesting a new frame while previous is still in flight
+    // or while the host has signalled a stop via tud_suspend_cb.
+    if (s_frame_inflight.load() || s_stopping.load())
     {
-        return nullptr;  // host / video_task will poll again
+        return nullptr;
     }
 
     // NOTE: Frame-rate pacing is already handled by video_task (interval_ms).
@@ -168,7 +177,7 @@ static uvc_fb_t* UVCStreamHelpers::camera_fb_get_cb(void* cb_ctx)
         return nullptr;
     }
 
-    s_frame_inflight = true;
+    s_frame_inflight.store(true);
     return &s_fb.uvc_fb;
 }
 
@@ -181,7 +190,7 @@ static void UVCStreamHelpers::camera_fb_return_cb(uvc_fb_t* fb, void* cb_ctx)
         esp_camera_fb_return(s_fb.cam_fb_p);
         s_fb.cam_fb_p = nullptr;
     }
-    s_frame_inflight = false;
+    s_frame_inflight.store(false);
 }
 
 esp_err_t UVCStreamManager::setup()
@@ -201,6 +210,10 @@ esp_err_t UVCStreamManager::setup()
 
     // Allocate a fixed-size transfer buffer (compile-time constant)
     uvc_buffer_size = UVCStreamManager::UVC_MAX_FRAMESIZE_SIZE;
+    if (uvc_buffer != nullptr)
+    {
+        free(uvc_buffer);
+    }
     uvc_buffer = static_cast<uint8_t*>(malloc(uvc_buffer_size));
     if (uvc_buffer == nullptr)
     {

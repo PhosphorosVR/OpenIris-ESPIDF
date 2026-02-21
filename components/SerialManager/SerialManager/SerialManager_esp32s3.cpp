@@ -56,7 +56,7 @@ void SerialManager::try_receive()
         // if we've got a new line, we've finished sending the commands, process them
         if (current_position >= BUF_SIZE || this->data[current_position - 1] == '\n' || this->data[current_position - 1] == '\r')
         {
-            data[current_position] = '\0';
+            data[current_position - 1] = '\0';
             current_position = 0;
 
             const nlohmann::json result = this->commandManager->executeFromJson(std::string_view(reinterpret_cast<const char*>(this->data)));

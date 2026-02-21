@@ -90,7 +90,10 @@ static const CameraProfile* select_profile(sensor_t* sensor)
     }
 }
 
-CameraManager::CameraManager(std::shared_ptr<ProjectConfig> projectConfig, QueueHandle_t eventQueue) : projectConfig(projectConfig), eventQueue(eventQueue) {}
+CameraManager::CameraManager(std::shared_ptr<ProjectConfig> projectConfig, QueueHandle_t eventQueue) : projectConfig(projectConfig), eventQueue(eventQueue)
+{
+    sensor_mutex = xSemaphoreCreateMutex();
+}
 
 void CameraManager::setupCameraPinout()
 {
@@ -167,9 +170,9 @@ void CameraManager::setupCameraPinout()
                                           // improved a lot, but JPEG mode always gives better frame rates.
 
         .jpeg_quality = 8,  // 0-63, for OV series camera sensors, lower number means higher quality // Below 6 stability problems
-        .fb_count = 2,      // When jpeg mode is used, if fb_count more than one, the driver will work in continuous mode.
+        .fb_count = 3,      // When jpeg mode is used, if fb_count more than one, the driver will work in continuous mode.
         .fb_location = CAMERA_FB_IN_DRAM,
-        .grab_mode = CAMERA_GRAB_WHEN_EMPTY,  // was CAMERA_GRAB_LATEST; new mode reduces frame skips at cost of minor latency
+        .grab_mode = CAMERA_GRAB_LATEST,  // was CAMERA_GRAB_LATEST; new mode reduces frame skips at cost of minor latency
     };
 }
 
@@ -351,6 +354,7 @@ bool CameraManager::setupCamera()
 
 void CameraManager::loadConfigData()
 {
+    if (!camera_sensor) return;
     ESP_LOGD(CAMERA_MANAGER_TAG, "Loading camera config data");
     CameraConfig_t cameraConfig = projectConfig->getCameraConfig();
     this->setHFlip(cameraConfig.href);
@@ -362,28 +366,42 @@ void CameraManager::loadConfigData()
         requested_frame = profile->default_framesize;
     }
     this->setCameraResolution(requested_frame);
+    xSemaphoreTake(sensor_mutex, portMAX_DELAY);
     camera_sensor->set_quality(camera_sensor, cameraConfig.quality);
     camera_sensor->set_agc_gain(camera_sensor, cameraConfig.brightness);
+    xSemaphoreGive(sensor_mutex);
     ESP_LOGD(CAMERA_MANAGER_TAG, "Loading camera config data done");
 }
 
 int CameraManager::setCameraResolution(const framesize_t frameSize)
 {
+    if (!camera_sensor) return -1;
+    xSemaphoreTake(sensor_mutex, portMAX_DELAY);
+    int ret = -1;
     if (camera_sensor->pixformat == PIXFORMAT_JPEG)
     {
-        return camera_sensor->set_framesize(camera_sensor, frameSize);
+        ret = camera_sensor->set_framesize(camera_sensor, frameSize);
     }
-    return -1;
+    xSemaphoreGive(sensor_mutex);
+    return ret;
 }
 
 int CameraManager::setVFlip(const int direction)
 {
-    return camera_sensor->set_vflip(camera_sensor, direction);
+    if (!camera_sensor) return -1;
+    xSemaphoreTake(sensor_mutex, portMAX_DELAY);
+    int ret = camera_sensor->set_vflip(camera_sensor, direction);
+    xSemaphoreGive(sensor_mutex);
+    return ret;
 }
 
 int CameraManager::setHFlip(const int direction)
 {
-    return camera_sensor->set_hmirror(camera_sensor, direction);
+    if (!camera_sensor) return -1;
+    xSemaphoreTake(sensor_mutex, portMAX_DELAY);
+    int ret = camera_sensor->set_hmirror(camera_sensor, direction);
+    xSemaphoreGive(sensor_mutex);
+    return ret;
 }
 
 int CameraManager::setVieWindow(int offsetX, int offsetY, int outputX, int outputY)

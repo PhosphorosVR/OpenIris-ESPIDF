@@ -190,10 +190,11 @@ static void video_task(void *arg)
             continue;
         }
         frame_len = pic->len;
-        memcpy(uvc_buffer, pic->buf, frame_len);
-        s_uvc_device.user_config[0].fb_return_cb(pic, s_uvc_device.user_config[0].cb_ctx);
+        // Transfer directly from camera frame buffer — avoids a full-frame
+        // memcpy and lets the DMA-capable DRAM buffer go straight to USB.
+        // fb_return is deferred to xfer_complete callback (see below).
         tx_busy = 1;
-        tud_video_n_frame_xfer(0, 0, (void *)uvc_buffer, frame_len);
+        tud_video_n_frame_xfer(0, 0, (void *)pic->buf, frame_len);
         ESP_LOGD(TAG, "frame %" PRIu32 " transfer start, size %" PRIu32, frame_num, frame_len);
     }
 }
@@ -202,6 +203,15 @@ void tud_video_frame_xfer_complete_cb(uint_fast8_t ctl_idx, uint_fast8_t stm_idx
 {
     (void)ctl_idx;
     (void)stm_idx;
+    // Return the camera frame buffer now that USB has finished reading it.
+    // This was deferred from video_task to avoid the memcpy into a separate
+    // transfer buffer — the USB controller reads directly from the camera FB.
+    if (s_uvc_device.user_config[ctl_idx].fb_return_cb)
+    {
+        // fb_get_cb stores the pic pointer internally (s_fb / s_frame_inflight);
+        // fb_return_cb will retrieve and release it.
+        s_uvc_device.user_config[ctl_idx].fb_return_cb(NULL, s_uvc_device.user_config[ctl_idx].cb_ctx);
+    }
     xTaskNotifyGive(s_uvc_device.uvc_task_hdl[ctl_idx]);
 }
 

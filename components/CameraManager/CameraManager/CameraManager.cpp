@@ -234,6 +234,26 @@ void CameraManager::setupCameraSensor()
     {
         ESP_LOGI(CAMERA_MANAGER_TAG, "Applying sensor default framesize %d for PID 0x%02x", sensor_default, camera_sensor->id.PID);
         camera_sensor->set_framesize(camera_sensor, sensor_default);
+
+        // OV3660 PLL override: the stock driver's set_framesize() configures the
+        // PLL for ~42 fps at 27 MHz XCLK (mult=30, pre_div=3 → SYSCLK=67.5 MHz).
+        // We override with mult=29 for improved stability while staying within spec.
+        //   REFIN  = 27/3      = 9 MHz       (spec 4-13.5 MHz)    OK
+        //   VCO    = 9*29      = 261 MHz     (spec 150-500 MHz)   OK
+        //   PLLCLK = 261/1/1   = 261 MHz     (sys_div=1, seld5=÷1)
+        //   SYSCLK = PLLCLK/4  = 65.25 MHz   (fixed ÷4, drives JPEG encoder & frame timing)
+        //   PCLK   = PLLCLK/2/15 = 8.7 MHz   (pixel clock to ESP32)
+        //
+        // _set_pll() public API param order (different from internal!):
+        //   bypass, mult, sys_div, root_2x, pre_div, seld5, pclk_manual, pclk_div
+        if (camera_sensor->id.PID == OV3660_PID &&
+            camera_sensor->pixformat == PIXFORMAT_JPEG &&
+            config.xclk_freq_hz >= 24000000)
+        {
+            ESP_LOGI(CAMERA_MANAGER_TAG, "OV3660: applying PLL override (mult=29, pre_div=3, pclk_div=15, XCLK=%lu Hz)",
+                     static_cast<unsigned long>(config.xclk_freq_hz));
+            camera_sensor->set_pll(camera_sensor, 0, 29, 1, 0, 3, 0, 1, 15);
+        }
     }
     ESP_LOGI(CAMERA_MANAGER_TAG, "Setting up camera sensor done");
 }
@@ -381,6 +401,13 @@ int CameraManager::setCameraResolution(const framesize_t frameSize)
     if (camera_sensor->pixformat == PIXFORMAT_JPEG)
     {
         ret = camera_sensor->set_framesize(camera_sensor, frameSize);
+
+        if (ret == 0 &&
+            camera_sensor->id.PID == OV3660_PID &&
+            config.xclk_freq_hz >= 24000000)
+        {
+            camera_sensor->set_pll(camera_sensor, 0, 29, 1, 0, 3, 0, 1, 15);
+        }
     }
     xSemaphoreGive(sensor_mutex);
     return ret;

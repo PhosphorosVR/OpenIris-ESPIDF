@@ -184,7 +184,9 @@ static uvc_fb_t* UVCStreamHelpers::camera_fb_get_cb(void* cb_ctx)
 static void UVCStreamHelpers::camera_fb_return_cb(uvc_fb_t* fb, void* cb_ctx)
 {
     (void)cb_ctx;
-    assert(fb == &s_fb.uvc_fb);
+    // fb may be NULL when called from tud_video_frame_xfer_complete_cb
+    // (zero-copy path: video_task no longer copies into a separate buffer,
+    //  so the camera FB is returned here after USB finishes the transfer).
     if (s_fb.cam_fb_p)
     {
         esp_camera_fb_return(s_fb.cam_fb_p);

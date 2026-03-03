@@ -51,18 +51,22 @@ void SerialManager::try_receive()
     // we will submit the command once we get a newline, a return or the buffer is full
     for (auto i = 0; i < len; i++)
     {
-        this->data[current_position++] = this->temp_data[i];
-        // if we're at the end of the buffer, try to process the command anyway
-        // if we've got a new line, we've finished sending the commands, process them
-        if (current_position >= BUF_SIZE || this->data[current_position - 1] == '\n' || this->data[current_position - 1] == '\r')
-        {
-            data[current_position - 1] = '\0';
-            current_position = 0;
+        const char c = this->temp_data[i];
 
-            const nlohmann::json result = this->commandManager->executeFromJson(std::string_view(reinterpret_cast<const char*>(this->data)));
-            const auto resultMessage = result.dump();
-            usb_serial_jtag_write_bytes_chunked(resultMessage.c_str(), resultMessage.length(), 1000 / 20);
+        if (current_position >= BUF_SIZE - 1 || c == '\n' || c == '\r')
+        {
+            this->data[current_position] = '\0';
+            if (current_position > 0)
+            {
+                const nlohmann::json result = this->commandManager->executeFromJson(std::string_view(reinterpret_cast<const char*>(this->data)));
+                const auto resultMessage = result.dump();
+                usb_serial_jtag_write_bytes_chunked(resultMessage.c_str(), resultMessage.length(), 1000 / 20);
+            }
+            current_position = 0;
+            continue;
         }
+
+        this->data[current_position++] = c;
     }
 }
 
@@ -94,18 +98,23 @@ void HandleCDCSerialManagerTask(void* pvParameters)
         {
             for (auto i = 0; i < packet.len; i++)
             {
-                buffer[idx++] = packet.data[i];
-                // if we're at the end of the buffer, try to process the command anyway
-                // if we've got a new line, we've finished sending the commands, process them
-                if (idx >= BUF_SIZE || buffer[idx - 1] == '\n' || buffer[idx - 1] == '\r')
+                const char c = packet.data[i];
+
+                if (idx >= BUF_SIZE - 1 || c == '\n' || c == '\r')
                 {
-                    buffer[idx - 1] = '\0';
-                    const nlohmann::json result = commandManager->executeFromJson(std::string_view(reinterpret_cast<const char*>(buffer)));
-                    const auto resultMessage = result.dump();
-                    tud_cdc_write(resultMessage.c_str(), resultMessage.length());
-                    tud_cdc_write_flush();
+                    buffer[idx] = '\0';
+                    if (idx > 0)
+                    {
+                        const nlohmann::json result = commandManager->executeFromJson(std::string_view(reinterpret_cast<const char*>(buffer)));
+                        const auto resultMessage = result.dump();
+                        tud_cdc_write(resultMessage.c_str(), resultMessage.length());
+                        tud_cdc_write_flush();
+                    }
                     idx = 0;
+                    continue;
                 }
+
+                buffer[idx++] = c;
             }
         }
     }

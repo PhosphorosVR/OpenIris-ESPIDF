@@ -122,15 +122,13 @@ static void UVCStreamHelpers::camera_stop_cb(void* cb_ctx)
     (void)cb_ctx;
     s_stopping.store(true);
 
-    // Only return the frame directly if nothing is in flight.
-    // If a frame IS in flight, camera_fb_return_cb handles cleanup.
-    if (!s_frame_inflight.load())
+    // Always release camera FB to prevent frame buffer leaks.
+    // Even if a USB transfer is in flight the DMA has already read the data
+    // from DRAM so returning the buffer here is safe.
+    if (s_fb.cam_fb_p)
     {
-        if (s_fb.cam_fb_p)
-        {
-            esp_camera_fb_return(s_fb.cam_fb_p);
-            s_fb.cam_fb_p = nullptr;
-        }
+        esp_camera_fb_return(s_fb.cam_fb_p);
+        s_fb.cam_fb_p = nullptr;
     }
 
     reset_pacing_state();

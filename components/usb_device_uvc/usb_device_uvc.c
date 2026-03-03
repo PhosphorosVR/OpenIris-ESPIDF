@@ -183,9 +183,9 @@ static void video_task(void *arg)
             continue;
         }
 
-        if (pic->len > uvc_buffer_size)
+        if (pic->len == 0 || pic->len > uvc_buffer_size)
         {
-            ESP_LOGW(TAG, "frame size is too big, dropping frame");
+            ESP_LOGW(TAG, "frame size invalid (len=%zu), dropping frame", pic->len);
             s_uvc_device.user_config[0].fb_return_cb(pic, s_uvc_device.user_config[0].cb_ctx);
             continue;
         }

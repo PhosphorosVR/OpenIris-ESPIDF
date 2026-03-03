@@ -362,6 +362,7 @@ def set_led_duty_cycle(device: OpenIrisDevice, *args, **kwargs):
             duty_cycle = int(desired_pwd)
         except ValueError:
             print("❌ Invalid input. Please enter a number between 0 and 100.")
+            continue
 
         if duty_cycle < 0 or duty_cycle > 100:
             print("❌ Duty cycle must be between 0 and 100.")

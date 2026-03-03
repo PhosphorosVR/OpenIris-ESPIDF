@@ -65,7 +65,6 @@ void FanManager::setup()
 
     ledc_timer_config_t timer_cfg = {
         .speed_mode = LEDC_LOW_SPEED_MODE, .duty_resolution = resolution, .timer_num = FAN_PWM_TIMER, .freq_hz = freq, .clk_cfg = LEDC_AUTO_CLK};
-    ESP_ERROR_CHECK(ledc_timer_config(&timer_cfg));
 
     ledc_channel_config_t channel_cfg = {.gpio_num = this->fan_pin,
                                          .speed_mode = LEDC_LOW_SPEED_MODE,
@@ -75,7 +74,20 @@ void FanManager::setup()
                                          .duty = dutyCycle,
                                          .hpoint = 0};
 
-    ESP_ERROR_CHECK(ledc_channel_config(&channel_cfg));
+    esp_err_t err = ledc_timer_config(&timer_cfg);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(FAN_MANAGER_TAG, "Fan PWM timer config failed: %s", esp_err_to_name(err));
+        return;
+    }
+
+    err = ledc_channel_config(&channel_cfg);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(FAN_MANAGER_TAG, "Fan PWM channel config failed: %s", esp_err_to_name(err));
+        return;
+    }
+
     initialized = true;
 #else
     ESP_LOGW(FAN_MANAGER_TAG, "CONFIG_FAN_PWM_ENABLE not set; skipping fan setup");

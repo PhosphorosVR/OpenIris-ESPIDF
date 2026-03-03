@@ -55,7 +55,7 @@ TaskHandle_t serialManagerHandle;
 
 esp_timer_handle_t timerHandle = nullptr;
 QueueHandle_t eventQueue = xQueueCreate(10, sizeof(SystemEvent));
-QueueHandle_t ledStateQueue = xQueueCreate(10, sizeof(uint32_t));
+QueueHandle_t ledStateQueue = xQueueCreate(10, sizeof(LEDStates_e));
 QueueHandle_t cdcMessageQueue = xQueueCreate(3, sizeof(cdc_command_packet_t));
 
 auto* stateManager = new StateManager(eventQueue, ledStateQueue);

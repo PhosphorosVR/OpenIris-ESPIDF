@@ -29,6 +29,10 @@
 #include <MonitoringManager.hpp>
 #endif
 
+#if CONFIG_DEBUG_LOG_ENABLE
+#include <LogManager.hpp>
+#endif
+
 #ifdef CONFIG_GENERAL_INCLUDE_UVC_MODE
 #include <UVCStream.hpp>
 #endif
@@ -282,12 +286,24 @@ extern "C" void app_main(void)
     dependencyRegistry->registerService<MonitoringManager>(DependencyType::monitoring_manager, monitoringManager);
 #endif
 
+#if CONFIG_DEBUG_LOG_ENABLE
+    // Wrap the global logManager in a no-op-deleter shared_ptr for the registry
+    std::shared_ptr<LogManager> logMgr(&logManager, [](LogManager*) {});
+    dependencyRegistry->registerService<LogManager>(DependencyType::log_manager, logMgr);
+#endif
+
     // add endpoint to check firmware version
 
     // esp_log_set_vprintf(&websocket_logger);
     Logo::printASCII();
     initNVSStorage();
     deviceConfig->load();
+
+#if CONFIG_DEBUG_LOG_ENABLE
+    logManager.setup();
+    logManager.start();
+#endif
+
     ledManager->setup();
     fanManager->setup();
 

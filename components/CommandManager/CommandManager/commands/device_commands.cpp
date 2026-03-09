@@ -5,6 +5,10 @@
 #include "FanManager.hpp"
 #include "esp_mac.h"
 
+#if CONFIG_DEBUG_LOG_ENABLE
+#include "LogManager.hpp"
+#endif
+
 CommandResult setDeviceModeCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json)
 {
     if (!json.contains("mode") || !json["mode"].is_number_integer())
@@ -302,4 +306,48 @@ CommandResult getInfoCommand(std::shared_ptr<DependencyRegistry> /*registry*/)
         {"version", ver},
     };
     return CommandResult::getSuccessResult(json);
+}
+
+CommandResult getLogsCommand(std::shared_ptr<DependencyRegistry> registry)
+{
+#if CONFIG_DEBUG_LOG_ENABLE
+    auto lm = registry->resolve<LogManager>(DependencyType::log_manager);
+    if (!lm)
+    {
+        return CommandResult::getErrorResult("LogManager unavailable");
+    }
+
+    auto entries = lm->getRecentLogs();
+    nlohmann::json logs = nlohmann::json::array();
+    for (const auto& e : entries)
+    {
+        logs.push_back({
+            {"ts", e.timestamp_ms},
+            {"lvl", e.level == ESP_LOG_ERROR ? "E" : "W"},
+            {"msg", e.message},
+        });
+    }
+
+    return CommandResult::getSuccessResult(nlohmann::json{{"count", entries.size()}, {"logs", logs}});
+#else
+    (void)registry;
+    return CommandResult::getErrorResult("Debug logging disabled");
+#endif
+}
+
+CommandResult getPersistentLogsCommand(std::shared_ptr<DependencyRegistry> registry)
+{
+#if CONFIG_DEBUG_LOG_ENABLE
+    auto lm = registry->resolve<LogManager>(DependencyType::log_manager);
+    if (!lm)
+    {
+        return CommandResult::getErrorResult("LogManager unavailable");
+    }
+
+    std::string logs = lm->getPersistentLogs();
+    return CommandResult::getSuccessResult(nlohmann::json{{"logs", logs}});
+#else
+    (void)registry;
+    return CommandResult::getErrorResult("Debug logging disabled");
+#endif
 }

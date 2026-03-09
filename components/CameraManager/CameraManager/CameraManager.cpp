@@ -62,7 +62,7 @@ static const CameraProfile PROFILE_OV3660_BW = {
     .exposure_ctrl = 0,
     .aec2 = 0,
     .ae_level = -1,
-    .aec_value = 260,
+    .aec_value = 250,
     .gain_ctrl = 0,
     .agc_gain = 2,
     .gainceiling = 4,
@@ -284,27 +284,12 @@ bool CameraManager::setupCamera()
         return false;
     }
 
-    // Per-sensor XCLK override: the initial esp_camera_init() uses a safe,
-    // conservative XCLK (e.g. 23 MHz) so the SCCB bus probe detects the sensor
-    // reliably.  If the target XCLK for the detected sensor differs, we must
-    // fully re-initialise the camera driver with the correct frequency.
-    //
-    // Sequence for a reliable XCLK change:
-    //  1. Software-reset the sensor (OV3660 reg 0x3008 bit 7) — this clears
-    //     the PLL configuration so it will cleanly lock at whatever XCLK
-    //     comes next, instead of trying to relock a PLL that was set up for
-    //     the old frequency.
-    //  2. esp_camera_deinit()  — releases DMA/I2C but LEDC/XCLK keeps running.
-    //  3. Wait ≥300 ms — the sensor completes its internal power-on-reset
-    //     sequence and the LEDC timer transitions to the new frequency.
-    //  4. esp_camera_init() at the new XCLK — the sensor probes cleanly.
-    //  5. Retry up to 3 times if I2C is still flaky (PVT variation).
+    // Per-sensor XCLK override applied after detection so SCCB probe stays stable.
     if (auto* detected_sensor = esp_camera_sensor_get())
     {
         auto* info = esp_camera_sensor_get_info(&detected_sensor->id);
-        const uint16_t detected_pid = detected_sensor->id.PID;
-        const uint32_t requested_xclk = [detected_pid]() {
-            switch (detected_pid)
+        const uint32_t requested_xclk = [detected_sensor]() {
+            switch (detected_sensor->id.PID)
             {
                 case OV2640_PID:
                     return static_cast<uint32_t>(CONFIG_CAMERA_XCLK_FREQ_OV2640_OVERRIDE);
@@ -315,104 +300,57 @@ bool CameraManager::setupCamera()
             }
         }();
 
-        if (requested_xclk > 0 && requested_xclk != config.xclk_freq_hz)
+        if (requested_xclk > 0)
         {
-            ESP_LOGI(CAMERA_MANAGER_TAG,
-                     "Camera %s (PID 0x%02x): XCLK override %lu Hz (init was %lu Hz), re-initialising camera driver...",
-                     info ? info->name : "unknown", detected_pid,
-                     static_cast<unsigned long>(requested_xclk),
-                     static_cast<unsigned long>(config.xclk_freq_hz));
-
-            // Step 1: Software-reset the sensor BEFORE deinit so the PLL
-            // configuration is wiped while SCCB is still available.
-            // OV3660/OV5640: register 0x3008, bit 7 = software power-on reset.
-            // After the bit is set the sensor runs an internal reset (~1-5 ms)
-            // and the register auto-clears.
-            if (detected_pid == OV3660_PID || detected_pid == OV5640_PID)
+            uint32_t mhz = requested_xclk / 1000000U;
+            if (mhz == 0)
             {
-                ESP_LOGI(CAMERA_MANAGER_TAG, "Issuing software reset to sensor before XCLK change");
-                detected_sensor->set_reg(detected_sensor, 0x3008, 0xFF, 0x82);
-                vTaskDelay(pdMS_TO_TICKS(20));
+                ESP_LOGW(CAMERA_MANAGER_TAG, "XCLK override %lu Hz too low; keeping %lu Hz",
+                         static_cast<unsigned long>(requested_xclk), static_cast<unsigned long>(config.xclk_freq_hz));
             }
-            // OV2640: register 0xFF=0x01 (bank sel), then 0x12 bit 7 = reset
-            else if (detected_pid == OV2640_PID)
+            else
             {
-                detected_sensor->set_reg(detected_sensor, 0xFF, 0xFF, 0x01);
-                detected_sensor->set_reg(detected_sensor, 0x12, 0xFF, 0x80);
-                vTaskDelay(pdMS_TO_TICKS(20));
-            }
-
-            // Step 2: Deinit releases DMA, I2C, frame buffers.
-            esp_camera_deinit();
-            config.xclk_freq_hz = requested_xclk;
-
-            // Step 3: Wait for the sensor to complete its internal reset.
-            // The PLL is now unconfigured and will cleanly lock at whatever
-            // XCLK frequency esp_camera_init() provides.
-            // 500 ms is needed empirically — 300 ms resulted in ~66% first-
-            // attempt failures where the I2C bus scan could not find the sensor.
-            vTaskDelay(pdMS_TO_TICKS(500));
-
-            // Step 4+5: Init with retry logic for PVT edge cases.
-            constexpr int REINIT_MAX_ATTEMPTS = 5;
-            esp_err_t reinit_err = ESP_FAIL;
-            for (int attempt = 0; attempt < REINIT_MAX_ATTEMPTS; ++attempt)
-            {
-                reinit_err = esp_camera_init(&config);
-                if (reinit_err == ESP_OK)
+                if ((requested_xclk % 1000000U) != 0)
                 {
-                    if (attempt > 0)
-                    {
-                        ESP_LOGW(CAMERA_MANAGER_TAG,
-                                 "Camera re-init succeeded on attempt %d/%d",
-                                 attempt + 1, REINIT_MAX_ATTEMPTS);
-                    }
-                    break;
+                    ESP_LOGW(CAMERA_MANAGER_TAG,
+                             "XCLK override %lu Hz not multiple of 1MHz; rounding to %lu MHz (driver granularity)",
+                             static_cast<unsigned long>(requested_xclk), static_cast<unsigned long>(mhz));
                 }
-                ESP_LOGW(CAMERA_MANAGER_TAG,
-                         "Camera re-init attempt %d/%d at XCLK %lu Hz failed: %s, retrying after delay...",
-                         attempt + 1, REINIT_MAX_ATTEMPTS,
-                         static_cast<unsigned long>(requested_xclk),
-                         esp_err_to_name(reinit_err));
-                // Progressively longer delay: 500ms, 1000ms, 1500ms, 2000ms, 2500ms
-                vTaskDelay(pdMS_TO_TICKS(500 * (attempt + 1)));
-            }
 
-            if (reinit_err != ESP_OK)
-            {
-                ESP_LOGE(CAMERA_MANAGER_TAG,
-                         "Camera re-init at XCLK %lu Hz failed after %d attempts: %s",
-                         static_cast<unsigned long>(requested_xclk),
-                         REINIT_MAX_ATTEMPTS,
-                         esp_err_to_name(reinit_err));
-                constexpr auto event = SystemEvent{EventSource::CAMERA, CameraState_e::Camera_Error};
-                xQueueSend(this->eventQueue, &event, 10);
-                return false;
+                if (detected_sensor->set_xclk(detected_sensor, config.ledc_timer, static_cast<int>(mhz)) == 0)
+                {
+                    config.xclk_freq_hz = mhz * 1000000U;
+                    ESP_LOGI(CAMERA_MANAGER_TAG,
+                             "Camera %s (PID 0x%02x): applied XCLK override %lu Hz, waiting for PLL relock...",
+                             info ? info->name : "unknown", detected_sensor->id.PID,
+                             static_cast<unsigned long>(config.xclk_freq_hz));
+                    // The sensor PLL must re-lock after an XCLK frequency change.
+                    // Without this delay, subsequent I2C (SCCB) register writes
+                    // fail with NACK because the sensor's internal clocks are
+                    // still settling.  100 ms is conservative; typical PLL lock
+                    // time for OV sensors is 10-50 ms.
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                }
+                else
+                {
+                    ESP_LOGW(CAMERA_MANAGER_TAG,
+                             "Camera %s (PID 0x%02x): failed to apply XCLK override %lu Hz, keeping %lu Hz",
+                             info ? info->name : "unknown", detected_sensor->id.PID,
+                             static_cast<unsigned long>(requested_xclk), static_cast<unsigned long>(config.xclk_freq_hz));
+                }
             }
-
-            ESP_LOGI(CAMERA_MANAGER_TAG,
-                     "Camera %s (PID 0x%02x): re-initialised successfully at XCLK %lu Hz",
-                     info ? info->name : "unknown", detected_pid,
-                     static_cast<unsigned long>(config.xclk_freq_hz));
-        }
-        else if (requested_xclk > 0)
-        {
-            ESP_LOGI(CAMERA_MANAGER_TAG,
-                     "Camera %s (PID 0x%02x): XCLK override matches init XCLK %lu Hz, no change needed",
-                     info ? info->name : "unknown", detected_pid,
-                     static_cast<unsigned long>(config.xclk_freq_hz));
         }
         else
         {
             ESP_LOGI(CAMERA_MANAGER_TAG,
                      "Camera %s (PID 0x%02x): using default XCLK %lu Hz",
-                     info ? info->name : "unknown", detected_pid,
+                     info ? info->name : "unknown", detected_sensor->id.PID,
                      static_cast<unsigned long>(config.xclk_freq_hz));
         }
     }
     else
     {
-        ESP_LOGW(CAMERA_MANAGER_TAG, "Camera sensor handle unavailable after init");
+        ESP_LOGW(CAMERA_MANAGER_TAG, "Camera sensor handle unavailable for XCLK override");
     }
 
 #if CONFIG_GENERAL_INCLUDE_UVC_MODE

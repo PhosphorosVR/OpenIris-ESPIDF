@@ -491,11 +491,11 @@ def show_current_logs(device: OpenIrisDevice, *args, **kwargs):
         print("ℹ️  No WARN/ERROR logs in current session")
         return
 
-    print(f"📋 {count} log entries:\n")
+    print(f"📋 {count} log entries total (showing last {len(logs)}):\n")
     for entry in logs:
-        ts = entry.get("ts", 0)
-        lvl = entry.get("lvl", "?")
-        msg = entry.get("msg", "")
+        ts = entry.get("t", 0)
+        lvl = entry.get("l", "?")
+        msg = entry.get("m", "")
         seconds = ts / 1000.0
         print(f"  [{seconds:>10.1f}s] [{lvl}] {msg}")
 

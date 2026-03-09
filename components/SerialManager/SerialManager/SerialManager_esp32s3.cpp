@@ -59,7 +59,7 @@ void SerialManager::try_receive()
             if (current_position > 0)
             {
                 const nlohmann::json result = this->commandManager->executeFromJson(std::string_view(reinterpret_cast<const char*>(this->data)));
-                const auto resultMessage = result.dump();
+                const auto resultMessage = result.dump() + "\n";
                 usb_serial_jtag_write_bytes_chunked(resultMessage.c_str(), resultMessage.length(), 1000 / 20);
             }
             current_position = 0;
@@ -106,7 +106,7 @@ void HandleCDCSerialManagerTask(void* pvParameters)
                     if (idx > 0)
                     {
                         const nlohmann::json result = commandManager->executeFromJson(std::string_view(reinterpret_cast<const char*>(buffer)));
-                        const auto resultMessage = result.dump();
+                        const auto resultMessage = result.dump() + "\n";
                         tud_cdc_write(resultMessage.c_str(), resultMessage.length());
                         tud_cdc_write_flush();
                     }

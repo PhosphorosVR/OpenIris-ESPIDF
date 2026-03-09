@@ -11,7 +11,8 @@ enum class DependencyType
     wifi_manager,
     led_manager,
     fan_manager,
-    monitoring_manager
+    monitoring_manager,
+    log_manager
 };
 
 class DependencyRegistry

@@ -476,6 +476,42 @@ def restart_device_command(device: OpenIrisDevice, *args, **kwargs):
     print("💡 Please wait a few seconds for the device to reboot")
 
 
+def show_current_logs(device: OpenIrisDevice, *args, **kwargs):
+    print("📋 Fetching current session logs...")
+    response = device.send_command("get_logs")
+    if has_command_failed(response):
+        print(f"❌ Failed to get logs: {get_response_error(response)}")
+        return
+
+    data = response["results"][0]["result"]["data"]
+    count = data.get("count", 0)
+    logs = data.get("logs", [])
+
+    if count == 0:
+        print("ℹ️  No WARN/ERROR logs in current session")
+        return
+
+    print(f"📋 {count} log entries:\n")
+    for entry in logs:
+        ts = entry.get("ts", 0)
+        lvl = entry.get("lvl", "?")
+        msg = entry.get("msg", "")
+        seconds = ts / 1000.0
+        print(f"  [{seconds:>10.1f}s] [{lvl}] {msg}")
+
+
+def show_persistent_logs(device: OpenIrisDevice, *args, **kwargs):
+    print("💾 Fetching persistent logs (across reboots)...")
+    response = device.send_command("get_persistent_logs")
+    if has_command_failed(response):
+        print(f"❌ Failed to get persistent logs: {get_response_error(response)}")
+        return
+
+    data = response["results"][0]["result"]["data"]
+    logs = data.get("logs", "No persistent logs available")
+    print(f"\n{logs}")
+
+
 def scan_networks(wifi_scanner: WiFiScanner, *args, **kwargs):
     use_custom_timeout = (
         input("Should we use a custom scan timeout? (y/n)\n>> ").strip().lower() == "y"
@@ -664,6 +700,11 @@ def handle_menu(menu_context: dict | None = None) -> str:
     menu.add_action("🌀 Update Fan PWM Duty", set_fan_duty_cycle)
     menu.add_action("🧩 Get settings summary", get_settings_summary)
     menu.add_action("🔪 Restart device", restart_device_command)
+
+    debug_menu = SubMenu("🐛 Debug / Logs", menu_context, menu)
+    debug_menu.add_action("📋 Show current session logs (RAM)", show_current_logs)
+    debug_menu.add_action("💾 Show persistent logs (across reboots)", show_persistent_logs)
+
     menu.show()
 
 

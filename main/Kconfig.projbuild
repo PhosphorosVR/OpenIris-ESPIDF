@@ -262,6 +262,47 @@ menu "OpenIris: Fan Configuration"
 
 endmenu
 
+menu "OpenIris: Debug"
+
+    config DEBUG_LOG_ENABLE
+        bool "Enable debug log capture"
+        default n
+        help
+            Enables the LogManager which captures ERROR and WARN level logs into a RAM
+            ringbuffer (accessible via get_logs) and persists them to SPIFFS across reboots
+            (accessible via get_persistent_logs). Disable to save RAM and flash wear.
+
+    config DEBUG_LOG_RINGBUFFER_SIZE
+        int "RAM ringbuffer size (number of entries)"
+        depends on DEBUG_LOG_ENABLE
+        range 10 200
+        default 50
+        help
+            Maximum number of log entries kept in RAM for the current boot session.
+            Each entry can hold up to 200 characters. Oldest entries are overwritten
+            when the buffer is full.
+
+    config DEBUG_LOG_PERSISTENT_BOOTS
+        int "Number of boot cycles to keep on flash"
+        depends on DEBUG_LOG_ENABLE
+        range 1 10
+        default 5
+        help
+            How many previous boot sessions worth of ERROR/WARN logs are kept on the
+            SPIFFS partition. On each boot the oldest file is discarded and a new one
+            is created for the current session.
+
+    config DEBUG_LOG_FLUSH_INTERVAL_MS
+        int "SPIFFS flush interval (ms)"
+        depends on DEBUG_LOG_ENABLE
+        range 1000 60000
+        default 10000
+        help
+            How often buffered persistent log entries are written to flash.
+            Lower values give faster persistence but increase flash wear.
+
+endmenu
+
 menu "OpenIris: Monitoring"
 
     config MONITORING_LED_CURRENT

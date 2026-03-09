@@ -318,17 +318,27 @@ CommandResult getLogsCommand(std::shared_ptr<DependencyRegistry> registry)
     }
 
     auto entries = lm->getRecentLogs();
+
+    // Limit to newest 20 entries to keep CDC response small
+    const size_t max_entries = 20;
+    size_t start = entries.size() > max_entries ? entries.size() - max_entries : 0;
+
     nlohmann::json logs = nlohmann::json::array();
-    for (const auto& e : entries)
+    for (size_t i = start; i < entries.size(); i++)
     {
+        const auto& e = entries[i];
+        // Truncate message to 120 chars to limit response size
+        char msg[121];
+        strncpy(msg, e.message, 120);
+        msg[120] = '\0';
         logs.push_back({
-            {"ts", e.timestamp_ms},
-            {"lvl", e.level == ESP_LOG_ERROR ? "E" : "W"},
-            {"msg", e.message},
+            {"t", e.timestamp_ms},
+            {"l", e.level == ESP_LOG_ERROR ? "E" : "W"},
+            {"m", msg},
         });
     }
 
-    return CommandResult::getSuccessResult(nlohmann::json{{"count", entries.size()}, {"logs", logs}});
+    return CommandResult::getSuccessResult(nlohmann::json{{"count", (int)entries.size()}, {"logs", logs}});
 #else
     (void)registry;
     return CommandResult::getErrorResult("Debug logging disabled");
@@ -345,6 +355,12 @@ CommandResult getPersistentLogsCommand(std::shared_ptr<DependencyRegistry> regis
     }
 
     std::string logs = lm->getPersistentLogs();
+    // Truncate to 3KB to stay within CDC transfer limits
+    if (logs.size() > 3072)
+    {
+        logs = logs.substr(logs.size() - 3072);
+        logs = "[truncated]\n" + logs;
+    }
     return CommandResult::getSuccessResult(nlohmann::json{{"logs", logs}});
 #else
     (void)registry;

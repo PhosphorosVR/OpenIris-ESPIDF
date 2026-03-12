@@ -2,6 +2,7 @@
 #ifndef LOGMANAGER_HPP
 #define LOGMANAGER_HPP
 
+#include <atomic>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -25,12 +26,15 @@ class LogManager
 
     void setup();
     void start();
+    void setEnabled(bool enabled);
+    bool isEnabled() const;
 
     // Retrieve current session logs from RAM ringbuffer
     std::vector<LogEntry> getRecentLogs() const;
 
     // Retrieve persistent logs from SPIFFS (last N boots)
     std::string getPersistentLogs() const;
+    bool clearPersistentLogs();
 
     // Custom vprintf hook – called by esp_log
     static int logHook(const char* format, va_list args);
@@ -53,6 +57,7 @@ class LogManager
     std::vector<LogEntry> pending_;
 
     bool spiffs_mounted_{false};
+    std::atomic_bool enabled_{true};
 
     // Original vprintf so we still see output on default console
     vprintf_like_t original_vprintf_{nullptr};

@@ -301,6 +301,7 @@ extern "C" void app_main(void)
 
 #if CONFIG_DEBUG_LOG_ENABLE
     logManager.setup();
+    logManager.setEnabled(deviceConfig->getDeviceConfig().debug_log_enabled);
     logManager.start();
 #endif
 

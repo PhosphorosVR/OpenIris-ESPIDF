@@ -102,6 +102,13 @@ void ProjectConfig::setOTAConfig(const std::string& OTALogin, const std::string&
     this->config.device.save();
 }
 
+void ProjectConfig::setDebugLogEnabledConfig(const bool enabled)
+{
+    this->config.device.debug_log_enabled = enabled;
+    ESP_LOGI(CONFIGURATION_TAG, "Setting debug log capture to %s", enabled ? "enabled" : "disabled");
+    this->config.device.save();
+}
+
 void ProjectConfig::setLEDDUtyCycleConfig(int led_external_pwm_duty_cycle)
 {
     this->config.device.led_external_pwm_duty_cycle = led_external_pwm_duty_cycle;

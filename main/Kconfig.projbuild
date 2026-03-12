@@ -266,11 +266,20 @@ menu "OpenIris: Debug"
 
     config DEBUG_LOG_ENABLE
         bool "Enable debug log capture"
-        default n
+        default y
         help
             Enables the LogManager which captures ERROR and WARN level logs into a RAM
             ringbuffer (accessible via get_logs) and persists them to SPIFFS across reboots
             (accessible via get_persistent_logs). Disable to save RAM and flash wear.
+
+    config DEBUG_LOG_DEFAULT_ENABLED
+        bool "Enable debug log capture by default at boot"
+        depends on DEBUG_LOG_ENABLE
+        default n
+        help
+            Default runtime state for debug log capture when no saved preference exists yet.
+            Disable this if you want log capture to start in OFF state and only be enabled
+            manually through the serial command or setup tool.
 
     config DEBUG_LOG_RINGBUFFER_SIZE
         int "RAM ringbuffer size (number of entries)"

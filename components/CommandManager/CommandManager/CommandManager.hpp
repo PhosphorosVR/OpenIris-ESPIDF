@@ -51,8 +51,11 @@ enum class CommandType
     GET_LED_CURRENT,
     GET_BATTERY_STATUS,
     GET_WHO_AM_I,
+    SET_DEBUG_LOG_ENABLED,
+    GET_DEBUG_LOG_ENABLED,
     GET_LOGS,
     GET_PERSISTENT_LOGS,
+    CLEAR_PERSISTENT_LOGS,
 };
 
 class CommandManager

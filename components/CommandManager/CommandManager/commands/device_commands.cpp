@@ -308,6 +308,49 @@ CommandResult getInfoCommand(std::shared_ptr<DependencyRegistry> /*registry*/)
     return CommandResult::getSuccessResult(json);
 }
 
+CommandResult setDebugLogEnabledCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json)
+{
+#if CONFIG_DEBUG_LOG_ENABLE
+    if (!json.contains("enabled") || !json["enabled"].is_boolean())
+    {
+        return CommandResult::getErrorResult("Invalid payload - missing enabled flag");
+    }
+
+    const bool enabled = json["enabled"].get<bool>();
+    const auto projectConfig = registry->resolve<ProjectConfig>(DependencyType::project_config);
+    auto lm = registry->resolve<LogManager>(DependencyType::log_manager);
+    if (!lm)
+    {
+        return CommandResult::getErrorResult("LogManager unavailable");
+    }
+
+    projectConfig->setDebugLogEnabledConfig(enabled);
+    lm->setEnabled(enabled);
+
+    return CommandResult::getSuccessResult(nlohmann::json{{"enabled", enabled}});
+#else
+    (void)registry;
+    (void)json;
+    return CommandResult::getErrorResult("Debug logging disabled in firmware");
+#endif
+}
+
+CommandResult getDebugLogEnabledCommand(std::shared_ptr<DependencyRegistry> registry)
+{
+#if CONFIG_DEBUG_LOG_ENABLE
+    auto lm = registry->resolve<LogManager>(DependencyType::log_manager);
+    if (!lm)
+    {
+        return CommandResult::getErrorResult("LogManager unavailable");
+    }
+
+    return CommandResult::getSuccessResult(nlohmann::json{{"enabled", lm->isEnabled()}});
+#else
+    (void)registry;
+    return CommandResult::getErrorResult("Debug logging disabled in firmware");
+#endif
+}
+
 CommandResult getLogsCommand(std::shared_ptr<DependencyRegistry> registry)
 {
 #if CONFIG_DEBUG_LOG_ENABLE
@@ -338,7 +381,7 @@ CommandResult getLogsCommand(std::shared_ptr<DependencyRegistry> registry)
         });
     }
 
-    return CommandResult::getSuccessResult(nlohmann::json{{"count", (int)entries.size()}, {"logs", logs}});
+    return CommandResult::getSuccessResult(nlohmann::json{{"enabled", lm->isEnabled()}, {"count", (int)entries.size()}, {"logs", logs}});
 #else
     (void)registry;
     return CommandResult::getErrorResult("Debug logging disabled");
@@ -361,7 +404,29 @@ CommandResult getPersistentLogsCommand(std::shared_ptr<DependencyRegistry> regis
         logs = logs.substr(logs.size() - 3072);
         logs = "[truncated]\n" + logs;
     }
-    return CommandResult::getSuccessResult(nlohmann::json{{"logs", logs}});
+    return CommandResult::getSuccessResult(nlohmann::json{{"enabled", lm->isEnabled()}, {"logs", logs}});
+#else
+    (void)registry;
+    return CommandResult::getErrorResult("Debug logging disabled");
+#endif
+}
+
+CommandResult clearPersistentLogsCommand(std::shared_ptr<DependencyRegistry> registry)
+{
+#if CONFIG_DEBUG_LOG_ENABLE
+    auto lm = registry->resolve<LogManager>(DependencyType::log_manager);
+    if (!lm)
+    {
+        return CommandResult::getErrorResult("LogManager unavailable");
+    }
+
+    const bool cleared = lm->clearPersistentLogs();
+    if (!cleared)
+    {
+        return CommandResult::getErrorResult("Failed to clear persistent logs");
+    }
+
+    return CommandResult::getSuccessResult(nlohmann::json{{"enabled", lm->isEnabled()}, {"cleared", true}});
 #else
     (void)registry;
     return CommandResult::getErrorResult("Debug logging disabled");

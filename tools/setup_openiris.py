@@ -279,6 +279,15 @@ def get_battery_status(device: OpenIrisDevice) -> dict:
     }
 
 
+def get_debug_log_status(device: OpenIrisDevice) -> dict:
+    response = device.send_command("get_debug_log_enabled")
+    if has_command_failed(response):
+        print(f"❌ Failed to get debug log status: {get_response_error(response)}")
+        return {"enabled": "unknown"}
+
+    return {"enabled": response["results"][0]["result"]["data"].get("enabled", False)}
+
+
 def configure_device_name(device: OpenIrisDevice, *args, **kwargs):
     current_name = get_mdns_name(device)
     print(f"\n📍 Current device name: {current_name['name']} \n")
@@ -418,6 +427,7 @@ def get_settings_summary(device: OpenIrisDevice, *args, **kwargs):
         ("Identity", get_serial_info),
         ("AdvertisedName", get_mdns_name),
         ("Info", get_device_info),
+        ("DebugLogs", get_debug_log_status),
         ("LED", get_led_duty_cycle),
         ("Fan", get_fan_duty_cycle),
         ("Current", get_led_current),
@@ -434,6 +444,7 @@ def get_settings_summary(device: OpenIrisDevice, *args, **kwargs):
     print(f"🔑 Serial: {summary['Identity']}")
     print(f"💡 LED PWM Duty: {summary['LED']['duty_cycle']}%")
     print(f"🌀 Fan PWM Duty: {summary['Fan']['duty_cycle']}%")
+    print(f"🪵 Debug log capture: {summary['DebugLogs']['enabled']}")
     print(f"🎚️  Mode: {summary['Mode']['mode']}")
 
     current_section = summary.get("Current", {})
@@ -476,6 +487,44 @@ def restart_device_command(device: OpenIrisDevice, *args, **kwargs):
     print("💡 Please wait a few seconds for the device to reboot")
 
 
+def set_debug_log_capture(device: OpenIrisDevice, enabled: bool):
+    response = device.send_command("set_debug_log_enabled", {"enabled": enabled})
+    if has_command_failed(response):
+        print(f"❌ Failed to update debug log capture: {get_response_error(response)}")
+        return False
+
+    state = response["results"][0]["result"]["data"].get("enabled", enabled)
+    print(f"✅ Debug log capture {'enabled' if state else 'disabled'}")
+    return True
+
+
+def show_debug_log_status(device: OpenIrisDevice, *args, **kwargs):
+    status = get_debug_log_status(device)
+    print(f"🪵 Debug log capture: {status['enabled']}")
+
+
+def enable_debug_log_capture(device: OpenIrisDevice, *args, **kwargs):
+    set_debug_log_capture(device, True)
+
+
+def disable_debug_log_capture(device: OpenIrisDevice, *args, **kwargs):
+    set_debug_log_capture(device, False)
+
+
+def clear_persistent_logs(device: OpenIrisDevice, *args, **kwargs):
+    confirm = input("Delete all persistent debug logs from flash? (y/n)\n>> ").strip().lower()
+    if confirm != "y":
+        print("ℹ️  Clear persistent logs cancelled")
+        return
+
+    response = device.send_command("clear_persistent_logs")
+    if has_command_failed(response):
+        print(f"❌ Failed to clear persistent logs: {get_response_error(response)}")
+        return
+
+    print("✅ Persistent debug logs cleared")
+
+
 def show_current_logs(device: OpenIrisDevice, *args, **kwargs):
     print("📋 Fetching current session logs...")
     response = device.send_command("get_logs")
@@ -484,8 +533,11 @@ def show_current_logs(device: OpenIrisDevice, *args, **kwargs):
         return
 
     data = response["results"][0]["result"]["data"]
+    enabled = data.get("enabled", True)
     count = data.get("count", 0)
     logs = data.get("logs", [])
+
+    print(f"🪵 Debug log capture: {'enabled' if enabled else 'disabled'}")
 
     if count == 0:
         print("ℹ️  No WARN/ERROR logs in current session")
@@ -508,7 +560,9 @@ def show_persistent_logs(device: OpenIrisDevice, *args, **kwargs):
         return
 
     data = response["results"][0]["result"]["data"]
+    enabled = data.get("enabled", True)
     logs = data.get("logs", "No persistent logs available")
+    print(f"🪵 Debug log capture: {'enabled' if enabled else 'disabled'}")
     print(f"\n{logs}")
 
 
@@ -702,8 +756,12 @@ def handle_menu(menu_context: dict | None = None) -> str:
     menu.add_action("🔪 Restart device", restart_device_command)
 
     debug_menu = SubMenu("🐛 Debug / Logs", menu_context, menu)
+    debug_menu.add_action("🪵 Show debug log status", show_debug_log_status)
+    debug_menu.add_action("▶️  Enable debug log capture", enable_debug_log_capture)
+    debug_menu.add_action("⏸️  Disable debug log capture", disable_debug_log_capture)
     debug_menu.add_action("📋 Show current session logs (RAM)", show_current_logs)
     debug_menu.add_action("💾 Show persistent logs (across reboots)", show_persistent_logs)
+    debug_menu.add_action("🗑️  Clear persistent logs", clear_persistent_logs)
 
     menu.show()
 

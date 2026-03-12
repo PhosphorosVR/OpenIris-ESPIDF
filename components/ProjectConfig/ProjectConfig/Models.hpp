@@ -66,12 +66,21 @@ struct DeviceConfig_t : BaseConfigModel
     int led_external_pwm_duty_cycle;
     int fan_pwm_duty_cycle;
     int OTAPort;
+    bool debug_log_enabled;
 
     void load()
     {
         this->OTALogin = this->pref->getString("OTALogin", "openiris");
         this->OTAPassword = this->pref->getString("OTAPassword", "openiris");
         this->OTAPort = this->pref->getInt("OTAPort", 3232);
+        this->debug_log_enabled = this->pref->getBool(
+            "dbg_log_en",
+    #if CONFIG_DEBUG_LOG_DEFAULT_ENABLED
+            true
+    #else
+            false
+    #endif
+        );
 #if CONFIG_LED_EXTERNAL_PWM_DUTY_CYCLE
         this->led_external_pwm_duty_cycle = this->pref->getInt("led_ext_pwm", CONFIG_LED_EXTERNAL_PWM_DUTY_CYCLE);
 #else
@@ -89,6 +98,7 @@ struct DeviceConfig_t : BaseConfigModel
         this->pref->putString("OTALogin", this->OTALogin.c_str());
         this->pref->putString("OTAPassword", this->OTAPassword.c_str());
         this->pref->putInt("OTAPort", this->OTAPort);
+        this->pref->putBool("dbg_log_en", this->debug_log_enabled);
         this->pref->putInt("led_ext_pwm", this->led_external_pwm_duty_cycle);
         this->pref->putInt("fan_pwm", this->fan_pwm_duty_cycle);
     };
@@ -97,8 +107,9 @@ struct DeviceConfig_t : BaseConfigModel
     {
         return Helpers::format_string(
             "\"device_config\": {\"OTALogin\": \"%s\", \"OTAPassword\": \"%s\", "
-            "\"OTAPort\": %u, \"led_external_pwm_duty_cycle\": %u, \"fan_pwm_duty_cycle\": %u}",
-            this->OTALogin.c_str(), this->OTAPassword.c_str(), this->OTAPort, this->led_external_pwm_duty_cycle, this->fan_pwm_duty_cycle);
+            "\"OTAPort\": %u, \"debug_log_enabled\": %s, \"led_external_pwm_duty_cycle\": %u, \"fan_pwm_duty_cycle\": %u}",
+            this->OTALogin.c_str(), this->OTAPassword.c_str(), this->OTAPort, this->debug_log_enabled ? "true" : "false",
+            this->led_external_pwm_duty_cycle, this->fan_pwm_duty_cycle);
     };
 };
 

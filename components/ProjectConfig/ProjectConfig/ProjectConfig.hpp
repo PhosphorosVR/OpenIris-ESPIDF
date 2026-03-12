@@ -34,6 +34,7 @@ class ProjectConfig
     TrackerConfig_t& getTrackerConfig();
 
     void setOTAConfig(const std::string& OTALogin, const std::string& OTAPassword, int OTAPort);
+    void setDebugLogEnabledConfig(bool enabled);
     void setLEDDUtyCycleConfig(int led_external_pwm_duty_cycle);
     void setFanDutyCycleConfig(int fan_pwm_duty_cycle);
     void setMDNSConfig(const std::string& hostname);

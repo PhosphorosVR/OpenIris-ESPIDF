@@ -36,3 +36,6 @@ CommandResult getInfoCommand(std::shared_ptr<DependencyRegistry> registry);
 // Debug logs
 CommandResult getLogsCommand(std::shared_ptr<DependencyRegistry> registry);
 CommandResult getPersistentLogsCommand(std::shared_ptr<DependencyRegistry> registry);
+CommandResult clearPersistentLogsCommand(std::shared_ptr<DependencyRegistry> registry);
+CommandResult setDebugLogEnabledCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json);
+CommandResult getDebugLogEnabledCommand(std::shared_ptr<DependencyRegistry> registry);

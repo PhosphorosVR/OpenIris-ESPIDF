@@ -117,6 +117,9 @@ int LogManager::logHook(const char* format, va_list args)
     int ret = logManager.original_vprintf_(format, args_copy);
     va_end(args_copy);
 
+    if (!logManager.enabled_.load())
+        return ret;
+
     // Format the message to check its level
     char buf[200];
     vsnprintf(buf, sizeof(buf), format, args);
@@ -216,6 +219,20 @@ void LogManager::flushLoop()
 
 // ---------- Public API ----------
 
+void LogManager::setEnabled(const bool enabled)
+{
+    enabled_.store(enabled);
+    if (!enabled)
+    {
+        flushPendingLogs();
+    }
+}
+
+bool LogManager::isEnabled() const
+{
+    return enabled_.load();
+}
+
 void LogManager::setup()
 {
     mountSpiffs();
@@ -230,7 +247,7 @@ void LogManager::start()
     original_vprintf_ = esp_log_set_vprintf(&LogManager::logHook);
 
     xTaskCreate(&LogManager::flushTaskEntry, "LogFlush", 1024 * 3, this, 1, nullptr);
-    ESP_LOGI(TAG, "Log capture started, flush interval=%d ms", CONFIG_DEBUG_LOG_FLUSH_INTERVAL_MS);
+    ESP_LOGI(TAG, "Log capture started, enabled=%s, flush interval=%d ms", isEnabled() ? "true" : "false", CONFIG_DEBUG_LOG_FLUSH_INTERVAL_MS);
 }
 
 std::vector<LogEntry> LogManager::getRecentLogs() const
@@ -289,6 +306,41 @@ std::string LogManager::getPersistentLogs() const
         result = "No persistent logs available";
 
     return result;
+}
+
+bool LogManager::clearPersistentLogs()
+{
+    if (!spiffs_mounted_)
+        return false;
+
+    {
+        std::lock_guard<std::mutex> lock(pending_mutex_);
+        pending_.clear();
+    }
+
+    const int max_boots = CONFIG_DEBUG_LOG_PERSISTENT_BOOTS;
+    bool success = true;
+    for (int i = 0; i < max_boots; i++)
+    {
+        char path[32];
+        snprintf(path, sizeof(path), "/logs/log_%d.txt", i);
+        if (remove(path) != 0)
+        {
+            FILE* f = fopen(path, "r");
+            if (f)
+            {
+                fclose(f);
+                success = false;
+            }
+        }
+    }
+
+    FILE* f = fopen("/logs/log_0.txt", "w");
+    if (!f)
+        return false;
+
+    fclose(f);
+    return success;
 }
 
 #endif  // CONFIG_DEBUG_LOG_ENABLE

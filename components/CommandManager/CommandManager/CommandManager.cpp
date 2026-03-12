@@ -30,8 +30,11 @@ std::unordered_map<std::string, CommandType> commandTypeMap = {
     {"get_led_current", CommandType::GET_LED_CURRENT},
     {"get_battery_status", CommandType::GET_BATTERY_STATUS},
     {"get_who_am_i", CommandType::GET_WHO_AM_I},
+    {"set_debug_log_enabled", CommandType::SET_DEBUG_LOG_ENABLED},
+    {"get_debug_log_enabled", CommandType::GET_DEBUG_LOG_ENABLED},
     {"get_logs", CommandType::GET_LOGS},
     {"get_persistent_logs", CommandType::GET_PERSISTENT_LOGS},
+    {"clear_persistent_logs", CommandType::CLEAR_PERSISTENT_LOGS},
 };
 
 std::function<CommandResult()> CommandManager::createCommand(const CommandType type, const nlohmann::json& json) const
@@ -94,10 +97,16 @@ std::function<CommandResult()> CommandManager::createCommand(const CommandType t
         return [this] { return getBatteryStatusCommand(this->registry); };
     case CommandType::GET_WHO_AM_I:
         return [this] { return getInfoCommand(this->registry); };
+    case CommandType::SET_DEBUG_LOG_ENABLED:
+        return [this, json] { return setDebugLogEnabledCommand(this->registry, json); };
+    case CommandType::GET_DEBUG_LOG_ENABLED:
+        return [this] { return getDebugLogEnabledCommand(this->registry); };
     case CommandType::GET_LOGS:
         return [this] { return getLogsCommand(this->registry); };
     case CommandType::GET_PERSISTENT_LOGS:
         return [this] { return getPersistentLogsCommand(this->registry); };
+    case CommandType::CLEAR_PERSISTENT_LOGS:
+        return [this] { return clearPersistentLogsCommand(this->registry); };
     default:
         return nullptr;
     }

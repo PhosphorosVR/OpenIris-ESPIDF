@@ -319,7 +319,7 @@ extern "C" void app_main(void)
 
     xTaskCreate(HandleLEDDisplayTask, "HandleLEDDisplayTask", 1024 * 2, ledManager.get(), 3, nullptr);
 
-    cameraHandler->setupCamera();
+    bool cameraOk = cameraHandler->setupCamera();
 
     // let's keep the serial manager running for the duration of the setup
     // we'll clean it up later if need be
@@ -329,12 +329,15 @@ extern "C" void app_main(void)
     StreamingMode mode = deviceConfig->getDeviceMode();
     if (mode == StreamingMode::UVC)
     {
-        // in UVC mode we only need to start the bare essentials for UVC
-        // we don't need any wireless communication, we can shut it down
-
-        // todo this would be the perfect place to introduce random delays
-        // to workaround windows usb bug
-        startWiredMode(true);
+        if (!cameraOk)
+        {
+            ESP_LOGE("[MAIN]", "Camera init failed, cannot start UVC mode");
+            // Fall through — serial manager stays alive so user can reconfigure
+        }
+        else
+        {
+            startWiredMode(true);
+        }
     }
     else if (mode == StreamingMode::WIFI)
     {

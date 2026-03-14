@@ -102,7 +102,13 @@ void tud_suspend_cb(bool remote_wakeup_en)
 {
     (void)remote_wakeup_en;
 
-    if (s_uvc_device.user_config[0].stop_cb)
+    // Only invoke stop_cb when a stream is actually active.
+    // USB hosts routinely suspend the bus right after enumeration
+    // (before any stream is committed).  Calling stop_cb at that
+    // point sets s_stopping=true, which is never cleared because
+    // camera_start_cb hasn't run yet — permanently blocking frame
+    // acquisition.
+    if (tud_video_n_streaming(0, 0) && s_uvc_device.user_config[0].stop_cb)
     {
         s_uvc_device.user_config[0].stop_cb(s_uvc_device.user_config[0].cb_ctx);
     }
@@ -137,6 +143,10 @@ static void video_task(void *arg)
             already_start = 0;
             frame_num = 0;
             tx_busy = 0;
+            // Drain any stale transfer-complete notification left over from
+            // the previous streaming session so it cannot desynchronize
+            // tx_busy and s_frame_inflight on the next session start.
+            ulTaskNotifyTake(pdTRUE, 0);
             vTaskDelay(1);
             continue;
         }
@@ -180,6 +190,7 @@ static void video_task(void *arg)
         else
         {
             ESP_LOGE(TAG, "Failed to capture picture");
+            vTaskDelay(pdMS_TO_TICKS(30));
             continue;
         }
 
@@ -193,6 +204,13 @@ static void video_task(void *arg)
         // Transfer directly from camera frame buffer — avoids a full-frame
         // memcpy and lets the DMA-capable DRAM buffer go straight to USB.
         // fb_return is deferred to xfer_complete callback (see below).
+        // Drain any stale notification from a previous transfer that
+        // completed after tx_busy was already cleared (e.g. during a
+        // stream stop/start cycle).  Without this, the stale notification
+        // causes ulTaskNotifyTake to succeed immediately on the NEXT
+        // iteration, clearing tx_busy before the current transfer
+        // finishes — desynchronizing tx_busy and s_frame_inflight.
+        ulTaskNotifyTake(pdTRUE, 0);
         tx_busy = 1;
         tud_video_n_frame_xfer(0, 0, (void *)pic->buf, frame_len);
         ESP_LOGD(TAG, "frame %" PRIu32 " transfer start, size %" PRIu32, frame_num, frame_len);

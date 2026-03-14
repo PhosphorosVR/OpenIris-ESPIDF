@@ -142,8 +142,14 @@ static uvc_fb_t* UVCStreamHelpers::camera_fb_get_cb(void* cb_ctx)
 
     // Guard against requesting a new frame while previous is still in flight
     // or while the host has signalled a stop via tud_suspend_cb.
-    if (s_frame_inflight.load() || s_stopping.load())
+    if (s_frame_inflight.load())
     {
+        ESP_LOGD(UVC_STREAM_TAG, "fb_get: blocked by s_frame_inflight");
+        return nullptr;
+    }
+    if (s_stopping.load())
+    {
+        ESP_LOGD(UVC_STREAM_TAG, "fb_get: blocked by s_stopping");
         return nullptr;
     }
 

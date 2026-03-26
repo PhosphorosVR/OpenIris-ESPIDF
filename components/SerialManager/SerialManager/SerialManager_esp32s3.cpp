@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "esp_vfs_usb_serial_jtag.h"
 #include "main_globals.hpp"
+#include "soc/usb_serial_jtag_reg.h"
 
 #include "tusb.h"
 
@@ -82,6 +83,19 @@ void SerialManager::shutdown()
     {
         ESP_LOGW("[SERIAL]", "usb_serial_jtag_driver_uninstall returned %s", esp_err_to_name(err));
     }
+
+    // Explicitly pull D+ low so the USB host detects a disconnect *now*.
+    // usb_serial_jtag_driver_uninstall() frees driver resources but leaves the
+    // hardware D+ pullup active.  Without this, D+ stays high through the entire
+    // handover delay and into usb_new_phy(), which atomically switches D+ from
+    // the JTAG peripheral to the OTG peripheral — giving the host only a
+    // nanosecond-scale glitch.  That is too brief for Windows (and most hosts)
+    // to tear down the JTAG device before the new UVC device appears, causing
+    // enumeration to fail or the device to remain detected as JTAG.
+    // After this call the 200 ms delay in startWiredMode() gives the host a
+    // proper window to process the disconnect before OTG D+ goes high again.
+    SET_PERI_REG_MASK(USB_SERIAL_JTAG_CONF0_REG, USB_SERIAL_JTAG_PAD_PULL_OVERRIDE);
+    CLEAR_PERI_REG_MASK(USB_SERIAL_JTAG_CONF0_REG, USB_SERIAL_JTAG_DP_PULLUP);
 }
 
 void HandleCDCSerialManagerTask(void* pvParameters)

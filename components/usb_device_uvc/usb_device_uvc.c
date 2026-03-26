@@ -61,7 +61,7 @@ bool uvc_is_frame_profile_320(void)
     return s_use_320;
 }
 
-static void usb_phy_init(void)
+static esp_err_t usb_phy_init(void)
 {
 #if !CONFIG_TINYUSB_RHPORT_HS
     // Configure USB PHY
@@ -70,8 +70,13 @@ static void usb_phy_init(void)
         .otg_mode = USB_OTG_MODE_DEVICE,
         .target = USB_PHY_TARGET_INT,
     };
-    usb_new_phy(&phy_conf, &s_uvc_device.phy_hdl);
+    esp_err_t ret = usb_new_phy(&phy_conf, &s_uvc_device.phy_hdl);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "usb_new_phy failed: %s", esp_err_to_name(ret));
+        return ret;
+    }
 #endif
+    return ESP_OK;
 }
 
 static inline uint32_t get_time_millis(void)
@@ -286,7 +291,10 @@ esp_err_t uvc_device_init(void)
 #endif
 
     // init device stack on configured roothub port
-    usb_phy_init();
+    esp_err_t phy_ret = usb_phy_init();
+    if (phy_ret != ESP_OK) {
+        return phy_ret;
+    }
     bool usb_init = tusb_init();
     if (!usb_init)
     {

@@ -227,8 +227,8 @@ void CameraManager::setupCameraSensor()
         s->set_special_effect(s, p->special_effect);
     };
 
-    // Fix G: Apply H-mirror before apply_profile so all ISP flags are set
-    // prior to the profile writes. Pure ordering change, no behavioural delta.
+    // Apply H-mirror before apply_profile so all ISP flags are set prior to
+    // the profile writes.
     // OV3660 has an inverted horizontal readout direction compared to OV2640.
     if (camera_sensor && camera_sensor->id.PID == OV3660_PID)
     {
@@ -237,7 +237,7 @@ void CameraManager::setupCameraSensor()
 
     apply_profile(camera_sensor, profile);
 
-    // Fix E: Harden DPC thresholds for thermal operation (Tj > 50 degC).
+    // Harden DPC thresholds for thermal operation (Tj > 50 degC).
     // The defaults in sensor_default_regs are calibrated for Tj ~25 degC; on
     // modules with case temperature >60 degC real hot pixels grow past the
     // default thresholds and appear as jumping white pixel clusters in the
@@ -324,11 +324,11 @@ bool CameraManager::setupCamera()
 
                 const uint32_t target_xclk = mhz * 1000000U;
 
-                // Fix C: Unified live-XCLK switch path for all sensors.
-                // The previously required OV3660 special case (deinit/reinit)
-                // became obsolete with Fix A in ov3660.c::set_framesize: the
-                // sensor PLL coefficients now adapt to the XCLK, so the
-                // following setupCameraSensor call reconfigures the PLL cleanly.
+                // Unified live-XCLK switch path for all sensors.
+                // An earlier OV3660-specific deinit/reinit sequence is no
+                // longer required because the OV3660 PLL coefficients now
+                // adapt to the XCLK inside set_framesize, so the following
+                // setupCameraSensor call reconfigures the PLL cleanly.
                 if (target_xclk == config.xclk_freq_hz)
                 {
                     ESP_LOGI(CAMERA_MANAGER_TAG,
@@ -346,7 +346,7 @@ bool CameraManager::setupCamera()
                     // The sensor PLL has to re-lock after a REFIN change; 100 ms
                     // is conservative (typically 10-50 ms). setupCameraSensor then
                     // calls set_framesize, which runs set_pll with XCLK-correct
-                    // coefficients (Fix A).
+                    // coefficients.
                     vTaskDelay(pdMS_TO_TICKS(100));
                 }
                 else

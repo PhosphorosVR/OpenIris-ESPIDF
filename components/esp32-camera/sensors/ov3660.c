@@ -147,10 +147,9 @@ static int calc_sysclk(int xclk, bool pll_bypass, int pll_multiplier, int pll_sy
     return SYSCLK;
 }
 
-// Fix D: Active SCCB-ready poll instead of a blind vTaskDelay. Uses 0x300A
+// Active SCCB-ready poll instead of a blind vTaskDelay. Uses 0x300A
 // (chip ID high byte, fixed value 0x36 after reset). A successful read proves
-// both that the SCCB bus is live and that the sensor is in a defined state,
-// replacing the previous assumption that a fixed delay is "enough".
+// both that the SCCB bus is live and that the sensor is in a defined state.
 static int wait_sccb_ready(sensor_t *sensor, int timeout_ms)
 {
     const TickType_t start = xTaskGetTickCount();
@@ -179,7 +178,7 @@ static int set_pll(sensor_t *sensor, bool bypass, uint8_t multiplier, uint8_t sy
         ret = write_reg(sensor->slv_addr, SC_PLLS_CTRL1, multiplier & 0x1f);
     }
     if (ret == 0) {
-        // Fix F: Adapt charge-pump bits (0x303C[6:4]) to REFIN instead of hard-coded 001.
+        // Adapt charge-pump bits (0x303C[6:4]) to REFIN instead of a hard-coded 001.
         // PLL loop bandwidth scales with REFIN; a wrong CP code increases
         // jitter transfer. Empirical upstream values:
         //   REFIN <  7 MHz       -> code 001 (0x10)
@@ -210,7 +209,7 @@ static int set_pll(sensor_t *sensor, bool bypass, uint8_t multiplier, uint8_t sy
         ESP_LOGE(TAG, "set_sensor_pll FAILED!");
         return ret;
     }
-    // Fix D: After the PLL writes, verify the sensor still answers on SCCB.
+    // After the PLL writes, verify the sensor still answers on SCCB.
     // If the PLL failed to lock or the clock stalled, SCCB would be dead and
     // subsequent configuration writes would be silently dropped.
     if (wait_sccb_ready(sensor, 50) != 0) {
@@ -231,9 +230,9 @@ static int reset(sensor_t *sensor)
         ESP_LOGE(TAG, "Software Reset FAILED!");
         return ret;
     }
-    // Fix D: Active SCCB-ready poll instead of a 100 ms blind delay. The
-    // datasheet specifies ~2 ms settling after software reset (§2.5); the poll
-    // typically completes within a few ms and detects wedged sensors.
+    // Active SCCB-ready poll instead of a 100 ms blind delay. The datasheet
+    // specifies ~2 ms settling after software reset (§2.5); the poll typically
+    // completes within a few ms and detects wedged sensors.
     if (wait_sccb_ready(sensor, 200) != 0) {
         ESP_LOGE(TAG, "Sensor did not respond after software reset");
         return -1;
@@ -404,9 +403,10 @@ static int set_framesize(sensor_t *sensor, framesize_t framesize)
     }
 
     if (sensor->pixformat == PIXFORMAT_JPEG) {
-        // OpenIris: XCLK-adaptive PLL coefficients. Target SYSCLK ~50 MHz / PCLK ~10 MHz
-        // regardless of input frequency. The original driver uses fixed mult=30/pre_div=/3,
-        // which lets SYSCLK drift between 50 and 75 MHz depending on XCLK (datasheet nominal 54 MHz).
+        // XCLK-adaptive PLL coefficients. Target SYSCLK ~50 MHz / PCLK ~10 MHz
+        // regardless of input frequency. A fixed mult=30/pre_div=/3 would let
+        // SYSCLK drift between 50 and 75 MHz depending on XCLK (datasheet
+        // nominal 54 MHz).
         // OV3660 PLL constraints: VCO in [150,500] MHz, REFIN = XCLK/pre_div in [4,13.5] MHz.
         const int xclk_mhz = sensor->xclk_freq_hz / 1000000;
         uint8_t mult, pre_div_idx, pclk_div;

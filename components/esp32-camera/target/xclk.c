@@ -28,13 +28,13 @@ esp_err_t xclk_timer_conf(int ledc_timer, int xclk_freq_hz)
 #endif
 
 #if ESP_IDF_VERSION_MAJOR >= 4
-    // Fix B: If the target XCLK is reachable via an exact integer divider
-    // from the 40 MHz XTAL, use XTAL as the LEDC source. XTAL is crystal-clean
-    // and independent of the CPU PLL, which makes XCLK jitter significantly
-    // lower than when sourced from APB (APB = CPU-PLL/2, which carries PLL
-    // phase noise along with it). For frequencies without an integer divider
-    // from XTAL (e.g. 27 MHz) we stay on LEDC_AUTO_CLK so the driver can pick
-    // APB automatically.
+    // If the target XCLK is reachable via an exact integer divider from the
+    // 40 MHz XTAL, use XTAL as the LEDC source. XTAL is crystal-clean and
+    // independent of the CPU PLL, which makes XCLK jitter significantly lower
+    // than when sourced from APB (APB = CPU-PLL/2, which carries PLL phase
+    // noise along with it). For frequencies without an integer divider from
+    // XTAL (e.g. 27 MHz) stay on LEDC_AUTO_CLK so the driver can pick APB
+    // automatically.
     const uint32_t xtal_hz = 40000000u;
     const uint32_t src_ticks_per_period = (uint32_t)xclk_freq_hz * 2u; // 1-bit duty = 2 Ticks/Periode
     if (xclk_freq_hz > 0 && src_ticks_per_period > 0

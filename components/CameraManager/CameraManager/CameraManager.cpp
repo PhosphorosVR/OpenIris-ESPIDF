@@ -227,13 +227,31 @@ void CameraManager::setupCameraSensor()
         s->set_special_effect(s, p->special_effect);
     };
 
-    apply_profile(camera_sensor, profile);
-
+    // Fix G: Apply H-mirror before apply_profile so all ISP flags are set
+    // prior to the profile writes. Pure ordering change, no behavioural delta.
     // OV3660 has an inverted horizontal readout direction compared to OV2640.
-    // Apply a default hmirror so both sensors produce a consistent orientation.
     if (camera_sensor && camera_sensor->id.PID == OV3660_PID)
     {
         camera_sensor->set_hmirror(camera_sensor, 1);
+    }
+
+    apply_profile(camera_sensor, profile);
+
+    // Fix E: Harden DPC thresholds for thermal operation (Tj > 50 degC).
+    // The defaults in sensor_default_regs are calibrated for Tj ~25 degC; on
+    // modules with case temperature >60 degC real hot pixels grow past the
+    // default thresholds and appear as jumping white pixel clusters in the
+    // stream. More aggressive detection (lower MAX threshold) masks them.
+    // OV3660 datasheet table 7-28, registers 0x5780-0x578A.
+    // These values are a starting point; retune empirically if over/under.
+    if (camera_sensor && camera_sensor->id.PID == OV3660_PID)
+    {
+        camera_sensor->set_reg(camera_sensor, 0x5780, 0xff, 0xfc);  // DPC_CTRL_00 enable
+        camera_sensor->set_reg(camera_sensor, 0x5781, 0xff, 0x06);  // white max auto (def 0x0a)
+        camera_sensor->set_reg(camera_sensor, 0x5782, 0xff, 0x06);  // black max auto (def 0x0a)
+        camera_sensor->set_reg(camera_sensor, 0x5786, 0xff, 0x10);  // line thresh (def 0x08)
+        camera_sensor->set_reg(camera_sensor, 0x5787, 0xff, 0x10);  // line MAD i/0 (def 0x08)
+        camera_sensor->set_reg(camera_sensor, 0x5788, 0xff, 0x04);  // line MAD i/1 (def 0x02)
     }
 
     framesize_t sensor_default = profile ? profile->default_framesize : FRAMESIZE_240X240;
@@ -306,86 +324,37 @@ bool CameraManager::setupCamera()
 
                 const uint32_t target_xclk = mhz * 1000000U;
 
-                // OV3660 cannot tolerate a live XCLK frequency change: the sensor
-                // PLL loses lock and the SCCB (I2C) slave logic stops acknowledging.
-                // Instead of set_xclk(), we do a full deinit/reinit cycle so the
-                // sensor boots cleanly with the target frequency from the start.
-                if (detected_sensor->id.PID == OV3660_PID && target_xclk != config.xclk_freq_hz)
+                // Fix C: Unified live-XCLK switch path for all sensors.
+                // The previously required OV3660 special case (deinit/reinit)
+                // became obsolete with Fix A in ov3660.c::set_framesize: the
+                // sensor PLL coefficients now adapt to the XCLK, so the
+                // following setupCameraSensor call reconfigures the PLL cleanly.
+                if (target_xclk == config.xclk_freq_hz)
+                {
+                    ESP_LOGI(CAMERA_MANAGER_TAG,
+                             "Camera %s (PID 0x%02x): XCLK already at %lu Hz, no switch needed",
+                             info ? info->name : "unknown", detected_sensor->id.PID,
+                             static_cast<unsigned long>(config.xclk_freq_hz));
+                }
+                else if (detected_sensor->set_xclk(detected_sensor, config.ledc_timer, static_cast<int>(mhz)) == 0)
                 {
                     config.xclk_freq_hz = target_xclk;
                     ESP_LOGI(CAMERA_MANAGER_TAG,
-                             "OV3660 (PID 0x%02x): XCLK override to %lu Hz, performing deinit/reinit",
-                             detected_sensor->id.PID, static_cast<unsigned long>(target_xclk));
-
-                    esp_camera_deinit();
-                    // Give the sensor time to fully power down and re-sync to
-                    // the new XCLK before the first probe attempt.
-                    vTaskDelay(pdMS_TO_TICKS(500));
-
-                    constexpr int kMaxReinitAttempts = 5;
-                    bool reinit_ok = false;
-                    for (int attempt = 1; attempt <= kMaxReinitAttempts; ++attempt)
-                    {
-                        ESP_LOGI(CAMERA_MANAGER_TAG, "OV3660: reinit attempt %d/%d (XCLK=%lu Hz)",
-                                 attempt, kMaxReinitAttempts, static_cast<unsigned long>(config.xclk_freq_hz));
-
-                        if (esp_camera_init(&config) == ESP_OK)
-                        {
-                            ESP_LOGI(CAMERA_MANAGER_TAG, "OV3660: reinit succeeded on attempt %d/%d",
-                                     attempt, kMaxReinitAttempts);
-                            reinit_ok = true;
-                            break;
-                        }
-
-                        ESP_LOGW(CAMERA_MANAGER_TAG, "OV3660: reinit attempt %d/%d failed",
-                                 attempt, kMaxReinitAttempts);
-                        if (attempt < kMaxReinitAttempts)
-                        {
-                            vTaskDelay(pdMS_TO_TICKS(500));
-                        }
-                    }
-
-                    if (!reinit_ok)
-                    {
-                        ESP_LOGE(CAMERA_MANAGER_TAG,
-                                 "OV3660: all %d reinit attempts failed, camera unavailable",
-                                 kMaxReinitAttempts);
-                        constexpr auto event = SystemEvent{EventSource::CAMERA, CameraState_e::Camera_Error};
-                        xQueueSend(this->eventQueue, &event, 10);
-                        return false;
-                    }
-                }
-                else if (detected_sensor->id.PID == OV3660_PID)
-                {
-                    // OV3660 already running at the target XCLK, no reinit needed
-                    ESP_LOGI(CAMERA_MANAGER_TAG,
-                             "OV3660 (PID 0x%02x): XCLK already at %lu Hz, no reinit needed",
-                             detected_sensor->id.PID, static_cast<unsigned long>(config.xclk_freq_hz));
+                             "Camera %s (PID 0x%02x): applied XCLK override %lu Hz, waiting for PLL relock...",
+                             info ? info->name : "unknown", detected_sensor->id.PID,
+                             static_cast<unsigned long>(config.xclk_freq_hz));
+                    // The sensor PLL has to re-lock after a REFIN change; 100 ms
+                    // is conservative (typically 10-50 ms). setupCameraSensor then
+                    // calls set_framesize, which runs set_pll with XCLK-correct
+                    // coefficients (Fix A).
+                    vTaskDelay(pdMS_TO_TICKS(100));
                 }
                 else
                 {
-                    // Other sensors (OV2640 etc.) tolerate a live XCLK switch
-                    if (detected_sensor->set_xclk(detected_sensor, config.ledc_timer, static_cast<int>(mhz)) == 0)
-                    {
-                        config.xclk_freq_hz = target_xclk;
-                        ESP_LOGI(CAMERA_MANAGER_TAG,
-                                 "Camera %s (PID 0x%02x): applied XCLK override %lu Hz, waiting for PLL relock...",
-                                 info ? info->name : "unknown", detected_sensor->id.PID,
-                                 static_cast<unsigned long>(config.xclk_freq_hz));
-                        // The sensor PLL must re-lock after an XCLK frequency change.
-                        // Without this delay, subsequent I2C (SCCB) register writes
-                        // fail with NACK because the sensor's internal clocks are
-                        // still settling.  100 ms is conservative; typical PLL lock
-                        // time for OV sensors is 10-50 ms.
-                        vTaskDelay(pdMS_TO_TICKS(100));
-                    }
-                    else
-                    {
-                        ESP_LOGW(CAMERA_MANAGER_TAG,
-                                 "Camera %s (PID 0x%02x): failed to apply XCLK override %lu Hz, keeping %lu Hz",
-                                 info ? info->name : "unknown", detected_sensor->id.PID,
-                                 static_cast<unsigned long>(requested_xclk), static_cast<unsigned long>(config.xclk_freq_hz));
-                    }
+                    ESP_LOGW(CAMERA_MANAGER_TAG,
+                             "Camera %s (PID 0x%02x): failed to apply XCLK override %lu Hz, keeping %lu Hz",
+                             info ? info->name : "unknown", detected_sensor->id.PID,
+                             static_cast<unsigned long>(requested_xclk), static_cast<unsigned long>(config.xclk_freq_hz));
                 }
             }
         }

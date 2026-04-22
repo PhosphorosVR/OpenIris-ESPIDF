@@ -3,6 +3,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_system.h"
+#include "soc/soc_caps.h"
 #include "xclk.h"
 #include "esp_camera.h"
 
@@ -28,6 +29,7 @@ esp_err_t xclk_timer_conf(int ledc_timer, int xclk_freq_hz)
 #endif
 
 #if ESP_IDF_VERSION_MAJOR >= 4
+#if defined(SOC_LEDC_SUPPORT_XTAL_CLOCK) && SOC_LEDC_SUPPORT_XTAL_CLOCK
     // If the target XCLK is reachable via an exact integer divider from the
     // 40 MHz XTAL, use XTAL as the LEDC source. XTAL is crystal-clean and
     // independent of the CPU PLL, which makes XCLK jitter significantly lower
@@ -36,7 +38,7 @@ esp_err_t xclk_timer_conf(int ledc_timer, int xclk_freq_hz)
     // XTAL (e.g. 27 MHz) stay on LEDC_AUTO_CLK so the driver can pick APB
     // automatically.
     const uint32_t xtal_hz = 40000000u;
-    const uint32_t src_ticks_per_period = (uint32_t)xclk_freq_hz * 2u; // 1-bit duty = 2 Ticks/Periode
+    const uint32_t src_ticks_per_period = (uint32_t)xclk_freq_hz * 2u; // 1-bit duty = 2 ticks/period
     if (xclk_freq_hz > 0 && src_ticks_per_period > 0
         && (xtal_hz % src_ticks_per_period) == 0
         && (xtal_hz / src_ticks_per_period) >= 1) {
@@ -46,6 +48,11 @@ esp_err_t xclk_timer_conf(int ledc_timer, int xclk_freq_hz)
         timer_conf.clk_cfg = LEDC_AUTO_CLK;
         ESP_LOGW(TAG, "XCLK %d Hz not integer-divisible from XTAL; falling back to AUTO (fractional divider jitter possible)", xclk_freq_hz);
     }
+#else
+    // Classic ESP32: LEDC peripheral has no XTAL input. Use AUTO so the driver
+    // picks APB/REF_TICK itself; the XTAL-jitter optimisation does not apply.
+    timer_conf.clk_cfg = LEDC_AUTO_CLK;
+#endif
 #endif
     timer_conf.timer_num = (ledc_timer_t)ledc_timer;
     esp_err_t err = ledc_timer_config(&timer_conf);

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"/c/Users/henri/Desktop/Firmware/OpenIris-ESPIDF\" show 444a1ea:components/LogManager/LogManager/LogManager.cpp)"
+    ]
+  }
+}

@@ -99,3 +99,6 @@ tests/.env
 .history
 .ionide
 *\__pycache__
+
+###Claude
+.claude/*

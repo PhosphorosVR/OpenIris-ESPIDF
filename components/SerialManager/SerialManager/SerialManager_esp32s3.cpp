@@ -10,6 +10,14 @@
 void SerialManager::setup()
 {
 #ifndef CONFIG_USE_UART_FOR_COMMUNICATION
+    // Clear any leftover D+ pulldown that a previous UVC handover may have set in the
+    // CONF0 register. Without this, a warm reset out of UVC mode would come back up
+    // with PAD_PULL_OVERRIDE=1 / DP_PULLUP=0 still latched, leaving D+ stuck low so
+    // the chip never enumerates as USB-JTAG (PID 0x1001). The IDF driver install
+    // does not touch these bits.
+    CLEAR_PERI_REG_MASK(USB_SERIAL_JTAG_CONF0_REG, USB_SERIAL_JTAG_PAD_PULL_OVERRIDE);
+    SET_PERI_REG_MASK(USB_SERIAL_JTAG_CONF0_REG, USB_SERIAL_JTAG_DP_PULLUP);
+
     usb_serial_jtag_driver_config_t usb_serial_jtag_config;
     usb_serial_jtag_config.rx_buffer_size = BUF_SIZE;
     usb_serial_jtag_config.tx_buffer_size = BUF_SIZE;
@@ -84,16 +92,12 @@ void SerialManager::shutdown()
         ESP_LOGW("[SERIAL]", "usb_serial_jtag_driver_uninstall returned %s", esp_err_to_name(err));
     }
 
-    // Explicitly pull D+ low so the USB host detects a disconnect *now*.
-    // usb_serial_jtag_driver_uninstall() frees driver resources but leaves the
-    // hardware D+ pullup active.  Without this, D+ stays high through the entire
-    // handover delay and into usb_new_phy(), which atomically switches D+ from
-    // the JTAG peripheral to the OTG peripheral — giving the host only a
-    // nanosecond-scale glitch.  That is too brief for Windows (and most hosts)
-    // to tear down the JTAG device before the new UVC device appears, causing
-    // enumeration to fail or the device to remain detected as JTAG.
-    // After this call the 200 ms delay in startWiredMode() gives the host a
-    // proper window to process the disconnect before OTG D+ goes high again.
+    // Pull D+ low and keep it that way until usb_new_phy() switches the internal
+    // PHY mux to the OTG controller. As long as D+ stays low the host sees the
+    // device as disconnected and will not try to enumerate it — even though the
+    // JTAG bridge hardware is still clocked and would otherwise answer SETUP
+    // packets on its own (driver uninstall only removes the IDF interrupt handler).
+    // SerialManager::setup() releases this override on the next boot.
     SET_PERI_REG_MASK(USB_SERIAL_JTAG_CONF0_REG, USB_SERIAL_JTAG_PAD_PULL_OVERRIDE);
     CLEAR_PERI_REG_MASK(USB_SERIAL_JTAG_CONF0_REG, USB_SERIAL_JTAG_DP_PULLUP);
 }

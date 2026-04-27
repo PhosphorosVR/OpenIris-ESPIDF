@@ -9,7 +9,6 @@
 #include "freertos/task.h"
 #include "nvs_flash.h"
 #include "sdkconfig.h"
-#include "soc/usb_serial_jtag_reg.h"
 
 #include <CameraManager.hpp>
 #include <CommandManager.hpp>
@@ -198,15 +197,11 @@ void startWiredMode(bool shouldCloseSerialManager)
     serialManager->shutdown();
 
     ESP_LOGI("[MAIN]", "Serial driver uninstalled");
-    // Leaving a small gap for the host to see COM disappear
-    vTaskDelay(pdMS_TO_TICKS(200));
-
-    // Release the manual D+ pulldown that SerialManager::shutdown() applied.
-    // Without this, PAD_PULL_OVERRIDE=1 / DP_PULLUP=0 survives a warm reset (esp_restart)
-    // into SETUP mode, where the JTAG driver install does not clear it — so the device
-    // would come back up without D+ pullup and never enumerate as USB-JTAG (PID 0x1001).
-    CLEAR_PERI_REG_MASK(USB_SERIAL_JTAG_CONF0_REG, USB_SERIAL_JTAG_PAD_PULL_OVERRIDE);
-    SET_PERI_REG_MASK(USB_SERIAL_JTAG_CONF0_REG, USB_SERIAL_JTAG_DP_PULLUP);
+    // Wider gap so Windows fully tears down the JTAG enumeration before OTG takes over.
+    // SerialManager::shutdown() leaves D+ forced low via PAD_PULL_OVERRIDE, so the host
+    // sees a continuous disconnect for the entire 300 ms + stagger window — no chance
+    // for the JTAG bridge to be re-enumerated before usb_new_phy() switches the mux.
+    vTaskDelay(pdMS_TO_TICKS(300));
 
     setUsbHandoverDone(true);
 

@@ -387,6 +387,13 @@ bool CameraManager::setupCamera()
 #endif
 
     this->setupCameraSensor();
+
+    // EMC: minimum drive strength on XCLK (single short FPC load) slows the
+    // edges and lowers harmonic emissions. The camera driver's pin setup does
+    // not touch FUN_DRV, so this survives re-inits.
+#if CONFIG_XCLK_GPIO_NUM >= 0
+    gpio_set_drive_capability(static_cast<gpio_num_t>(CONFIG_XCLK_GPIO_NUM), GPIO_DRIVE_CAP_0);
+#endif
     return true;
 }
 

@@ -6,6 +6,21 @@ const char* LED_MANAGER_TAG = "[LED_MANAGER]";
 #ifdef CONFIG_LED_EXTERNAL_CONTROL
 constexpr ledc_timer_t EXTERNAL_LED_TIMER = LEDC_TIMER_1;
 constexpr ledc_channel_t EXTERNAL_LED_CHANNEL = LEDC_CHANNEL_1;
+constexpr ledc_timer_bit_t EXTERNAL_LED_DUTY_RES = LEDC_TIMER_8_BIT;
+constexpr uint32_t EXTERNAL_LED_DUTY_MAX = 1u << EXTERNAL_LED_DUTY_RES;
+
+static uint32_t externalLedDutyFromPercent(int percent)
+{
+    if (percent <= 0)
+    {
+        return 0;
+    }
+    if (percent >= 100)
+    {
+        return EXTERNAL_LED_DUTY_MAX;
+    }
+    return (static_cast<uint32_t>(percent) * EXTERNAL_LED_DUTY_MAX) / 100;
+}
 #endif
 
 // Pattern design rules:
@@ -50,10 +65,10 @@ void LEDManager::setup()
 #ifdef CONFIG_LED_EXTERNAL_CONTROL
     ESP_LOGI(LED_MANAGER_TAG, "Setting up illuminator led.");
     const int freq = CONFIG_LED_EXTERNAL_PWM_FREQ;
-    const auto resolution = LEDC_TIMER_8_BIT;
+    const auto resolution = EXTERNAL_LED_DUTY_RES;
     const auto deviceConfig = this->deviceConfig->getDeviceConfig();
 
-    const uint32_t dutyCycle = (deviceConfig.led_external_pwm_duty_cycle * 255) / 100;
+    const uint32_t dutyCycle = externalLedDutyFromPercent(deviceConfig.led_external_pwm_duty_cycle);
 
     ESP_LOGI(LED_MANAGER_TAG, "Setting dutyCycle to: %lu ", dutyCycle);
 
@@ -173,7 +188,7 @@ void LEDManager::toggleLED(const bool state) const
     if (ledStateMap.contains(this->currentState) && ledStateMap.at(this->currentState).isError)
     {
         // For pattern ON use 50%, OFF use 0%
-        uint32_t duty = (state == LED_ON) ? ((50 * 255) / 100) : 0;
+        uint32_t duty = (state == LED_ON) ? externalLedDutyFromPercent(50) : 0;
         ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_set_duty(LEDC_LOW_SPEED_MODE, EXTERNAL_LED_CHANNEL, duty));
         ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_update_duty(LEDC_LOW_SPEED_MODE, EXTERNAL_LED_CHANNEL));
     }
@@ -183,7 +198,7 @@ void LEDManager::toggleLED(const bool state) const
 void LEDManager::setExternalLEDDutyCycle(uint8_t dutyPercent)
 {
 #ifdef CONFIG_LED_EXTERNAL_CONTROL
-    const uint32_t dutyCycle = (static_cast<uint32_t>(dutyPercent) * 255) / 100;
+    const uint32_t dutyCycle = externalLedDutyFromPercent(dutyPercent);
     ESP_LOGI(LED_MANAGER_TAG, "Updating external LED duty to %u%% (raw %lu)", dutyPercent, dutyCycle);
 
     // Apply to LEDC hardware live

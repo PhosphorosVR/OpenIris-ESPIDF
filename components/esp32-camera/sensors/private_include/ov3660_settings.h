@@ -30,7 +30,9 @@ static const DRAM_ATTR uint16_t sensor_default_regs[][2] = {
     {SYSTEM_CTROL0, 0x42},
     {0x3017, 0xff},
     {0x3018, 0xff},
-    {DRIVE_CAPABILITY, 0xc3},
+    // EMC: DVP pad drive 4x -> 1x (bits[7:6]); sufficient at PCLK 10 MHz on a
+    // short FPC and lowers harmonic emissions. Fallback: 0x43 (2x).
+    {DRIVE_CAPABILITY, 0x03},
     {CLOCK_POL_CONTROL, 0x21},
 
     {0x3611, 0x01},

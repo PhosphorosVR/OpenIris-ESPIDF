@@ -130,7 +130,55 @@ void CameraManager::parkPins()
     gpio_config(&sccb);
 }
 
+namespace
+{
+// The reinit runs the whole driver init, which needs about 3.5 KB at boot (main task).
+// Called from the serial task that left only ~440 bytes (measured), so the cycle runs
+// on its own short-lived task and the caller waits for it.
+constexpr uint32_t kPowerCycleStackBytes = 6144;
+
+struct PowerCycleJob
+{
+    CameraManager* manager;
+    const PowerCycleRequest* request;
+    PowerCycleReport* report;
+    SemaphoreHandle_t done;
+};
+}  // namespace
+
+void CameraManager::powerCycleTask(void* arg)
+{
+    auto* job = static_cast<PowerCycleJob*>(arg);
+    *job->report = job->manager->runPowerCycle(*job->request);
+    job->report->stack_free_min = uxTaskGetStackHighWaterMark(nullptr);
+    xSemaphoreGive(job->done);
+    vTaskDelete(nullptr);
+}
+
 PowerCycleReport CameraManager::powerCycle(const PowerCycleRequest& request)
+{
+    PowerCycleReport report{};
+    PowerCycleJob job{this, &request, &report, xSemaphoreCreateBinary()};
+    if (!job.done || xTaskCreate(powerCycleTask, "cam_power", kPowerCycleStackBytes, &job, uxTaskPriorityGet(nullptr), nullptr) != pdPASS)
+    {
+        // Nothing touched, the camera keeps running.
+        ESP_LOGE(CAMERA_POWER_TAG, "Power cycle task could not be created");
+        report.pid_before = report.pid_after = status.pid;
+        report.failed_step = "no_task";
+    }
+    else
+    {
+        // No timeout: every step is bounded, and the task writes into this frame.
+        xSemaphoreTake(job.done, portMAX_DELAY);
+    }
+    if (job.done)
+    {
+        vSemaphoreDelete(job.done);
+    }
+    return report;
+}
+
+PowerCycleReport CameraManager::runPowerCycle(const PowerCycleRequest& request)
 {
     PowerCycleReport report{};
     const int64_t start_us = esp_timer_get_time();

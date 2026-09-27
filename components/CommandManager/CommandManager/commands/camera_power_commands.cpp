@@ -119,7 +119,11 @@ CommandResult cameraPowerCycleCommand(std::shared_ptr<DependencyRegistry> regist
         {"duration_ms", report.duration_ms},
         {"camera_state", cameraRunStateName(cameraManager->getStatus().state)},
         // bytes; sizing input for the recovery worker (AP3)
-        {"stack_free_min", uxTaskGetStackHighWaterMark(nullptr)},
+        {"stack_free_min",
+         {
+             {"power_cycle_task", report.stack_free_min},
+             {"caller", uxTaskGetStackHighWaterMark(nullptr)},
+         }},
     };
     if (report.failed_step)
     {

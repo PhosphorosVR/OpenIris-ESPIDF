@@ -88,6 +88,7 @@ struct PowerCycleReport
     uint32_t first_frame_ms = 0;
     uint32_t duration_ms = 0;
     const char* failed_step = nullptr;  // nullptr on success
+    uint32_t stack_free_min = 0;        // bytes left on the power cycle task
     std::vector<RailPoint> fall;
     std::vector<RailPoint> rise;
 };
@@ -137,6 +138,8 @@ class CameraManager
 #if CONFIG_CAMERA_POWER_CONTROL
     // CameraPower.cpp
     void parkPins();
+    PowerCycleReport runPowerCycle(const PowerCycleRequest& request);
+    static void powerCycleTask(void* arg);
 #endif
 
     CameraStatus status{};

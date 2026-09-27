@@ -6,6 +6,7 @@
 #include "driver/rtc_io.h"
 #include "esp_adc/adc_cali_scheme.h"
 #include "esp_rom_sys.h"
+#include "soc/soc_caps.h"
 
 static const char* RAIL_SENSE_TAG = "[RAIL_SENSE]";
 
@@ -35,6 +36,11 @@ constexpr bool isDataPin(int gpio)
 constexpr int kSettleUs = 200;
 // Same approximation as AdcSampler when no eFuse calibration exists.
 constexpr int kUncalibratedFullScaleMv = 3600;
+// The powered pad sits at ~3.1 V, the top of the 12 dB range. A full-scale code only
+// means "at the top", and the calibration extrapolates it to ~5 V (seen on Rev.5).
+// A pad pulled up to 3V3 cannot be higher, so such samples are clamped to 3V3.
+constexpr int kMaxCode = (1 << SOC_ADC_RTC_MAX_BITWIDTH) - 1;
+constexpr int kPadMaxMv = 3300;
 
 void toDigitalInput(int pin)
 {
@@ -165,6 +171,10 @@ bool RailSense::measure(int (&mv)[kPads], const int samples)
             if (cali_[i] && adc_cali_raw_to_voltage(cali_[i], raw, &value) != ESP_OK)
             {
                 value = raw * kUncalibratedFullScaleMv / 4095;
+            }
+            if (raw >= kMaxCode || value > kPadMaxMv)
+            {
+                value = kPadMaxMv;
             }
             sum += value;
         }

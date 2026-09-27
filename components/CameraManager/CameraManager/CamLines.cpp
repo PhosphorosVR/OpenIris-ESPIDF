@@ -36,7 +36,8 @@ constexpr bool usedByCamera(int gpio)
 // internal pull-down it stays around 2.2-2.7 V, above the camera's reset threshold,
 // so the probe never resets the sensor. An unconnected pad follows both pulls.
 // A pull without effect leaves both readings alike: Unknown, never a false Present.
-// Thresholds are placeholders until real boards have logged their values.
+// Measured: Rev.5 3149-3163 mV pulled up, 2474-2500 mV pulled down; Rev.4.5 3126-3154 mV
+// pulled up, 0-1 mV pulled down. The thresholds keep wide margins to both.
 constexpr int kSettleUs = 3000;  // node tau about 0.8 ms
 constexpr int kSamples = 4;
 constexpr int kPresentMinMv = 1200;       // pulled down, still held up from outside

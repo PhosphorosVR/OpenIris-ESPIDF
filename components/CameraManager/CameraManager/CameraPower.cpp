@@ -22,7 +22,8 @@ constexpr uint32_t kFallStepMs = 20;
 constexpr size_t kFallMaxPoints = 150;  // 3 s
 constexpr uint32_t kRiseStepUs = 500;
 
-// Rail classification. Placeholders until the proof runs, then set with wide margins.
+// Rail classification. Measured on Rev.5 (2 x 50 cycles): control 3102-3300 mV, end
+// 410-451 mV; Rev.4.5 without lines: end within ~10 mV of control. Wide margins kept.
 constexpr int kControlMinMv = 2600;
 constexpr int kCollapsedMaxMv = 1000;
 constexpr int kNotCollapsedMarginMv = 300;

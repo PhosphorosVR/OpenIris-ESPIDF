@@ -9,7 +9,7 @@ if(CONFIG_CAMERA_RAIL_SENSE)
   list(APPEND camera_srcs "CameraManager/RailSense.cpp")
 endif()
 if(CONFIG_CAMERA_RECOVERY_ENABLE)
-  list(APPEND camera_srcs "CameraManager/CameraGate.cpp")
+  list(APPEND camera_srcs "CameraManager/CameraGate.cpp" "CameraManager/CameraRecovery.cpp")
 endif()
 
 idf_component_register(SRCS ${camera_srcs}

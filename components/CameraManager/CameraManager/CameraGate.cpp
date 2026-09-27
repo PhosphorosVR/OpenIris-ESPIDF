@@ -3,6 +3,7 @@
 // frame (UVC sends it zero-copy) or waits inside esp_camera_fb_get().
 #include "CameraGate.hpp"
 
+#include <atomic>
 #include "CameraManager.hpp"
 #include "freertos/event_groups.h"
 
@@ -19,6 +20,7 @@ EventGroupHandle_t s_events = nullptr;
 CameraManager* s_owner = nullptr;
 bool s_open = false;
 int s_users = 0;  // frames handed out plus fb_get calls in progress
+std::atomic<uint32_t> s_missed_in_row{0};
 
 bool enter()
 {
@@ -41,6 +43,15 @@ bool enter()
             return false;
         }
         xEventGroupWaitBits(s_events, kOpenBit, pdFALSE, pdTRUE, wait - elapsed);
+    }
+}
+
+void notifyMissing()
+{
+    const uint32_t in_row = s_missed_in_row.fetch_add(1, std::memory_order_relaxed) + 1;
+    if (s_owner)
+    {
+        s_owner->onFrameMissing(in_row);
     }
 }
 
@@ -109,21 +120,17 @@ camera_fb_t* cameraAcquireFrame()
 {
     if (!enter())
     {
-        if (s_owner)
-        {
-            s_owner->onFrameMissing();
-        }
+        notifyMissing();
         return nullptr;
     }
     camera_fb_t* fb = esp_camera_fb_get();
     if (!fb)
     {
         leave();
-        if (s_owner)
-        {
-            s_owner->onFrameMissing();
-        }
+        notifyMissing();
+        return nullptr;
     }
+    s_missed_in_row.store(0, std::memory_order_relaxed);
     return fb;
 }
 

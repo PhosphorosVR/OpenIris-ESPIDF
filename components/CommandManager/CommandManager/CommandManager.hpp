@@ -22,6 +22,9 @@
 #if CONFIG_CAMERA_STATUS
 #include "commands/camera_power_commands.hpp"
 #endif
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+#include "commands/camera_recovery_commands.hpp"
+#endif
 
 enum class CommandType
 {
@@ -69,6 +72,12 @@ enum class CommandType
 #endif
 #if CONFIG_CAMERA_POWER_CONTROL
     CAMERA_POWER_CYCLE,
+#endif
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+    RECOVER_CAMERA,
+#endif
+#if CONFIG_CAMERA_TEST_HOOKS
+    CAMERA_TEST_FAULT,
 #endif
 };
 

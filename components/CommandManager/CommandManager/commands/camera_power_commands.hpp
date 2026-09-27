@@ -9,7 +9,9 @@
 #include "DependencyRegistry.hpp"
 
 // Only built with CONFIG_CAMERA_STATUS (see CMakeLists.txt).
-CommandResult getCameraStatusCommand(std::shared_ptr<DependencyRegistry> registry);
+nlohmann::json cycleReportJson(const CycleReport& report);
+// {"persist": true} also writes the recovery counters as one WARN line (persistent log).
+CommandResult getCameraStatusCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json);
 
 #if CONFIG_CAMERA_POWER_CONTROL
 // Bench: {"off_ms": 1..30000 (500), "trace": false, "force": false}; setup mode only.

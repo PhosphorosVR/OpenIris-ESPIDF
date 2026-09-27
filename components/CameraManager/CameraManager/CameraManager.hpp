@@ -87,8 +87,18 @@ class CameraManager
     // false when another cycle is running; the report is left untouched then.
     bool runCycleBlocking(const CycleRequest& request, RecoveryTrigger trigger, CycleReport& report);
 #if CONFIG_CAMERA_RECOVERY_ENABLE
-    // Consumer side (CameraGate.cpp): a request that got no frame.
-    void onFrameMissing();
+    // Consumer side (CameraGate.cpp): a request that got no frame; in_row counts them
+    // since the last delivered frame.
+    void onFrameMissing(uint32_t in_row);
+    // CameraRecovery.cpp. recover_camera: level_auto picks the strongest level the board
+    // has. false when another restart is running.
+    bool recover(bool level_auto, RecoveryLevel level, CycleReport& report);
+    RecoveryStats recoveryStats() const;
+    RecoveryLevel strongestLevel() const;
+#if CONFIG_CAMERA_TEST_HOOKS
+    // nullptr on success, otherwise the reason
+    const char* injectFault(const char* kind);
+#endif
 #endif
 
    private:
@@ -103,6 +113,15 @@ class CameraManager
     void takeDriverDown();
 #if CONFIG_CAMERA_RECOVERY_ENABLE
     int applyFrameSize(framesize_t frameSize);
+    bool submitCycle(const CycleRequest& request, RecoveryTrigger trigger);
+    // CameraRecovery.cpp
+    CycleRequest recoveryRequest(RecoveryLevel level) const;
+    const char* admit(RecoveryTrigger trigger);
+    void recordCycle(RecoveryTrigger trigger, const CycleReport& report);
+    void checkRestartMarker();
+#if CONFIG_CAMERA_AUTO_RECOVERY
+    bool recoverBootFailure();
+#endif
 #endif
 
     CameraStatus status{};
@@ -113,6 +132,15 @@ class CameraManager
 #if CONFIG_CAMERA_RECOVERY_ENABLE
     std::atomic<uint32_t> frames_missing{0};
     framesize_t requested_framesize = FRAMESIZE_INVALID;
+    RecoveryStats stats{};
+    mutable portMUX_TYPE stats_lock = portMUX_INITIALIZER_UNLOCKED;
+    int64_t last_attempt_us = 0;
+    int64_t auto_attempts_us[10] = {};  // rate window, ring
+    uint8_t auto_attempts_next = 0;
+    bool rate_warned = false;
+#if CONFIG_CAMERA_AUTO_RECOVERY
+    bool boot_recovery_done = false;
+#endif
 #endif
 #if CONFIG_CAMERA_POWER_CONTROL
     CamLines camLines;

@@ -292,7 +292,11 @@ bool CameraManager::setupCamera()
 #if CONFIG_CAMERA_STATUS
         this->endSetup(hasCameraBeenInitialized);
 #endif
+#if CONFIG_CAMERA_AUTO_RECOVERY
+        return this->recoverBootFailure();
+#else
         return false;
+#endif
     }
 
     // Per-sensor XCLK override applied after detection so SCCB probe stays stable.

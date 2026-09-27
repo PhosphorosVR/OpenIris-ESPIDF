@@ -108,6 +108,59 @@ struct CycleReport
     std::vector<RailPoint> rise;
 };
 
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+struct RecoveryCounter
+{
+    uint32_t attempts = 0;
+    uint32_t successes = 0;
+};
+
+// Compact record of one recovery, kept for get_camera_status.
+struct RecoveryEntry
+{
+    uint32_t uptime_s = 0;
+    RecoveryTrigger trigger = RecoveryTrigger::Command;
+    RecoveryLevel level = RecoveryLevel::Reinit;
+    RailVerdict rail = RailVerdict::NotChecked;
+    const char* failed_step = nullptr;  // string literal, nullptr on success
+    uint32_t off_ms = 0;
+    uint32_t first_frame_ms = 0;
+    uint32_t duration_ms = 0;
+};
+
+enum class RecoveryRefusal : uint8_t
+{
+    Cooldown,
+    Suspended,
+    RateLimited,
+    Busy,
+    Count,
+};
+
+// Counters are the test result of an ESD run; they live until the next reset.
+struct RecoveryStats
+{
+    static constexpr int kTriggers = 4;
+    static constexpr int kLevels = 3;
+    static constexpr int kVerdicts = 5;
+    static constexpr int kLast = 4;
+
+    RecoveryCounter by_trigger[kTriggers];  // index: RecoveryTrigger
+    RecoveryCounter by_level[kLevels];      // index: RecoveryLevel
+    uint32_t rail[kVerdicts] = {};          // index: RailVerdict
+    uint32_t refused[static_cast<int>(RecoveryRefusal::Count)] = {};
+    uint32_t suspensions = 0;
+    uint32_t consecutive_failures = 0;
+    bool suspended = false;              // automatic triggers refused until a success
+    bool restarted_by_recovery = false;  // this boot follows a recovery ESP restart
+    RecoveryEntry last[kLast];           // ring, newest at (last_next - 1)
+    uint8_t last_count = 0;
+    uint8_t last_next = 0;
+};
+
+const char* recoveryRefusalName(RecoveryRefusal refusal);
+#endif
+
 const char* cameraRunStateName(CameraRunState state);
 const char* resetReasonName(esp_reset_reason_t reason);
 const char* linePresenceName(LinePresence presence);

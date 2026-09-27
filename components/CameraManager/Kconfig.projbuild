@@ -169,6 +169,38 @@ menu "Camera power control and recovery"
             recover_camera command. Without wireless because the HTTP stream server
             would be a second frame consumer the gate does not cover.
 
+    config CAMERA_AUTO_RECOVERY
+        bool "Restart the camera automatically"
+        depends on CAMERA_RECOVERY_ENABLE
+        default n
+        help
+            frame_timeout: a consumer got no frame (the driver waited 4 s, up to
+            8 s on the S3). boot_failure: the first camera init failed. Limited by
+            a cooldown, a suspension after three failures in a row and at most ten
+            automatic attempts in ten minutes.
+
+    config CAMERA_AUTO_RECOVERY_MISSED_FRAMES
+        int "Missing frames in a row before an automatic restart"
+        depends on CAMERA_AUTO_RECOVERY
+        range 1 10
+        default 1
+
+    config CAMERA_RECOVERY_ESP_RESTART
+        bool "Restart the ESP when automatic recovery is suspended"
+        depends on CAMERA_AUTO_RECOVERY
+        default n
+        help
+            Last resort after three failed restarts in a row. The next boot reports
+            it separately from other resets.
+
+    config CAMERA_TEST_HOOKS
+        bool "camera_test_fault command (provoke a camera outage)"
+        depends on CAMERA_RECOVERY_ENABLE
+        default n
+        help
+            For testing the automatic recovery without an ESD gun. Not for field
+            firmware.
+
     # Derived, no prompt: status and reset-reason reporting for any of the above.
     config CAMERA_STATUS
         bool

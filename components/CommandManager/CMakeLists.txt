@@ -13,6 +13,9 @@ set(command_srcs
 if(CONFIG_CAMERA_STATUS)
   list(APPEND command_srcs "CommandManager/commands/camera_power_commands.cpp")
 endif()
+if(CONFIG_CAMERA_RECOVERY_ENABLE)
+  list(APPEND command_srcs "CommandManager/commands/camera_recovery_commands.cpp")
+endif()
 
 idf_component_register(
   SRCS ${command_srcs}

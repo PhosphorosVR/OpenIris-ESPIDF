@@ -161,6 +161,9 @@ void CameraManager::beginSetup()
         camLines.probe();
 #endif
         this->startCameraTask();
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+        this->checkRestartMarker();
+#endif
     }
     status.state = CameraRunState::Starting;
 }

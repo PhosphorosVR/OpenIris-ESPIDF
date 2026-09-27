@@ -183,8 +183,24 @@ void CameraManager::cameraTask(void* arg)
             continue;
         }
         self->cycle_busy = true;
-        CycleReport report = self->runCycle(job.request);
-        report.stack_free_min = uxTaskGetStackHighWaterMark(nullptr);
+        CycleReport report{};
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+        // Budget first: a refused request touches nothing.
+        if (const char* refusal = self->admit(job.trigger))
+        {
+            report.level = job.request.level;
+            report.pid_before = report.pid_after = self->status.pid;
+            report.failed_step = refusal;
+        }
+        else
+#endif
+        {
+            report = self->runCycle(job.request);
+            report.stack_free_min = uxTaskGetStackHighWaterMark(nullptr);
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+            self->recordCycle(job.trigger, report);
+#endif
+        }
         self->cycle_busy = false;
         if (job.report)
         {
@@ -218,9 +234,11 @@ bool CameraManager::runCycleBlocking(const CycleRequest& request, const Recovery
 }
 
 #if CONFIG_CAMERA_RECOVERY_ENABLE
-void CameraManager::onFrameMissing()
+bool CameraManager::submitCycle(const CycleRequest& request, const RecoveryTrigger trigger)
 {
-    frames_missing.fetch_add(1, std::memory_order_relaxed);
+    // Nobody waits; a full queue means a restart is already pending.
+    const CycleJob job{request, trigger, nullptr, nullptr};
+    return cycle_queue && xQueueSend(cycle_queue, &job, 0) == pdTRUE;
 }
 
 int CameraManager::applyFrameSize(const framesize_t frameSize)

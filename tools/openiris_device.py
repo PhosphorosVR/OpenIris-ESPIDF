@@ -30,11 +30,17 @@ class OpenIrisDevice:
         print(f"📡 Connecting directly to {self.port}...")
 
         try:
-            self.connection = serial.Serial(
-                port=self.port, baudrate=115200, timeout=1, write_timeout=1
-            )
+            # DTR/RTS must be low before the port opens. Opening with them high and
+            # lowering them afterwards is the reset sequence of the ESP32 USB-Serial-JTAG
+            # and of the usual USB-UART auto-reset circuit, so every connect rebooted the board.
+            self.connection = serial.Serial()
+            self.connection.port = self.port
+            self.connection.baudrate = 115200
+            self.connection.timeout = 1
+            self.connection.write_timeout = 1
             self.connection.dtr = False
             self.connection.rts = False
+            self.connection.open()
             print(f"✅ Connected to the device on {self.port}")
             return True
         except Exception as e:

@@ -16,7 +16,7 @@ board_capabilities = {
     "esp32Cam": ["wireless"],
     "esp32M5Stack": ["wireless"],
     "facefocusvr_eye_L": ["wired", "measure_current"],
-    "facefocusvr_eye_R": ["wired", "measure_current"],
+    "facefocusvr_eye_R": ["wired", "measure_current", "fan"],
     "facefocusvr_face": ["wired", "measure_current"],
     "project_babble": ["wireless", "wired"],
     "seed_studio": ["wireless", "wired"],

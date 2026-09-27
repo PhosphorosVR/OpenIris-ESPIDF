@@ -37,6 +37,10 @@ class ProjectConfig
     void setDebugLogEnabledConfig(bool enabled);
     void setLEDDUtyCycleConfig(int led_external_pwm_duty_cycle);
     void setFanDutyCycleConfig(int fan_pwm_duty_cycle);
+#ifdef CONFIG_FAN_PWM_ENABLE
+    void setBoardRevisionOverride(int board_revision);
+    void setFanTuningConfig(int min_percent, int kickstart_percent, int kickstart_ms);
+#endif
     void setMDNSConfig(const std::string& hostname);
     void setCameraConfig(uint8_t vflip, uint8_t framesize, uint8_t href, uint8_t quality, uint8_t brightness);
     void setWifiConfig(const std::string& networkName, const std::string& ssid, const std::string& bssid, const std::string& password, uint8_t channel,

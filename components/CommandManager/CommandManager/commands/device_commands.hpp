@@ -16,6 +16,12 @@ CommandResult getLEDDutyCycleCommand(std::shared_ptr<DependencyRegistry> registr
 CommandResult updateFanDutyCycleCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json);
 CommandResult getFanDutyCycleCommand(std::shared_ptr<DependencyRegistry> registry);
 
+// Fan drive revision and bench access
+CommandResult getBoardRevisionCommand(std::shared_ptr<DependencyRegistry> registry);
+CommandResult setBoardRevisionCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json);
+CommandResult setFanTuningCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json);
+CommandResult setFanRawDutyCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json);
+
 CommandResult restartDeviceCommand();
 
 CommandResult startStreamingCommand();

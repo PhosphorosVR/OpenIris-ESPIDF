@@ -26,6 +26,10 @@ std::unordered_map<std::string, CommandType> commandTypeMap = {
     {"get_led_duty_cycle", CommandType::GET_LED_DUTY_CYCLE},
     {"set_fan_duty_cycle", CommandType::SET_FAN_DUTY_CYCLE},
     {"get_fan_duty_cycle", CommandType::GET_FAN_DUTY_CYCLE},
+    {"get_board_revision", CommandType::GET_BOARD_REVISION},
+    {"set_board_revision", CommandType::SET_BOARD_REVISION},
+    {"set_fan_tuning", CommandType::SET_FAN_TUNING},
+    {"set_fan_raw_duty", CommandType::SET_FAN_RAW_DUTY},
     {"get_serial", CommandType::GET_SERIAL},
     {"get_led_current", CommandType::GET_LED_CURRENT},
     {"get_battery_status", CommandType::GET_BATTERY_STATUS},
@@ -89,6 +93,14 @@ std::function<CommandResult()> CommandManager::createCommand(const CommandType t
         return [this, json] { return updateFanDutyCycleCommand(this->registry, json); };
     case CommandType::GET_FAN_DUTY_CYCLE:
         return [this] { return getFanDutyCycleCommand(this->registry); };
+    case CommandType::GET_BOARD_REVISION:
+        return [this] { return getBoardRevisionCommand(this->registry); };
+    case CommandType::SET_BOARD_REVISION:
+        return [this, json] { return setBoardRevisionCommand(this->registry, json); };
+    case CommandType::SET_FAN_TUNING:
+        return [this, json] { return setFanTuningCommand(this->registry, json); };
+    case CommandType::SET_FAN_RAW_DUTY:
+        return [this, json] { return setFanRawDutyCommand(this->registry, json); };
     case CommandType::GET_SERIAL:
         return [this] { return getSerialNumberCommand(this->registry); };
     case CommandType::GET_LED_CURRENT:

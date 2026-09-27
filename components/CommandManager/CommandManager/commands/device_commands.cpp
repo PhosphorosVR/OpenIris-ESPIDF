@@ -2,7 +2,9 @@
 #include <cstdio>
 #include "LEDManager.hpp"
 #include "MonitoringManager.hpp"
+#ifdef CONFIG_FAN_PWM_ENABLE
 #include "FanManager.hpp"
+#endif
 #include "esp_mac.h"
 
 #if CONFIG_DEBUG_LOG_ENABLE
@@ -98,9 +100,16 @@ CommandResult updateFanDutyCycleCommand(std::shared_ptr<DependencyRegistry> regi
 
     const auto dutyCycle = json["dutyCycle"].get<int>();
 
-    const int lo = std::min(CONFIG_FAN_PWM_DUTY_MIN, CONFIG_FAN_PWM_DUTY_MAX);
-    const int hi = std::max(CONFIG_FAN_PWM_DUTY_MIN, CONFIG_FAN_PWM_DUTY_MAX);
-    if (dutyCycle < lo || dutyCycle > hi)
+    auto fanMgr = registry->resolve<FanManager>(DependencyType::fan_manager);
+    if (!fanMgr)
+    {
+        return CommandResult::getErrorResult("Fan manager unavailable");
+    }
+
+    // The FanManager owns the permitted range because the lower bound depends on
+    // the fan drive characteristic it detected. Rejecting rather than clamping is
+    // the behaviour callers have always seen and stays that way.
+    if (!fanMgr->isPercentAllowed(dutyCycle))
     {
         return CommandResult::getErrorResult("Invalid payload - dutyCycle outside allowed range");
     }
@@ -108,11 +117,7 @@ CommandResult updateFanDutyCycleCommand(std::shared_ptr<DependencyRegistry> regi
     const auto projectConfig = registry->resolve<ProjectConfig>(DependencyType::project_config);
     projectConfig->setFanDutyCycleConfig(dutyCycle);
 
-    auto fanMgr = registry->resolve<FanManager>(DependencyType::fan_manager);
-    if (fanMgr)
-    {
-        fanMgr->setFanDutyCycle(static_cast<uint8_t>(dutyCycle));
-    }
+    fanMgr->setFanDutyCycle(static_cast<uint8_t>(dutyCycle));
 
     return CommandResult::getSuccessResult("Fan duty cycle set");
 #else
@@ -141,9 +146,128 @@ CommandResult getFanDutyCycleCommand(std::shared_ptr<DependencyRegistry> registr
     const auto projectConfig = registry->resolve<ProjectConfig>(DependencyType::project_config);
     const auto deviceCfg = projectConfig->getDeviceConfig();
     int duty = deviceCfg.fan_pwm_duty_cycle;
-    const auto json = nlohmann::json{{"fan_pwm_duty_cycle", duty}};
+
+    // fan_pwm_duty_cycle keeps its name and meaning; everything else is added so
+    // a UI can bound its slider and grey out "off" where the hardware has none.
+    auto json = nlohmann::json{{"fan_pwm_duty_cycle", duty}};
+    if (auto fanMgr = registry->resolve<FanManager>(DependencyType::fan_manager))
+    {
+        const FanStatus status = fanMgr->status();
+        json["min_percent"] = status.min_percent;
+        json["max_percent"] = status.max_percent;
+        json["can_turn_off"] = status.can_turn_off;
+        json["revision"] = status.revision;
+        json["fallback_active"] = status.fallback_active;
+    }
     return CommandResult::getSuccessResult(json);
 #else
+    return CommandResult::getErrorResult("Fan PWM disabled in config");
+#endif
+}
+
+CommandResult getBoardRevisionCommand(std::shared_ptr<DependencyRegistry> registry)
+{
+#ifdef CONFIG_FAN_PWM_ENABLE
+    auto fanMgr = registry->resolve<FanManager>(DependencyType::fan_manager);
+    if (!fanMgr)
+    {
+        return CommandResult::getErrorResult("Fan manager unavailable");
+    }
+
+    const FanStatus status = fanMgr->status();
+    const auto json = nlohmann::json{
+        {"revision", status.revision},
+        {"source", status.revision_source},
+        {"curve", status.curve},
+        {"fallback_active", status.fallback_active},
+        {"sample_a_mv", status.sample_a_mv},
+        {"sample_b_mv", status.sample_b_mv},
+    };
+    return CommandResult::getSuccessResult(json);
+#else
+    return CommandResult::getErrorResult("Fan PWM disabled in config");
+#endif
+}
+
+CommandResult setBoardRevisionCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json)
+{
+#ifdef CONFIG_FAN_PWM_ENABLE
+    if (!json.contains("revision") || !json["revision"].is_number_integer())
+    {
+        return CommandResult::getErrorResult("Invalid payload - missing revision");
+    }
+
+    const auto revision = json["revision"].get<int>();
+    if (revision != 0 && revision != 45 && revision != 50)
+    {
+        return CommandResult::getErrorResult("Invalid payload - revision must be 0 (measure), 45 or 50");
+    }
+
+    const auto projectConfig = registry->resolve<ProjectConfig>(DependencyType::project_config);
+    projectConfig->setBoardRevisionOverride(revision);
+
+    return CommandResult::getSuccessResult("Board revision override stored, restart to apply");
+#else
+    (void)json;
+    return CommandResult::getErrorResult("Fan PWM disabled in config");
+#endif
+}
+
+CommandResult setFanTuningCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json)
+{
+#ifdef CONFIG_FAN_PWM_ENABLE
+    const auto projectConfig = registry->resolve<ProjectConfig>(DependencyType::project_config);
+    const auto deviceCfg = projectConfig->getDeviceConfig();
+
+    // Every field is optional; -1 puts one back on its built-in default.
+    auto pick = [&json](const char* key, int fallback) {
+        if (json.contains(key) && json[key].is_number_integer())
+        {
+            return json[key].get<int>();
+        }
+        return fallback;
+    };
+
+    projectConfig->setFanTuningConfig(pick("min_percent", deviceCfg.fan_min_percent), pick("kickstart_percent", deviceCfg.fan_kickstart_percent),
+                                      pick("kickstart_ms", deviceCfg.fan_kickstart_ms));
+
+    return CommandResult::getSuccessResult("Fan tuning stored, restart to apply the kickstart values");
+#else
+    (void)json;
+    return CommandResult::getErrorResult("Fan PWM disabled in config");
+#endif
+}
+
+CommandResult setFanRawDutyCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json)
+{
+#ifdef CONFIG_FAN_PWM_ENABLE
+    if (!json.contains("raw") || !json["raw"].is_number_integer())
+    {
+        return CommandResult::getErrorResult("Invalid payload - missing raw");
+    }
+
+    auto fanMgr = registry->resolve<FanManager>(DependencyType::fan_manager);
+    if (!fanMgr)
+    {
+        return CommandResult::getErrorResult("Fan manager unavailable");
+    }
+
+    const auto raw = json["raw"].get<int>();
+    const auto maxRaw = static_cast<int>(fanMgr->maxRawDuty());
+    if (raw < 0 || raw > maxRaw)
+    {
+        return CommandResult::getErrorResult("Invalid payload - raw outside 0..max_raw");
+    }
+
+    if (!fanMgr->setRawDuty(static_cast<uint32_t>(raw)))
+    {
+        return CommandResult::getErrorResult("Fan PWM not initialized");
+    }
+
+    const auto result = nlohmann::json{{"raw", raw}, {"max_raw", maxRaw}};
+    return CommandResult::getSuccessResult(result);
+#else
+    (void)json;
     return CommandResult::getErrorResult("Fan PWM disabled in config");
 #endif
 }

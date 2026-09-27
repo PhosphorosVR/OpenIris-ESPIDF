@@ -116,20 +116,39 @@ void ProjectConfig::setLEDDUtyCycleConfig(int led_external_pwm_duty_cycle)
     this->config.device.save();
 }
 
+// The permitted range depends on the fan drive characteristic, which only the
+// FanManager knows. It vets the value before we get here, so this just stores
+// what it was handed instead of keeping a second copy of the bounds.
 void ProjectConfig::setFanDutyCycleConfig(int fan_pwm_duty_cycle)
 {
 #ifdef CONFIG_FAN_PWM_ENABLE
-    const int lo = std::min(CONFIG_FAN_PWM_DUTY_MIN, CONFIG_FAN_PWM_DUTY_MAX);
-    const int hi = std::max(CONFIG_FAN_PWM_DUTY_MIN, CONFIG_FAN_PWM_DUTY_MAX);
-    const int clamped = std::clamp(fan_pwm_duty_cycle, lo, hi);
-    this->config.device.fan_pwm_duty_cycle = clamped;
-    ESP_LOGI(CONFIGURATION_TAG, "Setting fan duty cycle to %d (clamped %d-%d)", fan_pwm_duty_cycle, lo, hi);
+    this->config.device.fan_pwm_duty_cycle = std::clamp(fan_pwm_duty_cycle, 0, 100);
+    ESP_LOGI(CONFIGURATION_TAG, "Setting fan duty cycle to %d", fan_pwm_duty_cycle);
 #else
     ESP_LOGW(CONFIGURATION_TAG, "Fan PWM disabled; ignoring duty cycle %d", fan_pwm_duty_cycle);
     this->config.device.fan_pwm_duty_cycle = 0;
 #endif
     this->config.device.save();
 }
+
+#ifdef CONFIG_FAN_PWM_ENABLE
+void ProjectConfig::setBoardRevisionOverride(int board_revision)
+{
+    this->config.device.board_revision_override = board_revision;
+    ESP_LOGW(CONFIGURATION_TAG, "Board revision override set to %d; takes effect on the next restart", board_revision);
+    this->config.device.save();
+}
+
+void ProjectConfig::setFanTuningConfig(int min_percent, int kickstart_percent, int kickstart_ms)
+{
+    this->config.device.fan_min_percent = min_percent < 0 ? -1 : std::clamp(min_percent, 0, 100);
+    this->config.device.fan_kickstart_percent = kickstart_percent < 0 ? -1 : std::clamp(kickstart_percent, 0, 100);
+    this->config.device.fan_kickstart_ms = kickstart_ms < 0 ? -1 : std::clamp(kickstart_ms, 0, 5000);
+    ESP_LOGI(CONFIGURATION_TAG, "Fan tuning: min=%d%% kick=%d%% for %d ms (-1 means the built-in default)", this->config.device.fan_min_percent,
+             this->config.device.fan_kickstart_percent, this->config.device.fan_kickstart_ms);
+    this->config.device.save();
+}
+#endif
 
 void ProjectConfig::setMDNSConfig(const std::string& hostname)
 {

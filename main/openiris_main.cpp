@@ -12,7 +12,9 @@
 
 #include <CameraManager.hpp>
 #include <CommandManager.hpp>
+#ifdef CONFIG_FAN_PWM_ENABLE
 #include <FanManager.hpp>
+#endif
 #include <LEDManager.hpp>
 #include <MDNSManager.hpp>
 #include <ProjectConfig.hpp>
@@ -49,12 +51,6 @@
 #endif
 #define CONFIG_LED_C_PIN_GPIO (gpio_num_t) CONFIG_LED_EXTERNAL_GPIO
 
-#ifdef CONFIG_FAN_PWM_ENABLE
-#define CONFIG_FAN_PWM_GPIO_NUM (gpio_num_t) CONFIG_FAN_PWM_GPIO
-#else
-#define CONFIG_FAN_PWM_GPIO_NUM (gpio_num_t)(-1)
-#endif
-
 TaskHandle_t serialManagerHandle;
 
 esp_timer_handle_t timerHandle = nullptr;
@@ -83,7 +79,9 @@ UVCStreamManager uvcStream;
 #endif
 
 auto ledManager = std::make_shared<LEDManager>(BLINK_GPIO, CONFIG_LED_C_PIN_GPIO, ledStateQueue, deviceConfig);
-auto fanManager = std::make_shared<FanManager>(CONFIG_FAN_PWM_GPIO_NUM, deviceConfig);
+#ifdef CONFIG_FAN_PWM_ENABLE
+auto fanManager = std::make_shared<FanManager>(static_cast<gpio_num_t>(CONFIG_FAN_PWM_GPIO), deviceConfig);
+#endif
 
 #if CONFIG_MONITORING_LED_CURRENT || CONFIG_MONITORING_BATTERY_ENABLE
 std::shared_ptr<MonitoringManager> monitoringManager = std::make_shared<MonitoringManager>();
@@ -284,7 +282,9 @@ extern "C" void app_main(void)
     dependencyRegistry->registerService<WiFiManager>(DependencyType::wifi_manager, wifiManager);
 #endif
     dependencyRegistry->registerService<LEDManager>(DependencyType::led_manager, ledManager);
+#ifdef CONFIG_FAN_PWM_ENABLE
     dependencyRegistry->registerService<FanManager>(DependencyType::fan_manager, fanManager);
+#endif
 
 #if CONFIG_MONITORING_LED_CURRENT || CONFIG_MONITORING_BATTERY_ENABLE
     dependencyRegistry->registerService<MonitoringManager>(DependencyType::monitoring_manager, monitoringManager);
@@ -310,7 +310,9 @@ extern "C" void app_main(void)
 #endif
 
     ledManager->setup();
+#ifdef CONFIG_FAN_PWM_ENABLE
     fanManager->setup();
+#endif
 
 #if CONFIG_MONITORING_LED_CURRENT || CONFIG_MONITORING_BATTERY_ENABLE
     monitoringManager->setup();

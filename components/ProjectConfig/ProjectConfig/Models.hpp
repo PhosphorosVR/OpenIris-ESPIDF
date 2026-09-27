@@ -68,6 +68,17 @@ struct DeviceConfig_t : BaseConfigModel
     int OTAPort;
     bool debug_log_enabled;
 
+#ifdef CONFIG_FAN_PWM_ENABLE
+    // Service overrides for the fan drive. All default to "not set" so a device
+    // that was never provisioned behaves exactly as the firmware intends.
+    // board_revision_override: 0 = measure every boot, 45 = force Rev <=4.5,
+    // 50 = force Rev.5. The others: -1 = take the value from the curve/Kconfig.
+    int board_revision_override;
+    int fan_min_percent;
+    int fan_kickstart_percent;
+    int fan_kickstart_ms;
+#endif
+
     void load()
     {
         this->OTALogin = this->pref->getString("OTALogin", "openiris");
@@ -86,10 +97,14 @@ struct DeviceConfig_t : BaseConfigModel
 #else
         this->led_external_pwm_duty_cycle = this->pref->getInt("led_ext_pwm", 100);
 #endif
-#if CONFIG_FAN_PWM_DUTY_CYCLE
-    this->fan_pwm_duty_cycle = this->pref->getInt("fan_pwm", CONFIG_FAN_PWM_DUTY_CYCLE);
+#ifdef CONFIG_FAN_PWM_ENABLE
+        this->fan_pwm_duty_cycle = this->pref->getInt("fan_pwm", CONFIG_FAN_PWM_DUTY_CYCLE);
+        this->board_revision_override = this->pref->getInt("board_rev", 0);
+        this->fan_min_percent = this->pref->getInt("fan_min_pct", -1);
+        this->fan_kickstart_percent = this->pref->getInt("fan_kick_pct", -1);
+        this->fan_kickstart_ms = this->pref->getInt("fan_kick_ms", -1);
 #else
-    this->fan_pwm_duty_cycle = this->pref->getInt("fan_pwm", 0);
+        this->fan_pwm_duty_cycle = this->pref->getInt("fan_pwm", 0);
 #endif
     };
 
@@ -101,15 +116,31 @@ struct DeviceConfig_t : BaseConfigModel
         this->pref->putBool("dbg_log_en", this->debug_log_enabled);
         this->pref->putInt("led_ext_pwm", this->led_external_pwm_duty_cycle);
         this->pref->putInt("fan_pwm", this->fan_pwm_duty_cycle);
+#ifdef CONFIG_FAN_PWM_ENABLE
+        this->pref->putInt("board_rev", this->board_revision_override);
+        this->pref->putInt("fan_min_pct", this->fan_min_percent);
+        this->pref->putInt("fan_kick_pct", this->fan_kickstart_percent);
+        this->pref->putInt("fan_kick_ms", this->fan_kickstart_ms);
+#endif
     };
 
     std::string toRepresentation() const
     {
+#ifdef CONFIG_FAN_PWM_ENABLE
+        return Helpers::format_string(
+            "\"device_config\": {\"OTALogin\": \"%s\", \"OTAPassword\": \"%s\", "
+            "\"OTAPort\": %u, \"debug_log_enabled\": %s, \"led_external_pwm_duty_cycle\": %u, \"fan_pwm_duty_cycle\": %u, "
+            "\"board_revision_override\": %d, \"fan_min_percent\": %d, \"fan_kickstart_percent\": %d, \"fan_kickstart_ms\": %d}",
+            this->OTALogin.c_str(), this->OTAPassword.c_str(), this->OTAPort, this->debug_log_enabled ? "true" : "false",
+            this->led_external_pwm_duty_cycle, this->fan_pwm_duty_cycle, this->board_revision_override, this->fan_min_percent,
+            this->fan_kickstart_percent, this->fan_kickstart_ms);
+#else
         return Helpers::format_string(
             "\"device_config\": {\"OTALogin\": \"%s\", \"OTAPassword\": \"%s\", "
             "\"OTAPort\": %u, \"debug_log_enabled\": %s, \"led_external_pwm_duty_cycle\": %u, \"fan_pwm_duty_cycle\": %u}",
             this->OTALogin.c_str(), this->OTAPassword.c_str(), this->OTAPort, this->debug_log_enabled ? "true" : "false",
             this->led_external_pwm_duty_cycle, this->fan_pwm_duty_cycle);
+#endif
     };
 };
 

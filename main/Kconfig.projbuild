@@ -234,7 +234,10 @@ menu "OpenIris: Fan Configuration"
         range 1 40000
         default 25000
         help
-            PWM frequency for the fan. 25 kHz is common to reduce audible noise.
+            PWM frequency for the fan on boards that chop the supply with a
+            low-side MOSFET. 25 kHz is common to reduce audible noise.
+            Boards that filter the PWM into a linear regulator ignore this and
+            use FAN_REV5_PWM_FREQ instead, because their ripple depends on it.
 
     config FAN_PWM_DUTY_MIN
         int "Fan PWM minimum duty (%)"
@@ -258,7 +261,62 @@ menu "OpenIris: Fan Configuration"
         range 0 100
         default 30
         help
-            Default fan duty cycle in percent. 0 means off.
+            Default fan speed in percent. On boards with a low-side MOSFET 0
+            means off; boards that feed a linear regulator cannot switch the
+            fan off at all and treat 0 as their lowest speed.
+
+    config FAN_REV_DETECT
+        bool "Detect the fan drive revision at boot"
+        depends on FAN_PWM_ENABLE
+        default false
+        help
+            Measures the discharge time constant on the fan pin to tell a
+            low-side MOSFET gate (~1 nF) from an RC network feeding a linear
+            regulator (1 uF). The two need opposite characteristics, so getting
+            this wrong inverts the fan control.
+
+            Only enable this on hardware with exactly that pair of circuits.
+            Having a fan is not the same thing as having these two circuits.
+
+    config FAN_REV5_PWM_FREQ
+        int "PWM frequency for the RC-filtered drive (Hz)"
+        depends on FAN_REV_DETECT
+        range 20000 40000
+        default 25000
+        help
+            The RC filter has a corner around 160 Hz, so the switching frequency
+            sets the residual ripple on the regulator's control node. 25 kHz
+            leaves about 33 mV, 20 kHz about 41 mV, 40 kHz about 20 mV.
+
+    config FAN_REV5_MIN_PERCENT
+        int "Lowest speed allowed on the RC-filtered drive (%)"
+        depends on FAN_REV_DETECT
+        range 0 100
+        default 25
+        help
+            This drive cannot switch the fan off, and below a certain voltage a
+            spinning fan stalls. With no tacho line there is no way to notice
+            that, so this lower bound is the only protection there is. Keep a
+            margin above the measured stall point rather than sitting on it.
+
+    config FAN_KICKSTART_PERCENT
+        int "Kickstart level (%)"
+        depends on FAN_REV_DETECT
+        range 0 100
+        default 100
+        help
+            Speed applied at startup before settling to the configured one, so
+            the fan is already turning before it is asked for a setting below
+            its start-up threshold.
+
+    config FAN_KICKSTART_MS
+        int "Kickstart duration (ms)"
+        depends on FAN_REV_DETECT
+        range 0 5000
+        default 400
+        help
+            How long to hold the kickstart level. 0 disables the kickstart.
+            Applied asynchronously, so it does not delay the rest of startup.
 
 endmenu
 

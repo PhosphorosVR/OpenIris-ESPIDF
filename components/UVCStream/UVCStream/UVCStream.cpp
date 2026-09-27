@@ -51,6 +51,30 @@ static void reset_pacing_state()
     s_frame_inflight.store(false);
 }
 
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+// Public TinyUSB API; usb_device_uvc.h does not re-export it.
+extern "C" bool tud_video_n_streaming(uint_fast8_t ctl_idx, uint_fast8_t stm_idx);
+
+// A frame in transfer when the host stops the stream never sees its transfer-complete
+// callback and stays here. The frame gate asks for it before a camera restart.
+static ReclaimResult reclaim_abandoned_frame()
+{
+    if (tud_video_n_streaming(0, 0))
+    {
+        return ReclaimResult::Streaming;
+    }
+    camera_fb_t* fb = UVCStreamHelpers::s_fb.cam_fb_p;
+    if (!fb)
+    {
+        return ReclaimResult::NoFrame;
+    }
+    UVCStreamHelpers::s_fb.cam_fb_p = nullptr;
+    reset_pacing_state();
+    cameraReleaseFrame(fb);
+    return ReclaimResult::Returned;
+}
+#endif
+
 static esp_err_t UVCStreamHelpers::camera_start_cb(uvc_format_t format, int width, int height, int rate, void* cb_ctx)
 {
     ESP_LOGI(UVC_STREAM_TAG, "Camera Start");
@@ -109,6 +133,14 @@ static esp_err_t UVCStreamHelpers::camera_start_cb(uvc_format_t format, int widt
 
     cameraHandler->setCameraResolution(frame_size);
 
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+    // A frame abandoned by the previous stream would be overwritten below and lost.
+    if (s_fb.cam_fb_p)
+    {
+        cameraReleaseFrame(s_fb.cam_fb_p);
+        s_fb.cam_fb_p = nullptr;
+    }
+#endif
     s_stopping.store(false);
     reset_pacing_state();
     SendStreamEvent(eventQueue, StreamState_e::Stream_ON);
@@ -212,6 +244,9 @@ esp_err_t UVCStreamManager::setup()
         }
     }
     uvc_select_frame_profile(use_320);
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+    cameraGateSetReclaim(reclaim_abandoned_frame);
+#endif
 
     // Allocate a fixed-size transfer buffer (compile-time constant)
     uvc_buffer_size = UVCStreamManager::UVC_MAX_FRAMESIZE_SIZE;

@@ -14,13 +14,44 @@ namespace
 constexpr uint32_t kClosedWaitMs = 3000;
 constexpr EventBits_t kOpenBit = BIT0;
 constexpr uint32_t kDrainPollMs = 5;
+// A frame out for this long is not being sent any more (a transfer takes ~30 ms): the
+// host stopped reading. Windows does that when an app closes the camera; the transfer
+// stays pending until the host reads again.
+constexpr uint32_t kStaleMs = 500;
+// The driver has fb_count (2) buffers; room to spare.
+constexpr int kMaxOut = 4;
 
 portMUX_TYPE s_lock = portMUX_INITIALIZER_UNLOCKED;
 EventGroupHandle_t s_events = nullptr;
 CameraManager* s_owner = nullptr;
+CameraFrameReclaim s_reclaim = nullptr;
 bool s_open = false;
-int s_users = 0;  // frames handed out plus fb_get calls in progress
+int s_in_driver = 0;                // consumers inside esp_camera_fb_get()
+camera_fb_t* s_out[kMaxOut] = {};  // frames handed out and not returned
+TickType_t s_out_since[kMaxOut] = {};
+ReclaimResult s_last_reclaim = ReclaimResult::None;
+uint32_t s_drain_timeouts = 0;
+uint32_t s_taken_back = 0;
+int s_timeout_in_driver = 0;
+int s_timeout_frames_out = 0;
+
+// Under s_lock.
+int framesOutLocked()
+{
+    int out = 0;
+    for (const auto* fb : s_out)
+    {
+        out += fb != nullptr;
+    }
+    return out;
+}
 std::atomic<uint32_t> s_missed_in_row{0};
+
+// Under s_lock.
+int usersLocked()
+{
+    return s_in_driver + framesOutLocked();
+}
 
 bool enter()
 {
@@ -31,7 +62,7 @@ bool enter()
         portENTER_CRITICAL(&s_lock);
         if (s_open)
         {
-            ++s_users;
+            ++s_in_driver;
             portEXIT_CRITICAL(&s_lock);
             return true;
         }
@@ -46,6 +77,47 @@ bool enter()
     }
 }
 
+// Leaves the driver; a delivered frame is recorded as out.
+void leave(camera_fb_t* fb)
+{
+    portENTER_CRITICAL(&s_lock);
+    if (s_in_driver > 0)
+    {
+        --s_in_driver;
+    }
+    if (fb)
+    {
+        for (int i = 0; i < kMaxOut; ++i)
+        {
+            if (!s_out[i])
+            {
+                s_out[i] = fb;
+                s_out_since[i] = xTaskGetTickCount();
+                break;
+            }
+        }
+    }
+    portEXIT_CRITICAL(&s_lock);
+}
+
+// Under s_lock: every frame out has been out for at least kStaleMs.
+bool allOutStaleLocked(const TickType_t now)
+{
+    bool any = false;
+    for (int i = 0; i < kMaxOut; ++i)
+    {
+        if (s_out[i])
+        {
+            any = true;
+            if (now - s_out_since[i] < pdMS_TO_TICKS(kStaleMs))
+            {
+                return false;
+            }
+        }
+    }
+    return any;
+}
+
 void notifyMissing()
 {
     const uint32_t in_row = s_missed_in_row.fetch_add(1, std::memory_order_relaxed) + 1;
@@ -53,17 +125,6 @@ void notifyMissing()
     {
         s_owner->onFrameMissing(in_row);
     }
-}
-
-void leave()
-{
-    portENTER_CRITICAL(&s_lock);
-    // UVC can return the same frame from the stop and the transfer-complete path.
-    if (s_users > 0)
-    {
-        --s_users;
-    }
-    portEXIT_CRITICAL(&s_lock);
 }
 }  // namespace
 
@@ -74,6 +135,11 @@ void cameraGateInit(CameraManager* owner)
     {
         s_events = xEventGroupCreate();
     }
+}
+
+void cameraGateSetReclaim(const CameraFrameReclaim reclaim)
+{
+    s_reclaim = reclaim;
 }
 
 bool cameraGateClose(const uint32_t drain_timeout_ms)
@@ -87,17 +153,49 @@ bool cameraGateClose(const uint32_t drain_timeout_ms)
     }
 
     const TickType_t start = xTaskGetTickCount();
+    bool reclaimed = false;
     while (true)
     {
+        const TickType_t now = xTaskGetTickCount();
         portENTER_CRITICAL(&s_lock);
-        const int users = s_users;
+        const int users = usersLocked();
+        const bool stale = s_in_driver == 0 && allOutStaleLocked(now);
         portEXIT_CRITICAL(&s_lock);
         if (users == 0)
         {
             return true;
         }
-        if (xTaskGetTickCount() - start >= pdMS_TO_TICKS(drain_timeout_ms))
+        if (stale)
         {
+            // First let the consumer give it back properly (UVC: only when not streaming).
+            if (!reclaimed && s_reclaim)
+            {
+                reclaimed = true;
+                s_last_reclaim = s_reclaim();
+                continue;
+            }
+            // Still out: take it back. The driver is torn down next and frees the buffer
+            // anyway; a late return from the consumer is not tracked any more and ignored.
+            portENTER_CRITICAL(&s_lock);
+            for (auto*& slot : s_out)
+            {
+                if (slot)
+                {
+                    slot = nullptr;
+                    ++s_taken_back;
+                }
+            }
+            portEXIT_CRITICAL(&s_lock);
+            return true;
+        }
+        const TickType_t elapsed = now - start;
+        if (elapsed >= pdMS_TO_TICKS(drain_timeout_ms))
+        {
+            portENTER_CRITICAL(&s_lock);
+            ++s_drain_timeouts;
+            s_timeout_in_driver = s_in_driver;
+            s_timeout_frames_out = framesOutLocked();
+            portEXIT_CRITICAL(&s_lock);
             cameraGateOpen();
             return false;
         }
@@ -124,9 +222,9 @@ camera_fb_t* cameraAcquireFrame()
         return nullptr;
     }
     camera_fb_t* fb = esp_camera_fb_get();
+    leave(fb);
     if (!fb)
     {
-        leave();
         notifyMissing();
         return nullptr;
     }
@@ -136,8 +234,40 @@ camera_fb_t* cameraAcquireFrame()
 
 void cameraReleaseFrame(camera_fb_t* fb)
 {
-    esp_camera_fb_return(fb);
-    leave();
+    bool out = false;
+    portENTER_CRITICAL(&s_lock);
+    for (auto*& slot : s_out)
+    {
+        if (fb && slot == fb)
+        {
+            slot = nullptr;
+            out = true;
+            break;
+        }
+    }
+    portEXIT_CRITICAL(&s_lock);
+    // A second return of the same frame (UVC's stop and transfer-complete paths can
+    // race) must not reach the driver twice.
+    if (out)
+    {
+        esp_camera_fb_return(fb);
+    }
+}
+
+CameraGateState cameraGateState()
+{
+    CameraGateState state{};
+    portENTER_CRITICAL(&s_lock);
+    state.open = s_open;
+    state.in_driver = s_in_driver;
+    state.frames_out = framesOutLocked();
+    state.last_reclaim = s_last_reclaim;
+    state.drain_timeouts = s_drain_timeouts;
+    state.taken_back = s_taken_back;
+    state.timeout_in_driver = s_timeout_in_driver;
+    state.timeout_frames_out = s_timeout_frames_out;
+    portEXIT_CRITICAL(&s_lock);
+    return state;
 }
 
 uint16_t cameraSensorPid()

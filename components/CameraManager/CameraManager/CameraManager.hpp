@@ -32,6 +32,31 @@
 camera_fb_t* cameraAcquireFrame();
 void cameraReleaseFrame(camera_fb_t* fb);
 uint16_t cameraSensorPid();
+// A consumer that can abandon a frame (UVC: host stopped the stream mid-transfer) gives
+// it back through this when a restart waits for it.
+enum class ReclaimResult : uint8_t
+{
+    None,      // not asked yet
+    Returned,  // a frame was given back
+    Streaming,  // the host still streams, the frame may be in transfer
+    NoFrame,   // nothing held
+};
+using CameraFrameReclaim = ReclaimResult (*)();
+void cameraGateSetReclaim(CameraFrameReclaim reclaim);
+
+// Diagnostics for get_camera_status.
+struct CameraGateState
+{
+    bool open = false;
+    int in_driver = 0;   // consumers inside esp_camera_fb_get()
+    int frames_out = 0;  // frames handed out, not returned
+    ReclaimResult last_reclaim = ReclaimResult::None;
+    uint32_t drain_timeouts = 0;
+    uint32_t taken_back = 0;    // frames a consumer held without sending, taken back for a restart
+    int timeout_in_driver = 0;  // at the last drain timeout
+    int timeout_frames_out = 0;
+};
+CameraGateState cameraGateState();
 #else
 __attribute__((always_inline)) static inline camera_fb_t* cameraAcquireFrame()
 {

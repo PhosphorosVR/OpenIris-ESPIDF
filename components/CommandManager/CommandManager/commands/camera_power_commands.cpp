@@ -161,6 +161,17 @@ CommandResult getCameraStatusCommand(std::shared_ptr<DependencyRegistry> registr
         {"restarted_by_recovery", stats.restarted_by_recovery},
         {"last", last},
     };
+    static constexpr const char* kReclaimNames[] = {"none", "returned", "streaming", "no_frame"};
+    const CameraGateState gate = cameraGateState();
+    result["gate"] = {
+        {"open", gate.open},
+        {"in_driver", gate.in_driver},
+        {"frames_out", gate.frames_out},
+        {"last_reclaim", kReclaimNames[static_cast<int>(gate.last_reclaim)]},
+        {"drain_timeouts", gate.drain_timeouts},
+        {"taken_back", gate.taken_back},
+        {"at_timeout", {{"in_driver", gate.timeout_in_driver}, {"frames_out", gate.timeout_frames_out}}},
+    };
 
     // End of a test run: one WARN line, which the log manager's normal flush stores in the
     // persistent log. No flash write of its own.

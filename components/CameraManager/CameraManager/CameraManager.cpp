@@ -265,6 +265,9 @@ void CameraManager::setupCameraSensor()
 
 bool CameraManager::setupCamera()
 {
+#if CONFIG_CAMERA_STATUS
+    this->beginSetup();
+#endif
     ESP_LOGI(CAMERA_MANAGER_TAG, "Setting up camera pinout");
     this->setupCameraPinout();
     ESP_LOGI(CAMERA_MANAGER_TAG, "Initializing camera...");
@@ -286,6 +289,9 @@ bool CameraManager::setupCamera()
                  "camera and reboot the device.\r\n");
         constexpr auto event = SystemEvent{EventSource::CAMERA, CameraState_e::Camera_Error};
         xQueueSend(this->eventQueue, &event, 10);
+#if CONFIG_CAMERA_STATUS
+        this->endSetup(hasCameraBeenInitialized);
+#endif
         return false;
     }
 
@@ -393,6 +399,9 @@ bool CameraManager::setupCamera()
     // not touch FUN_DRV, so this survives re-inits.
 #if CONFIG_XCLK_GPIO_NUM >= 0
     gpio_set_drive_capability(static_cast<gpio_num_t>(CONFIG_XCLK_GPIO_NUM), GPIO_DRIVE_CAP_0);
+#endif
+#if CONFIG_CAMERA_STATUS
+    this->endSetup(ESP_OK);
 #endif
     return true;
 }

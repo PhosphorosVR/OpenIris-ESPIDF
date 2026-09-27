@@ -105,3 +105,41 @@ menu "Camera sensor pinout configuration"
             Pixel Clock GPIO number (set to GPIO 25)
 
 endmenu
+
+menu "Camera power control and recovery"
+
+    config CAMERA_POWER_CONTROL
+        bool "Camera power (CAM_CE) and reset (CAM_RESET) lines"
+        default n
+        help
+            Drives the enable of the camera LDOs and the camera reset line, both as
+            open drain: pulled low or released, never driven high. A probe at boot
+            finds out whether the board routes the lines; where it does not, every
+            operation reports not_available and nothing changes.
+            Adds get_camera_status. Enable only in the configs of boards that have
+            these nets.
+
+    config CAMERA_POWER_EN_GPIO
+        int "CAM_CE GPIO (enable of both camera LDOs)"
+        depends on CAMERA_POWER_CONTROL
+        range -1 48
+        default -1
+        help
+            Must have an external pull-up to 3V3 so a released line keeps the
+            camera powered. Never driven high.
+
+    config CAMERA_HW_RESET_GPIO
+        int "CAM_RESET GPIO"
+        depends on CAMERA_POWER_CONTROL
+        range -1 48
+        default -1
+        help
+            Camera reset line with an external pull-up. Keep RESET_GPIO_NUM at -1:
+            the camera driver would drive its own reset pin push-pull.
+
+    # Derived, no prompt: status and reset-reason reporting for any of the above.
+    config CAMERA_STATUS
+        bool
+        default y if CAMERA_POWER_CONTROL
+
+endmenu

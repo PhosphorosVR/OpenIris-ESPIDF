@@ -664,6 +664,15 @@ CONFIG_PCLK_GPIO_NUM=13
 # end of Camera sensor pinout configuration
 
 #
+# Camera power control and recovery
+#
+CONFIG_CAMERA_POWER_CONTROL=y
+CONFIG_CAMERA_POWER_EN_GPIO=7
+CONFIG_CAMERA_HW_RESET_GPIO=8
+CONFIG_CAMERA_STATUS=y
+# end of Camera power control and recovery
+
+#
 # Compiler options
 #
 # CONFIG_COMPILER_OPTIMIZATION_DEBUG is not set

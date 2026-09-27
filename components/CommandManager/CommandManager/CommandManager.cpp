@@ -39,6 +39,9 @@ std::unordered_map<std::string, CommandType> commandTypeMap = {
     {"get_logs", CommandType::GET_LOGS},
     {"get_persistent_logs", CommandType::GET_PERSISTENT_LOGS},
     {"clear_persistent_logs", CommandType::CLEAR_PERSISTENT_LOGS},
+#if CONFIG_CAMERA_STATUS
+    {"get_camera_status", CommandType::GET_CAMERA_STATUS},
+#endif
 };
 
 std::function<CommandResult()> CommandManager::createCommand(const CommandType type, const nlohmann::json& json) const
@@ -119,6 +122,10 @@ std::function<CommandResult()> CommandManager::createCommand(const CommandType t
         return [this] { return getPersistentLogsCommand(this->registry); };
     case CommandType::CLEAR_PERSISTENT_LOGS:
         return [this] { return clearPersistentLogsCommand(this->registry); };
+#if CONFIG_CAMERA_STATUS
+    case CommandType::GET_CAMERA_STATUS:
+        return [this] { return getCameraStatusCommand(this->registry); };
+#endif
     default:
         return nullptr;
     }

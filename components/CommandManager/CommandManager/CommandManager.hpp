@@ -19,6 +19,9 @@
 #include "commands/scan_commands.hpp"
 #include "commands/simple_commands.hpp"
 #include "commands/wifi_commands.hpp"
+#if CONFIG_CAMERA_STATUS
+#include "commands/camera_power_commands.hpp"
+#endif
 
 enum class CommandType
 {
@@ -60,6 +63,10 @@ enum class CommandType
     GET_LOGS,
     GET_PERSISTENT_LOGS,
     CLEAR_PERSISTENT_LOGS,
+    // Feature commands only at the end, so no other value shifts.
+#if CONFIG_CAMERA_STATUS
+    GET_CAMERA_STATUS,
+#endif
 };
 
 class CommandManager

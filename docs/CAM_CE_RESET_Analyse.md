@@ -536,7 +536,9 @@ Weiter offen:
 
 Neu:
 - **F21 (Kategorie-B-Kandidat, frage vorher, weil das beabsichtigte Verhalten zur Debatte steht):** `LogManager` sammelt bei aktivem Capture jede WARN- und ERROR-Zeile bis zum nächsten Flush (Default 10 s) in einem unbegrenzten `std::vector` (`LogManager.cpp:170-174`). Bei einer Log-Flut wächst das ohne Grenze. Auf Boards ohne PSRAM kann das den Heap erschöpfen. Eine Obergrenze hieße, bei Überlauf Zeilen zu verwerfen und das mitzuzählen. Soll der Log unter Flut vollständig bleiben oder gedeckelt werden?
-- **F23 (Host-Tool, Kategorie-B-Kandidat, frage vorher):** Soll `tools/openiris_device.py` beim Verbinden DTR/RTS schon *vor* dem Öffnen auf low setzen, damit ein Verbinden im Setup-Modus den ESP nicht mehr neu startet (17.5, Befund 2)? Dagegen spricht nur, falls sich `setup_openiris.py` oder die Tests auf den frischen Boot verlassen, etwa um sicher im Startfenster zu landen. Das habe ich nicht geprüft.
+- **F24 (IDF, hoher Einfluss):** Wie wird die Endlosschleife im I2C-Treiber abgefangen (17.6, Befund 4)? Optionen in der Antwort an dich.
+- **F25:** Folgt der Fehler von eye_R der Kamera bzw. dem Kabel? Tauschversuch: Kamera von eye_R an eye_L stecken (oder Kabel tauschen) und die Serie wiederholen.
+- **F23 (erledigt, deine Freigabe „wie es sinnvoller ist"):** Soll `tools/openiris_device.py` beim Verbinden DTR/RTS schon *vor* dem Öffnen auf low setzen, damit ein Verbinden im Setup-Modus den ESP nicht mehr neu startet (17.5, Befund 2)? Dagegen spricht nur, falls sich `setup_openiris.py` oder die Tests auf den frischen Boot verlassen, etwa um sicher im Startfenster zu landen. Das habe ich nicht geprüft.
 - **F22:** Referenzkonfigurationen für den Bitvergleich: `project_babble` (S3, UVC und WLAN; kompiliert UVCStream und StreamServer mit) und `wrooms3` (S3, nur WLAN). Einverstanden, oder willst du eine bestimmte? Ein klassischer ESP32 (`esp32AIThinker`) ginge zusätzlich, aber nur in einem eigenen Worktree, weil `switchBoardType.py` beim Plattformwechsel Komponenten verschiebt.
 
 ## 14. Nicht verifiziert
@@ -703,6 +705,11 @@ Zweig `feature/camera-power`. ⚠ Er zweigt von `fix/esp-timer-units` ab, nicht 
 | `a69d7d2` | `tools/camera_power_bench.py` |
 | `ccca927` | AP2-Nachtrag: Zyklus auf eigenem Task (Stack, Befund auf Hardware, 17.5) |
 | `16effe2` | Bench-Werkzeug öffnet den Port ohne Chip-Reset (17.5) |
+| `76d14c4` | Dokument: Ergebnisse Rev.4.5 |
+| `80ba1a6` | AP2-Nachtrag: übersteuerte ADC-Werte begrenzen, gemessene Schwellen (17.6) |
+| `e9a7214` | Bench-Werkzeug bricht ab, wenn das Gerät nicht mehr antwortet |
+
+Kategorie B, eigener Zweig von `main`: `fix/serial-no-reset-on-connect` (`7a7fe7f`), `tools/openiris_device.py` verbindet ohne Board-Reset (F23).
 
 Nicht gepusht, nichts nach `main` gemergt.
 
@@ -731,6 +738,7 @@ Baseline `a3199ad` (Firmware = `9156d3e`), ESP-IDF v5.4.2, `xtensa-esp-elf-gcc` 
 | AP1 `68cb4fa` | identisch | identisch |
 | AP2 `a703f47` | identisch | identisch |
 | AP2-Nachtrag `ccca927` | identisch | identisch |
+| AP2-Nachtrag `80ba1a6` | nicht gebaut: geändert sind nur Dateien, die ohne Feature nicht übersetzt werden | – |
 
 „Identisch" heißt: `app.bin` bis auf ELF-Hash, Prüfsumme und Image-SHA gleich, `bootloader.bin`, `partition-table.bin` und `sdkconfig.h` ganz gleich.
 
@@ -780,9 +788,48 @@ Eine Platine mit drei ESPs, von mir geflasht (jeweils vorher kompletter Erase). 
 
 **Noch nicht geprüft (braucht Rev.5):** `present`, `collapsed`, Abfall- und Anstiegskurve, DMM-Blick auf 1V5_Cx, Schwellen und Aus-Zeit. Ob der RTC-Pull-up an den ADC2-Pads wirkt, zeigt diese Platine nicht, weil die Kamera D0/D6 treibt. Auf den ADC1-Pads wirkt er (Probe), und es ist derselbe RTC-Mechanismus.
 
-### 17.6 Nächste Schritte
+### 17.6 Ergebnisse auf Hardware: Platine Rev.5 (2026-09-27)
 
-Die Rev.4.5-Hälfte der Abnahme von AP1/AP2 ist gelaufen (17.5). Offen ist die Rev.5-Hälfte: Nach Abschnitt 11 folgen die **Nachweisläufe** auf einer Rev.5-Platine. Erst mit ihren Werten lege ich die Schwellen (Probe, Rail-Check) und die Aus-Zeit fest. Danach kommen AP3 (Gate, Worker) und AP4 (Recovery). AP3 berührt den heißen Pfad (UVC), deshalb erst nach deiner Abnahme von AP1/AP2.
+Flash wie in 17.5 (jeweils vorher kompletter Erase). Rev.5 laut Lüfter-Erkennung (`rev5`, 3052/1927 mV) und Leitungsprobe.
+
+| Prüfung | eye_L | face | eye_R |
+|---|---|---|---|
+| Probe | `present`: 3149 mV Pull-up, 2500 mV Pull-down, CE 3149 mV | `present`: 3163 / 2474 / 3163 mV | `present`: 3162 / 2477 / 3162 mV |
+| Nachweisläufe mit Spur | 50 + 20 Zyklen, alle `collapsed` | 50 + 20 Zyklen, alle `collapsed` | siehe unten |
+| weitere Zyklen ohne Spur | 60, alle `collapsed` | 60, alle `collapsed` | – |
+| SCCB-NACKs | 0 | 0 | 5 in 24 Zyklen |
+
+**Messwerte (eye_L und face, 2 × 70 Zyklen mit Spur):**
+- Positivkontrolle 3102–3119 mV (einzelne Werte am ADC-Anschlag, jetzt auf 3300 mV begrenzt, `80ba1a6`), Endwert 410–451 mV. Die Endwerte sind Schiene plus Diodenspannung: **V(2V8_Cx) < 0,45 V** am Ende jeder Aus-Zeit.
+- Abfall: 0,4 ms nach CE low schon ≈ 2,1 V, beide Pads < 1 V nach ≤ 20 ms (erster Punkt des 20-ms-Rasters), Plateau ab ≈ 60 ms. So schnell fällt die Schiene nur mit aktiver Ausgangsentladung im TP132LC28 oder einer merklichen Last. Für LC15 ist das weiter nur die Vermutung aus Abschnitt 5 (c).
+- Anstieg: ≤ 0,4 ms nach der CE-Freigabe zurück auf Kontrollniveau (DS fordert < 5 ms).
+- Zyklus 1,16 s, erster Frame 3 ms, PID gleich, `reinit ESP_OK`; Zyklus-Task ≥ 2840 Byte Stack frei.
+
+**Schwellen:** unverändert, jetzt belegt statt Platzhalter. Probe: `present` ab 1200 mV mit Pull-down (gemessen ≥ 2474), `absent` bis 400 mV (gemessen ≤ 1). Rail-Check: Kontrolle ab 2600 mV (gemessen ≥ 3102), `collapsed` bis 1000 mV (gemessen ≤ 451).
+
+**Aus-Zeit:** Für 2V8_Cx reichen 20–60 ms. Die 500 ms Mindest-Aus-Zeit bleiben trotzdem, weil 1V5_Cx nicht beobachtbar ist; der DMM-Blick (F16) steht noch aus.
+
+**Recovery nachgewiesen:** Zweimal war die Kamera an eye_R nach einem Hänger verklemmt. Ein ESP-Reset half nicht (Boot: `ESP_ERR_NOT_SUPPORTED`, PID 0), `camera_power_cycle` holte sie jeweils in 1,15 s zurück (PID 0 → 0x3660, erster Frame 0–3 ms).
+
+**Befund 3, eye_R (F25):**
+- NACKs an wechselnden Registern (`3006`, `350a`, `3821`, `3a00`, `3a19`, `5000`), gelegentlich 8 s ohne Frame nach dem Reinit.
+- Etwa alle 5–25 Zyklen hängt der Reinit ganz (Befund 4).
+- Die Positivkontrolle liegt dauerhaft am ADC-Anschlag, die Pads klemmen also höher als bei den anderen beiden.
+- 10 normale Boots ohne Power-Cycle laufen sauber (0 NACKs).
+- Ein Lüfter auf 100 % (keine PWM-Flanken) ändert nichts.
+- Dein Hinweis: Das Flachbandkabel dieser Kamera ist stärker geknickt. Das passt. Ein angeknackster Leiter für Masse oder DOVDD bricht beim Anlaufstrom nach dem Einschalten ein, beim langsamen Kaltstart des ganzen Boards kaum. *Vermutung* bis zum Tauschversuch.
+
+**Befund 4, IDF-Fehler (F24):** Hält die Kamera nach einem NACK SDA fest, wartet `s_i2c_send_commands` in ESP-IDF v5.4.2 ohne Timeout auf den freien Bus (`i2c_master.c:541-545`). Der Task hängt für immer, der Task-Watchdog meldet `cam_power` auf CPU 0, das Gerät antwortet nicht mehr.
+- Upstream ist das behoben (`release/v5.5` und `master`: Software-Timeout, dann FSM-Reset und Bus-Freigabe), `release/v5.4` hat es noch nicht.
+- ⚠ Das korrigiert Abschnitt 7: Die Busfreigabe des IDF greift erst beim *nächsten* Transfer und wird in diesem Fall nie erreicht.
+- Betrifft alle Boards, auch den normalen Boot; mit dem Power-Cycle wird es nur häufiger ausgelöst, sobald eine Kamera grenzwertig ist.
+
+### 17.7 Nächste Schritte
+
+AP1/AP2 sind auf Rev.4.5 und Rev.5 gelaufen, die Nachweisläufe sind gemacht (17.5, 17.6). Vor AP3/AP4 offen:
+1. **F24:** Umgang mit dem IDF-Fehler, deine Entscheidung. Ohne Abhilfe hängt jede Recovery, sobald eine Kamera den Bus festhält.
+2. **F25:** Tauschversuch mit der Kamera von eye_R.
+3. **F16:** DMM-Blick auf 1V5_Cx während `--off-ms 5000`.
 
 ---
 

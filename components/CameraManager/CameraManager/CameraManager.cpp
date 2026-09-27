@@ -429,6 +429,9 @@ void CameraManager::loadConfigData()
 
 int CameraManager::setCameraResolution(const framesize_t frameSize)
 {
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+    return this->applyFrameSize(frameSize);
+#else
     if (!camera_sensor) return -1;
     xSemaphoreTake(sensor_mutex, portMAX_DELAY);
     int ret = -1;
@@ -438,6 +441,7 @@ int CameraManager::setCameraResolution(const framesize_t frameSize)
     }
     xSemaphoreGive(sensor_mutex);
     return ret;
+#endif
 }
 
 int CameraManager::setVFlip(const int direction)

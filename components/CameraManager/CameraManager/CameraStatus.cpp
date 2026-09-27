@@ -1,5 +1,8 @@
 // Only built with CONFIG_CAMERA_STATUS (see CMakeLists.txt).
 #include "CameraManager.hpp"
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+#include "CameraGate.hpp"
+#endif
 
 static const char* CAMERA_STATUS_TAG = "[CAMERA_STATUS]";
 
@@ -61,6 +64,77 @@ const char* resetReasonName(const esp_reset_reason_t reason)
     }
 }
 
+const char* linePresenceName(const LinePresence presence)
+{
+    switch (presence)
+    {
+        case LinePresence::Present:
+            return "present";
+        case LinePresence::Absent:
+            return "absent";
+        default:
+            return "unknown";
+    }
+}
+
+const char* lineOutcomeName(const LineOutcome outcome)
+{
+    switch (outcome)
+    {
+        case LineOutcome::Done:
+            return "done";
+        case LineOutcome::NotAvailable:
+            return "not_available";
+        default:
+            return "error";
+    }
+}
+
+const char* railVerdictName(const RailVerdict verdict)
+{
+    switch (verdict)
+    {
+        case RailVerdict::Collapsed:
+            return "collapsed";
+        case RailVerdict::Partial:
+            return "partial";
+        case RailVerdict::NotCollapsed:
+            return "not_collapsed";
+        case RailVerdict::Inconclusive:
+            return "inconclusive";
+        default:
+            return "not_checked";
+    }
+}
+
+const char* recoveryLevelName(const RecoveryLevel level)
+{
+    switch (level)
+    {
+        case RecoveryLevel::HwReset:
+            return "reset";
+        case RecoveryLevel::PowerCycle:
+            return "power_cycle";
+        default:
+            return "reinit";
+    }
+}
+
+const char* recoveryTriggerName(const RecoveryTrigger trigger)
+{
+    switch (trigger)
+    {
+        case RecoveryTrigger::Command:
+            return "command";
+        case RecoveryTrigger::FrameTimeout:
+            return "frame_timeout";
+        case RecoveryTrigger::BootFailure:
+            return "boot_failure";
+        default:
+            return "bench";
+    }
+}
+
 // Power-on, restart_device and a host reset over USB. Anything else may be what an
 // ESD test is looking for, so it gets a WARN line and ends up in the persistent log.
 static bool isRoutineReset(const esp_reset_reason_t reason)
@@ -86,6 +160,7 @@ void CameraManager::beginSetup()
         // The camera is powered but not yet initialized: the only safe moment.
         camLines.probe();
 #endif
+        this->startCameraTask();
     }
     status.state = CameraRunState::Starting;
 }
@@ -101,9 +176,20 @@ void CameraManager::endSetup(const esp_err_t result)
     const sensor_t* sensor = esp_camera_sensor_get();
     status.pid = sensor ? sensor->id.PID : 0;
     status.state = CameraRunState::Running;
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+    // Within a cycle the gate opens only after the first frame proved the camera.
+    if (!in_cycle)
+    {
+        cameraGateOpen();
+    }
+#endif
 }
 
 CameraStatus CameraManager::getStatus() const
 {
-    return status;
+    CameraStatus copy = status;
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+    copy.frames_missing = frames_missing.load(std::memory_order_relaxed);
+#endif
+    return copy;
 }

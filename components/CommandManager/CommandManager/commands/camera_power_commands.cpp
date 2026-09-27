@@ -62,7 +62,8 @@ CommandResult cameraPowerCycleCommand(std::shared_ptr<DependencyRegistry> regist
     }
 #endif
 
-    PowerCycleRequest request{};
+    CycleRequest request{};
+    request.level = RecoveryLevel::PowerCycle;
     if (json.contains("off_ms"))
     {
         if (!json["off_ms"].is_number_integer() || json["off_ms"].get<int64_t>() < 1 || json["off_ms"].get<int64_t>() > kMaxOffMs)
@@ -93,7 +94,11 @@ CommandResult cameraPowerCycleCommand(std::shared_ptr<DependencyRegistry> regist
             {{"error", "not_supported"}, {"lines", linePresenceName(cameraManager->lines().lastProbe().presence)}});
     }
 
-    const PowerCycleReport report = cameraManager->powerCycle(request);
+    CycleReport report{};
+    if (!cameraManager->runCycleBlocking(request, RecoveryTrigger::Bench, report))
+    {
+        return CommandResult::getErrorResult({{"error", "busy"}, {"reason", "another camera restart is running"}});
+    }
 
     auto result = nlohmann::json{
         {"result", report.failed_step ? "failed" : "power_cycled"},
@@ -121,7 +126,7 @@ CommandResult cameraPowerCycleCommand(std::shared_ptr<DependencyRegistry> regist
         // bytes; sizing input for the recovery worker (AP3)
         {"stack_free_min",
          {
-             {"power_cycle_task", report.stack_free_min},
+             {"camera_task", report.stack_free_min},
              {"caller", uxTaskGetStackHighWaterMark(nullptr)},
          }},
     };

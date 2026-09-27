@@ -5,22 +5,7 @@
 #include "sdkconfig.h"
 
 #if CONFIG_CAMERA_POWER_CONTROL
-#include <cstdint>
-
-// Whether this board routes CAM_CE and CAM_RESET, decided once at boot.
-enum class LinePresence : uint8_t
-{
-    Unknown,  // probe not run or not conclusive
-    Present,  // lines reach the camera
-    Absent,   // pads not connected: every operation is a silent no-op
-};
-
-enum class LineOutcome : uint8_t
-{
-    Done,          // pad driven as requested
-    NotAvailable,  // board has no such line, pad left released
-    Error,         // GPIO driver refused
-};
+#include "CameraTypes.hpp"
 
 struct LineProbe
 {
@@ -69,9 +54,6 @@ class CamLines
     bool power_off_ = false;
     bool reset_held_ = false;
 };
-
-const char* linePresenceName(LinePresence presence);
-const char* lineOutcomeName(LineOutcome outcome);
 
 #endif  // CONFIG_CAMERA_POWER_CONTROL
 #endif  // CAMLINES_HPP

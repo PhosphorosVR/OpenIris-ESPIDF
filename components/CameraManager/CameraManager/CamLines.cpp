@@ -133,32 +133,6 @@ static_assert(CONFIG_MONITORING_BATTERY_ADC_GPIO != kPowerEn && CONFIG_MONITORIN
               "battery sense collides with a camera line");
 #endif
 
-const char* linePresenceName(const LinePresence presence)
-{
-    switch (presence)
-    {
-        case LinePresence::Present:
-            return "present";
-        case LinePresence::Absent:
-            return "absent";
-        default:
-            return "unknown";
-    }
-}
-
-const char* lineOutcomeName(const LineOutcome outcome)
-{
-    switch (outcome)
-    {
-        case LineOutcome::Done:
-            return "done";
-        case LineOutcome::NotAvailable:
-            return "not_available";
-        default:
-            return "error";
-    }
-}
-
 const LineProbe& CamLines::probe()
 {
     LineProbe result{};

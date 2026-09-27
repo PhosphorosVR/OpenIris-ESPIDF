@@ -159,9 +159,19 @@ menu "Camera power control and recovery"
         range -1 48
         default -1
 
+    config CAMERA_RECOVERY_ENABLE
+        bool "Camera recovery while streaming"
+        depends on !GENERAL_ENABLE_WIRELESS
+        default n
+        help
+            Frame gate around every frame UVC takes from the driver, a worker task
+            that restarts the camera (reinit, hardware reset or power cycle) and the
+            recover_camera command. Without wireless because the HTTP stream server
+            would be a second frame consumer the gate does not cover.
+
     # Derived, no prompt: status and reset-reason reporting for any of the above.
     config CAMERA_STATUS
         bool
-        default y if CAMERA_POWER_CONTROL
+        default y if CAMERA_POWER_CONTROL || CAMERA_RECOVERY_ENABLE
 
 endmenu

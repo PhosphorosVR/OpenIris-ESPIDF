@@ -1,6 +1,6 @@
 # CAM_CE / CAM_RESET (Rev.5): Analyse und Plan
 
-**Umsetzung:** B0, AP1 und AP2 sind umgesetzt, Stand und Abweichungen stehen in Abschnitt 17.
+**Umsetzung:** B0 und AP1–AP4 sind umgesetzt und auf Hardware geprüft, Stand und Abweichungen stehen in Abschnitt 17.
 
 Stand 3 vom 2026-09-27. Stand 3 zieht die Isolation durch (neuer Abschnitt 16) und arbeitet deine Antworten auf F13–F18 ein; alles Übrige ist Stand 2. Basis ist `main` @ `35e815a`. Der Vorab-Fix (AP0) liegt als `9156d3e` auf dem Zweig `fix/esp-timer-units`. Für CAM_CE und CAM_RESET gibt es bis zur Freigabe keinen Code; alle Schnipsel sind Skizzen.
 
@@ -710,6 +710,10 @@ Zweig `feature/camera-power`. ⚠ Er zweigt von `fix/esp-timer-units` ab, nicht 
 | `e9a7214` | Bench-Werkzeug bricht ab, wenn das Gerät nicht mehr antwortet |
 
 Kategorie B, eigener Zweig von `main`: `fix/serial-no-reset-on-connect` (`7a7fe7f`), `tools/openiris_device.py` verbindet ohne Board-Reset (F23).
+| `06bc04f` | AP3: Frame-Gate, Kamera-Task, Stufen reinit/reset/power_cycle |
+| `fbff171` | AP4: Recovery-Politik, automatische Auslöser, `recover_camera`, Zähler |
+| `2b55766` | AP3-Nachtrag: Gate führt Frames einzeln, übernimmt Frames, die der Host nicht mehr abholt (17.7) |
+
 Kategorie B, eigener Zweig von `main`: `fix/i2c-nack-busy-wait` (F24, Lösung A):
 - `a81b0a7`: `esp_driver_i2c` aus ESP-IDF v5.4.2 unverändert als Projektkomponente. ⚠ Zwei Commits statt einem, damit der eigentliche Fix im zweiten als kleiner Diff lesbar bleibt.
 - `0994932`: begrenzte Warteschleife nach NACK, wörtlich wie in v5.5, und ein Build-Schutz, der bei einer anderen IDF-Version abbricht.
@@ -730,6 +734,12 @@ Nicht gepusht, nichts nach `main` gemergt.
 | `camera_power_cycle` | Sperre bei `getUsbHandoverDone()` | zusätzlich im WLAN-Streaming-Modus gesperrt (nur Boards mit WLAN) | dort ist der StreamServer Konsument. FFVR betrifft das nicht |
 | Rev.4/4.5 mit `force` | `not_collapsed` | `not_collapsed` **oder** `inconclusive` | ohne Reset-Leitung ist die Kamera vor CE low nicht im Reset und kann D0/D6 low treiben; dann ist die Positivkontrolle zu niedrig. Beides ist fail-safe |
 | Spuren | Abfall alle 20 ms | Abfall alle 20 ms, höchstens 150 Punkte (3 s); Anstieg alle 0,5 ms über die 20 ms bis zur RESET-Freigabe | begrenzte Antwortgröße |
+
+| StreamServer im Frame-Gate (16.2 a) | Wrapper auch im StreamServer | `CAMERA_RECOVERY_ENABLE` setzt „kein WLAN“ voraus, StreamServer bleibt unberührt (Plan B) | ohne WLAN startet der StreamServer nie; ein Gate dort wäre ungetesteter Code für Boards, die das Feature nicht haben |
+| Framegröße beim Stream-Start (Abschnitt 10) | nur setzen, wenn sie sich ändert | unverändert bei jedem Start gesetzt; nur gemerkt und nach jeder Recovery wieder angewendet | der Pfad läuft stabil, und nach dem I2C-Fix ist der Nutzen klein |
+| `boot_failure` (F13) | genau eine Recovery | bis zu zwei, mit Cooldown dazwischen | an der Kamera mit geknicktem Kabel scheiterte etwa jeder zehnte Neustart am ersten Frame, der nächste gelang immer |
+| Worker | eigener Recovery-Worker | ein fester Kamera-Task für alle Neustarts, auch für das Bench-Kommando | ein Ausführungsweg statt zwei |
+| Endzustand nach Fehlschlag | F6 | wie F6: Treiber unten, Leitungen losgelassen, Gate zu | – |
 
 Zusätzlich, nicht im Plan: `tools/camera_power_bench.py` für die Nachweisläufe (reines Host-Werkzeug).
 
@@ -753,6 +763,11 @@ Wirkung des Fixes auf `project_babble`:
 | Stand | `project_babble` | `wrooms3` |
 |---|---|---|
 | Feature-Zweig `ab89e37` gegen Baseline 2 | identisch | identisch |
+| AP3 `06bc04f` | identisch | identisch |
+| AP4 `fbff171` | identisch | identisch |
+| AP3-Nachtrag `2b55766` | identisch | identisch |
+
+Die `always_inline`-Wrapper erzeugen denselben Code wie der direkte Treiberaufruf (offener Punkt aus Abschnitt 14 erledigt); `project_babble` übersetzt `UVCStream.cpp` mit, ohne Feature. Eine Variante nur mit Recovery, ohne Leitungen, lässt sich übersetzen. ⚠ Korrektur zum AP3-Commit: Dessen Aussage „facefocusvr_eye_R baut“ beruhte auf einer veralteten Build-Konfiguration ohne Recovery; die volle FFVR-Kombination wurde erst bei AP4 gebaut (Fehler in meinem Hilfsskript, behoben).
 
 „Identisch" heißt: `app.bin` bis auf ELF-Hash, Prüfsumme und Image-SHA gleich, `bootloader.bin`, `partition-table.bin` und `sdkconfig.h` ganz gleich.
 
@@ -856,12 +871,41 @@ Das Multimeter löst weniger als eine Sekunde nicht auf. Zusammen mit der ADC-Ku
 
 Die 6 Fehlschläge: `esp_camera_init` meldet `ESP_OK`, obwohl einzelne Registerschreibvorgänge scheiterten, danach kommen 8 s keine Frames. Die Prüfung auf den ersten Frame fängt das ab, und der jeweils nächste Zyklus holt die Kamera zurück. Das bestätigt das Erfolgskriterium aus Abschnitt 8 und begründet die Wiederholung in AP4.
 
-### 17.7 Nächste Schritte
+### 17.7 AP3/AP4 auf Hardware: Platine Rev.5 (2026-09-28)
 
-AP1/AP2 sind auf Rev.4.5 und Rev.5 gelaufen, die Nachweisläufe sind gemacht (17.5, 17.6). Vor AP3/AP4 offen:
-1. ~~F24~~ gelöst (A), ~~F25~~ geklärt (Kabel).
-2. ~~F16~~ geklärt: 1V5_Cx fällt sofort auf 0,00 V (17.6).
-3. Weiter mit AP3 (Gate, Worker) und AP4 (Recovery). Die Kamera mit dem geknickten Kabel ist dafür ein guter Prüfling: Sie erzeugt reproduzierbar echte Ausfälle.
+Alle drei ESPs, Test-Images mit `CONFIG_CAMERA_TEST_HOOKS`, die drei UVC-Streams auf dem PC mitgelesen (OpenCV), Streams bleiben dabei offen.
+
+| Prüfung | Ergebnis |
+|---|---|
+| fps mit Gate | 27–31 fps wie ohne Feature; A/B-Messung auf face im selben Bereich, abhängig von der Szene |
+| `recover_camera` während des Streams | Power-Cycle: eine Stream-Lücke von 1,0 s, `reinit`/`reset`: 0,66 s; der Stream läuft ohne Neuöffnen weiter, die anderen Streams merken nichts |
+| Cooldown | zweiter Befehl direkt danach → `cooldown`, nach 6 s wieder möglich |
+| Automatik, `hold_reset` (RESET mitten im Stream) | ~8 s ohne Frame (4 s + 4 s Treiber-Timeout des S3), dann automatischer Power-Cycle (`frame_timeout`, `collapsed`, 1,19 s), Stream zurück |
+| Automatik, `sensor_standby` (0x3008[6]) | ebenso |
+| Dauertest, zwei gute Kameras | 120 Recoveries im Stream, 120 ok, 1,2–1,9 s; interner Heap nach der ersten Runde konstant |
+| Kamera mit geknicktem Kabel | 30 Recoveries, 30 ok, 1,2–2,3 s (NACKs, die der I2C-Fix nach 1 s abbricht) |
+| Produkt-Firmware | Testhaken nicht vorhanden (`Unknown command`), Automatik an |
+
+**Befund 5, behoben (`2b55766`):** Nach dem Schließen der Kamera-App scheiterte jede Recovery mit `drain_timeout`.
+- Ursache: Windows beendet den Stream beim Schließen nicht, es holt die Daten nur nicht mehr ab. Der Frame der letzten Übertragung bleibt bei UVC, TinyUSB meldet weiter „streamt“, und das Gate wartete auf ihn.
+- Jetzt führt das Gate die ausgegebenen Frames einzeln mit Zeitstempel. Ein Frame, der länger als 500 ms draußen ist, wird nicht mehr übertragen; eine Übertragung dauert ~30 ms. Der Neustart übernimmt ihn, und die spätere Rückgabe durch UVC wird ignoriert. Holt der PC die hängende Übertragung doch noch ab, bekommt er ein verdorbenes Bild. Der ESP-Speicher wird dabei nur gelesen.
+- Nebeneffekt: Eine doppelte Rückgabe desselben Frames erreicht den Treiber nicht mehr.
+- Nachher: 5/5 auf face und je 1/1 auf den Augen (vorher 0/12), dazu 20/20 im laufenden Stream.
+
+**Auf Hardware nicht provoziert** (jede Recovery gelang): Sperre nach 3 Fehlschlägen, Ratenlimit, `boot_failure`, ESP-Neustart als letzte Stufe. Diese Pfade sind nur per Review geprüft.
+
+**Bedienung:**
+- `recover_camera {"level": "auto"}` über CDC (UVC-Modus) oder Serial; `auto` wählt auf Rev.5 den Power-Cycle, auf Rev.4.5 `reinit` (`degraded: true`).
+- `get_camera_status`: Zustand, Leitungen, Recovery-Zähler je Auslöser und Stufe, Rail-Verdikte, abgelehnte Versuche, letzte 4 Recoveries, fehlende Frames, Gate-Zustand, Heap, Reset-Grund. `{"persist": true}` schreibt am Ende eines Prüflaufs eine WARN-Zeile mit allen Zählern in den persistenten Log; vorher einmal `set_debug_log_enabled true`.
+- Testhaken nur mit `CONFIG_CAMERA_TEST_HOOKS=y` (nicht in der Board-Config): `camera_test_fault {"kind": "hold_reset" | "sensor_standby"}`.
+
+### 17.8 Nächste Schritte
+
+AP1–AP4 sind umgesetzt und auf Rev.4.5 bzw. Rev.5 geprüft; F16, F24 und F25 sind geklärt. Offen:
+1. **AP5:** automatische Tests unter `tests/` und Menüpunkte im Setup-Tool (Status, Recovery).
+2. **AP6:** Ergebnisse der Prüfläufe nach `docs/`.
+3. **Merge-Reihenfolge nach `main`**, deine Entscheidung: `fix/esp-timer-units` (AP0), `fix/serial-no-reset-on-connect`, `fix/i2c-nack-busy-wait`, dann `feature/camera-power`.
+4. Die ESD-Prüfung selbst; vorher `set_debug_log_enabled true`, am Ende `get_camera_status {"persist": true}`.
 
 ---
 

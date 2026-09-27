@@ -67,7 +67,7 @@ Abnahme des Commits:
 - Build `facefocusvr_eye_l` (aktuelle `sdkconfig`): erfolgreich, ohne neue Warnungen. Die zwei Warnungen in `OpenIrisTasks.cpp:11` (fehlende Initialisierer in `esp_timer_create_args_t`) gab es schon vorher.
 - Auf Hardware, von dir:
   1. `restart_device`: Die Antwort `success` kommt an. Das Gerät verschwindet etwa 2 s später und meldet sich neu an. Im Setup-Tool zeigt „Restart device" ✅ statt ❌.
-  2. `start_streaming` im Setup-Modus: Die Antwort kommt an, danach startet UVC.
+  2. `start_streaming` im Setup-Modus: Die Antwort kommt an, danach startet UVC. ⚠ Korrektur: `start_streaming` startet den *gespeicherten* Modus (`launch_streaming`). Steht er auf `setup`, bleibt das Gerät im Setup-Modus; das ist bestehendes Verhalten. Richtig geprüft wird mit `switch_mode uvc` (ohne Neustart), dann `start_streaming`.
   3. Bestehende Tests mit `restart_device`: Der Neustart kommt jetzt 2 s später. `SWITCH_MODE_REBOOT_TIME` in `tests/.env` muss Neustart plus Boot abdecken (siehe unten).
 
 **Kategorie B: was sich für die anderen Boards ändert.** AP0 wirkt auf allen Konfigurationen gleich:
@@ -536,6 +536,7 @@ Weiter offen:
 
 Neu:
 - **F21 (Kategorie-B-Kandidat, frage vorher, weil das beabsichtigte Verhalten zur Debatte steht):** `LogManager` sammelt bei aktivem Capture jede WARN- und ERROR-Zeile bis zum nächsten Flush (Default 10 s) in einem unbegrenzten `std::vector` (`LogManager.cpp:170-174`). Bei einer Log-Flut wächst das ohne Grenze. Auf Boards ohne PSRAM kann das den Heap erschöpfen. Eine Obergrenze hieße, bei Überlauf Zeilen zu verwerfen und das mitzuzählen. Soll der Log unter Flut vollständig bleiben oder gedeckelt werden?
+- **F23 (Host-Tool, Kategorie-B-Kandidat, frage vorher):** Soll `tools/openiris_device.py` beim Verbinden DTR/RTS schon *vor* dem Öffnen auf low setzen, damit ein Verbinden im Setup-Modus den ESP nicht mehr neu startet (17.5, Befund 2)? Dagegen spricht nur, falls sich `setup_openiris.py` oder die Tests auf den frischen Boot verlassen, etwa um sicher im Startfenster zu landen. Das habe ich nicht geprüft.
 - **F22:** Referenzkonfigurationen für den Bitvergleich: `project_babble` (S3, UVC und WLAN; kompiliert UVCStream und StreamServer mit) und `wrooms3` (S3, nur WLAN). Einverstanden, oder willst du eine bestimmte? Ein klassischer ESP32 (`esp32AIThinker`) ginge zusätzlich, aber nur in einem eigenen Worktree, weil `switchBoardType.py` beim Plattformwechsel Komponenten verschiebt.
 
 ## 14. Nicht verifiziert
@@ -699,6 +700,9 @@ Zweig `feature/camera-power`. ⚠ Er zweigt von `fix/esp-timer-units` ab, nicht 
 | `68cb4fa` | AP1: `CamLines`, Probe beim Boot, `get_camera_status` |
 | `c003f0e` | AP1-Nachtrag: digitale Pulls vor der Probe löschen |
 | `a703f47` | AP2: `camera_power_cycle`, Rail-Check (`RailSense`) |
+| `a69d7d2` | `tools/camera_power_bench.py` |
+| `ccca927` | AP2-Nachtrag: Zyklus auf eigenem Task (Stack, Befund auf Hardware, 17.5) |
+| `16effe2` | Bench-Werkzeug öffnet den Port ohne Chip-Reset (17.5) |
 
 Nicht gepusht, nichts nach `main` gemergt.
 
@@ -726,6 +730,7 @@ Baseline `a3199ad` (Firmware = `9156d3e`), ESP-IDF v5.4.2, `xtensa-esp-elf-gcc` 
 |---|---|---|
 | AP1 `68cb4fa` | identisch | identisch |
 | AP2 `a703f47` | identisch | identisch |
+| AP2-Nachtrag `ccca927` | identisch | identisch |
 
 „Identisch" heißt: `app.bin` bis auf ELF-Hash, Prüfsumme und Image-SHA gleich, `bootloader.bin`, `partition-table.bin` und `sdkconfig.h` ganz gleich.
 
@@ -751,9 +756,33 @@ Das Bench-Werkzeug braucht Setup-Modus: `switch_mode setup` → Neustart → inn
 
 **Bekannte Grenze:** `start_streaming` unmittelbar (< 150 ms) vor `camera_power_cycle` senden vermeiden. Der Streaming-Start läuft verzögert in einem Timer und würde mitten in den Zyklus fallen. Eine Absicherung bräuchte `openiris_main.cpp`, das unberührt bleibt.
 
-### 17.5 Nächste Schritte
+### 17.5 Ergebnisse auf Hardware: Platine Rev.4/4.5 (2026-09-27)
 
-Nach Abschnitt 11 folgen jetzt die **Nachweisläufe** auf Hardware. Erst mit ihren Werten lege ich die Schwellen (Probe, Rail-Check) und die Aus-Zeit fest. Danach kommen AP3 (Gate, Worker) und AP4 (Recovery). AP3 berührt den heißen Pfad (UVC), deshalb erst nach deiner Abnahme von AP1/AP2.
+Eine Platine mit drei ESPs, von mir geflasht (jeweils vorher kompletter Erase). Rev.4/4.5 laut Lüfter-Erkennung auf eye_R (`legacy`, 0 mV) und laut Leitungsprobe auf allen drei ESPs.
+
+| Prüfung | Ergebnis |
+|---|---|
+| Probe beim Boot | alle drei `absent`: Reset-Knoten 3126–3154 mV mit Pull-up, 0–1 mV mit Pull-down, CE 423–598 mV (offen). Die RTC-Pulls wirken also im ADC-Modus (offene Frage aus Abschnitt 14 für ADC1-Pads geklärt) |
+| Boot-Logzeilen | `[CAMERA_STATUS] Last reset: …` und `[CAM_LINES] CE/RESET lines: …` vorhanden, Kamera-Init danach unverändert (`ESP_OK`, OV3660) |
+| `get_camera_status` | UVC- und Setup-Modus: `running`, PID 13920 (0x3660), `init ESP_OK` |
+| Sperre im UVC-Modus | `camera_power_cycle` (auch mit `force`) → `busy` |
+| ohne `force` | `not_supported`, `lines: absent`, nichts angefasst |
+| mit `force`, 3 × 20 Zyklen + 3 × 5 + Einzelläufe | 0 Fehlschläge. Dauer 1,16–1,20 s, erster Frame 0–35 ms, PID gleich, `reinit ESP_OK` |
+| Rail-Verdikt mit `force` | `not_collapsed` (Kontrolle und Ende beide ≈ 2,8 V) oder `inconclusive` (die Kamera treibt ein Pad low, ≈ 3 mV). Nie `collapsed`, wie in 17.2 erwartet |
+| `off_ms` 5000 | gemessen 5001 ms, Zyklus ok |
+| UVC nach den Zyklen | im selben Boot per `switch_mode uvc` + `start_streaming`: alle drei 320×320 bei 31,2 fps, wie vorher |
+| AP0 `restart_device` | Antwort nach 0,10 s, Gerät weg nach 2,8 s (2 s Verzögerung + Windows-Erkennung) |
+| AP0 `start_streaming` | Antwort kommt, UVC startet 150 ms später (mit gespeichertem Modus `uvc`, siehe Korrektur in Abschnitt 1) |
+
+**Befund 1, behoben (`ccca927`):** Im Serial-Task blieben beim Zyklus nur 440 Byte Stack frei; der Reinit läuft tief im Kommandopfad. Der Zyklus läuft jetzt auf einem eigenen Task mit 6 KB (belegt ≤ 3,4 KB), das Kommando wartet synchron. Danach frei: Zyklus-Task ≥ 2760 Byte, Serial-Task ≥ 2312 Byte. Das ist zugleich die Größenangabe für den Worker in AP3.
+
+**Befund 2, nur benannt (F23):** `tools/openiris_device.py` setzt beim Verbinden im Setup-Modus den ESP zurück. pyserial öffnet mit DTR/RTS aktiv, das Tool nimmt sie erst danach zurück; auf USB-Serial-JTAG ist das der Reset (`rst:0x15 USB_UART_CHIP_RESET`). Jede Verbindung von `setup_openiris.py` oder den Tests startet das Gerät also neu. Deshalb stand überall `reset_reason: usb`, und ein direkt nach dem Öffnen gesendetes Kommando kann mit `Write timeout` scheitern. Mein Bench-Werkzeug öffnet jetzt ohne diesen Übergang; `openiris_device.py` habe ich nicht geändert.
+
+**Noch nicht geprüft (braucht Rev.5):** `present`, `collapsed`, Abfall- und Anstiegskurve, DMM-Blick auf 1V5_Cx, Schwellen und Aus-Zeit. Ob der RTC-Pull-up an den ADC2-Pads wirkt, zeigt diese Platine nicht, weil die Kamera D0/D6 treibt. Auf den ADC1-Pads wirkt er (Probe), und es ist derselbe RTC-Mechanismus.
+
+### 17.6 Nächste Schritte
+
+Die Rev.4.5-Hälfte der Abnahme von AP1/AP2 ist gelaufen (17.5). Offen ist die Rev.5-Hälfte: Nach Abschnitt 11 folgen die **Nachweisläufe** auf einer Rev.5-Platine. Erst mit ihren Werten lege ich die Schwellen (Probe, Rail-Check) und die Aus-Zeit fest. Danach kommen AP3 (Gate, Worker) und AP4 (Recovery). AP3 berührt den heißen Pfad (UVC), deshalb erst nach deiner Abnahme von AP1/AP2.
 
 ---
 

@@ -1,3 +1,11 @@
+# OpenIris: ESP-IDF v5.4.2's esp_driver_i2c with one backported fix (bounded bus-busy
+# wait after a NACK, as in v5.5). It shadows the IDF component, so it must match the
+# IDF it was copied from. Drop it when moving to v5.5 or later.
+if(NOT "$ENV{IDF_VERSION}" STREQUAL "5.4.2")
+    message(FATAL_ERROR "components/esp_driver_i2c is a patched copy of ESP-IDF 5.4.2, but IDF "
+                        "'$ENV{IDF_VERSION}' is in use. Remove the copy (v5.5+ has the fix) or port it again.")
+endif()
+
 idf_build_get_property(target IDF_TARGET)
 
 set(srcs)

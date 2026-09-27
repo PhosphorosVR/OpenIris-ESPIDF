@@ -713,6 +713,8 @@ Kategorie B, eigener Zweig von `main`: `fix/serial-no-reset-on-connect` (`7a7fe7
 | `06bc04f` | AP3: Frame-Gate, Kamera-Task, Stufen reinit/reset/power_cycle |
 | `fbff171` | AP4: Recovery-Politik, automatische Auslöser, `recover_camera`, Zähler |
 | `2b55766` | AP3-Nachtrag: Gate führt Frames einzeln, übernimmt Frames, die der Host nicht mehr abholt (17.7) |
+| `a06dd61` | Merge `fix/serial-no-reset-on-connect` in den Feature-Zweig |
+| (nach `a06dd61`) | AP5 schlank: `tools/camera_recovery_check.py` (17.7) |
 
 Kategorie B, eigener Zweig von `main`: `fix/i2c-nack-busy-wait` (F24, Lösung A):
 - `a81b0a7`: `esp_driver_i2c` aus ESP-IDF v5.4.2 unverändert als Projektkomponente. ⚠ Zwei Commits statt einem, damit der eigentliche Fix im zweiten als kleiner Diff lesbar bleibt.
@@ -899,12 +901,23 @@ Alle drei ESPs, Test-Images mit `CONFIG_CAMERA_TEST_HOOKS`, die drei UVC-Streams
 - `get_camera_status`: Zustand, Leitungen, Recovery-Zähler je Auslöser und Stufe, Rail-Verdikte, abgelehnte Versuche, letzte 4 Recoveries, fehlende Frames, Gate-Zustand, Heap, Reset-Grund. `{"persist": true}` schreibt am Ende eines Prüflaufs eine WARN-Zeile mit allen Zählern in den persistenten Log; vorher einmal `set_debug_log_enabled true`.
 - Testhaken nur mit `CONFIG_CAMERA_TEST_HOOKS=y` (nicht in der Board-Config): `camera_test_fault {"kind": "hold_reset" | "sensor_standby"}`.
 
+**Prüfwerkzeug (AP5, schlanke Variante):** `tools/camera_recovery_check.py` wiederholt die Prüfungen dieses Abschnitts. Stream-Messung braucht OpenCV, daher `uv run --with opencv-python`; `pyproject.toml` und `uv.lock` bleiben unverändert. Der Port ist im UVC-Modus der CDC-Port.
+
+| Aufruf | prüft |
+|---|---|
+| `status --port COMx` | `get_camera_status` |
+| `watch --seconds 20` | alle UVC-Kameras: fps, Lücken, Stillstand je Index |
+| `recover --port COMx --count 20 --watch` | Recoveries im laufenden Stream, Dauer, Heap, Gate |
+| `after-close --port COMx --count 5` | Kamera am PC öffnen und schließen, dann Recovery (Befund 5) |
+| `fault --port COMx --kind hold_reset` | Ausfall provozieren, automatische Recovery abwarten (nur Test-Build) |
+
+Geprüft auf Rev.5: alle fünf bestehen. Bei `fault` zeigt der betroffene Stream ~9 s Stillstand, die anderen 0. Auf Firmware ohne Testhaken lehnt `fault` sauber ab. Der Umfang ist gegenüber dem Plan reduziert: keine pytest-Suite, keine Menüpunkte im Setup-Tool (deine Entscheidung).
+
 ### 17.8 Nächste Schritte
 
-AP1–AP4 sind umgesetzt und auf Rev.4.5 bzw. Rev.5 geprüft; F16, F24 und F25 sind geklärt. Offen:
-1. **AP5:** automatische Tests unter `tests/` und Menüpunkte im Setup-Tool (Status, Recovery).
-2. **AP6:** Ergebnisse der Prüfläufe nach `docs/`.
-3. **Merge-Reihenfolge nach `main`**, deine Entscheidung: `fix/esp-timer-units` (AP0), `fix/serial-no-reset-on-connect`, `fix/i2c-nack-busy-wait`, dann `feature/camera-power`.
+AP1–AP5 (AP5 schlank) sind umgesetzt und auf Rev.4.5 bzw. Rev.5 geprüft; F16, F24 und F25 sind geklärt. Alle drei Fix-Zweige sind im Feature-Zweig enthalten (`fix/esp-timer-units` als Basis, `fix/i2c-nack-busy-wait` und `fix/serial-no-reset-on-connect` per Merge). Offen:
+1. **AP6:** Ergebnisse der ESD-Prüfläufe nach `docs/`.
+2. **Nach `main`:** deine Entscheidung. Weil der Feature-Zweig alle Fixes enthält, genügt ein Merge von `feature/camera-power`; einzeln wären die Fix-Zweige ebenfalls mergebar.
 4. Die ESD-Prüfung selbst; vorher `set_debug_log_enabled true`, am Ende `get_camera_status {"persist": true}`.
 
 ---

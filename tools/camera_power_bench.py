@@ -22,8 +22,6 @@ import os
 import sys
 import time
 
-import serial
-
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from openiris_device import OpenIrisDevice  # noqa: E402
 
@@ -32,25 +30,11 @@ CYCLE_TIMEOUT_MARGIN_S = 30
 
 
 def connect_quietly(port: str, debug: bool) -> OpenIrisDevice | None:
-    """Open with DTR/RTS already low. OpenIrisDevice.connect() lowers them only after
-    opening, and on USB-Serial-JTAG that edge resets the chip (rst:0x15), which would
-    wipe the state and the reset reason this bench is meant to observe."""
+    """Connect without resetting the board, so its state and reset reason survive
+    (OpenIrisDevice keeps DTR/RTS low since fix/serial-no-reset-on-connect)."""
     device = OpenIrisDevice(port, debug, debug)
-    connection = serial.Serial()
-    connection.port = port
-    connection.baudrate = 115200
-    connection.timeout = 1
-    connection.write_timeout = 1
-    connection.dtr = False
-    connection.rts = False
-    try:
-        connection.open()
-    except serial.SerialException as e:
-        print(f"Failed to open {port}: {e}")
-        return None
-    device.connection = connection
-    device.connected = True
-    return device
+    device.connect()
+    return device if device.is_connected() else None
 
 
 def result_of(response: dict) -> dict:

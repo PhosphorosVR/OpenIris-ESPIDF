@@ -714,7 +714,7 @@ Kategorie B, eigener Zweig von `main`: `fix/serial-no-reset-on-connect` (`7a7fe7
 | `fbff171` | AP4: Recovery-Politik, automatische Auslöser, `recover_camera`, Zähler |
 | `2b55766` | AP3-Nachtrag: Gate führt Frames einzeln, übernimmt Frames, die der Host nicht mehr abholt (17.7) |
 | `a06dd61` | Merge `fix/serial-no-reset-on-connect` in den Feature-Zweig |
-| (nach `a06dd61`) | AP5 schlank: `tools/camera_recovery_check.py` (17.7) |
+| `aa9378e` | AP5 schlank: `tools/camera_recovery_check.py` (17.7) |
 
 Kategorie B, eigener Zweig von `main`: `fix/i2c-nack-busy-wait` (F24, Lösung A):
 - `a81b0a7`: `esp_driver_i2c` aus ESP-IDF v5.4.2 unverändert als Projektkomponente. ⚠ Zwei Commits statt einem, damit der eigentliche Fix im zweiten als kleiner Diff lesbar bleibt.

@@ -528,7 +528,7 @@ Deiner Reihenfolge stimme ich zu. Das Bench-Kommando braucht kein Gate, weil es 
 
 ## 13. Offene Fragen
 
-Beantwortet und eingearbeitet: F13 (ja, Abschnitt 8), F14 (ja), F15 (Option, Default aus), F16 (Argument akzeptiert, DMM-Blick per Kommando), F17 (zwei Knoten), F18 (kein NVS, Zusammenfassung auf Kommando).
+Beantwortet und eingearbeitet: F13 (ja, Abschnitt 8), F14 (ja), F15 (Option, Default aus), F16 (Argument akzeptiert, DMM-Blick gemacht: 1V5_Cx fällt sofort auf 0 V, 17.6), F17 (zwei Knoten), F18 (kein NVS, Zusammenfassung auf Kommando).
 
 Weiter offen:
 - **F19:** Welche Revision hat das OV2640-Board? Davon hängt ab, welche Stufen der Test dort erwartet.
@@ -821,7 +821,11 @@ Flash wie in 17.5 (jeweils vorher kompletter Erase). Rev.5 laut Lüfter-Erkennun
 
 **Schwellen:** unverändert, jetzt belegt statt Platzhalter. Probe: `present` ab 1200 mV mit Pull-down (gemessen ≥ 2474), `absent` bis 400 mV (gemessen ≤ 1). Rail-Check: Kontrolle ab 2600 mV (gemessen ≥ 3102), `collapsed` bis 1000 mV (gemessen ≤ 451).
 
-**Aus-Zeit:** Für 2V8_Cx reichen 20–60 ms. Die 500 ms Mindest-Aus-Zeit bleiben trotzdem, weil 1V5_Cx nicht beobachtbar ist; der DMM-Blick (F16) steht noch aus.
+**Aus-Zeit:** Für 2V8_Cx reichen 20–60 ms.
+
+**F16 geklärt, DMM-Blick auf 1V5_C1:** eye_L, drei Zyklen mit je 20 s CE aus. Deine Ablesung: 1,5 V → 0,00 V „nahezu instant“ und ebenso schnell zurück. Die 2V8-Seite meldete dabei `collapsed` (Endwert 452–466 mV), die Kamera kam jedes Mal wieder (erster Frame 3 ms). Damit ist die Vermutung aus Abschnitt 5 (c) bestätigt: Auch der TP132LC15 entlädt aktiv, und die Kamera ist in jedem Zyklus auf **beiden** Schienen stromlos.
+
+Das Multimeter löst weniger als eine Sekunde nicht auf. Zusammen mit der ADC-Kurve von 2V8 (< 1 V nach ≤ 20 ms) sind die 500 ms Mindest-Aus-Zeit aber reichlich; sie bleiben.
 
 **Recovery nachgewiesen:** Zweimal war die Kamera an eye_R nach einem Hänger verklemmt. Ein ESP-Reset half nicht (Boot: `ESP_ERR_NOT_SUPPORTED`, PID 0), `camera_power_cycle` holte sie jeweils in 1,15 s zurück (PID 0 → 0x3660, erster Frame 0–3 ms).
 
@@ -856,7 +860,7 @@ Die 6 Fehlschläge: `esp_camera_init` meldet `ESP_OK`, obwohl einzelne Registers
 
 AP1/AP2 sind auf Rev.4.5 und Rev.5 gelaufen, die Nachweisläufe sind gemacht (17.5, 17.6). Vor AP3/AP4 offen:
 1. ~~F24~~ gelöst (A), ~~F25~~ geklärt (Kabel).
-2. **F16:** DMM-Blick auf 1V5_Cx während `--off-ms 5000`, steht noch aus.
+2. ~~F16~~ geklärt: 1V5_Cx fällt sofort auf 0,00 V (17.6).
 3. Weiter mit AP3 (Gate, Worker) und AP4 (Recovery). Die Kamera mit dem geknickten Kabel ist dafür ein guter Prüfling: Sie erzeugt reproduzierbar echte Ausfälle.
 
 ---

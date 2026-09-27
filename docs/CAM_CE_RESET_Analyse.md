@@ -1,5 +1,7 @@
 # CAM_CE / CAM_RESET (Rev.5): Analyse und Plan
 
+**Umsetzung:** B0, AP1 und AP2 sind umgesetzt, Stand und Abweichungen stehen in Abschnitt 17.
+
 Stand 3 vom 2026-09-27. Stand 3 zieht die Isolation durch (neuer Abschnitt 16) und arbeitet deine Antworten auf F13–F18 ein; alles Übrige ist Stand 2. Basis ist `main` @ `35e815a`. Der Vorab-Fix (AP0) liegt als `9156d3e` auf dem Zweig `fix/esp-timer-units`. Für CAM_CE und CAM_RESET gibt es bis zur Freigabe keinen Code; alle Schnipsel sind Skizzen.
 
 Quellen:
@@ -681,6 +683,77 @@ Nebenwirkung: Das eingecheckte `sdkconfig` bekommt beim nächsten Build Zeilen w
 | AP0, Timer-Einheiten | Commit `9156d3e` auf `fix/esp-timer-units`, wartet auf deine Hardware-Abnahme | Abschnitt 1 |
 | `SCCB_Deinit` | zurückgezogen, kein Fehler | – |
 | `LogManager`-Sammelpuffer | Kandidat, Frage F21 | – |
+
+---
+
+## 17. Umsetzungsstand
+
+### 17.1 Zweig und Commits
+
+Zweig `feature/camera-power`. ⚠ Er zweigt von `fix/esp-timer-units` ab, nicht von `main`, weil AP0 noch auf deine Hardware-Abnahme wartet und die Baseline AP0 enthalten soll. Nach der Abnahme `main` per Fast-Forward auf `fix/esp-timer-units` setzen; dann liegt der Feature-Zweig ohne Umbau darauf.
+
+| Commit | Inhalt |
+|---|---|
+| `a3199ad` | dieses Dokument, Stand 3 (⚠ auf dem Feature-Zweig statt auf einem eigenen `docs/`-Zweig, damit es nicht zu viele Zweige werden) |
+| `de3ae87` | B0: `tools/compare_builds.py`, Baseline-Angaben im Commit-Text |
+| `68cb4fa` | AP1: `CamLines`, Probe beim Boot, `get_camera_status` |
+| `c003f0e` | AP1-Nachtrag: digitale Pulls vor der Probe löschen |
+| `a703f47` | AP2: `camera_power_cycle`, Rail-Check (`RailSense`) |
+
+Nicht gepusht, nichts nach `main` gemergt.
+
+### 17.2 Abweichungen vom Plan
+
+| Thema | Plan | umgesetzt | Grund |
+|---|---|---|---|
+| Referenzbuilds | eigener Worktree | eigenes `sdkconfig` und eigener Build-Ordner per `idf.py -D SDKCONFIG=… -B …`; ab AP2 zusätzlich ein Worktree `../OpenIris-refbuilds/wt`, nur damit Builds parallel zur Arbeit laufen | das eingecheckte `sdkconfig` und `build/` bleiben unberührt. Gegenprobe: derselbe Stand im Worktree und im Hauptbaum gebaut ist byte-identisch, sogar ohne Ausblenden |
+| neue Komponentenkanten (16.2, 14) | `REQUIRES`, Plan B bei geänderter Link-Reihenfolge | `idf_component_optional_requires` unter `if(CONFIG_…)` | eine `REQUIRES`-Kante ändert laut IDF-Quelltext die Link-Reihenfolge aller Boards. Die optionale Kante entsteht nur mit Feature. Der offene Punkt aus Abschnitt 14 ist damit erledigt |
+| Status-Schalter | „einer der beiden Hauptschalter" | abgeleitetes Symbol `CAMERA_STATUS` ohne Prompt (y mit `CAMERA_POWER_CONTROL`, ab AP4 auch mit `CAMERA_RECOVERY_ENABLE`) | eine Bedingung statt einer Oder-Verknüpfung an jeder Stelle |
+| Fähigkeitsprobe | nur Pull-down, `present` ≥ 1200 mV | Pull-up **und** Pull-down. `present`: mit Pull-down ≥ 1200 mV und ≥ 150 mV unter dem Pull-up-Wert. `absent`: mit Pull-down ≤ 400 mV und mit Pull-up ≥ 2000 mV. Sonst `unknown` | ohne Beleg, dass der Pull überhaupt wirkt, könnte ein offenes Pad fälschlich `present` ergeben. Jetzt endet das in `unknown`. Wirkung auf Rev.4/4.5: je 3 ms Pull-up und Pull-down auf dem unbeschalteten Pad |
+| Reset-Grund | WARN außer Power-on/Software | auch `usb` gilt als Routine | Host-Reset über USB-Serial-JTAG (z. B. beim Öffnen des Monitors) ist kein Prüfereignis |
+| Zustände | sechs aus Abschnitt 10 | nur die erreichbaren: AP1 `uninitialized/starting/running/failed`, AP2 zusätzlich `stopping/off` | kein toter Code |
+| `camera_power_cycle` | Sperre bei `getUsbHandoverDone()` | zusätzlich im WLAN-Streaming-Modus gesperrt (nur Boards mit WLAN) | dort ist der StreamServer Konsument. FFVR betrifft das nicht |
+| Rev.4/4.5 mit `force` | `not_collapsed` | `not_collapsed` **oder** `inconclusive` | ohne Reset-Leitung ist die Kamera vor CE low nicht im Reset und kann D0/D6 low treiben; dann ist die Positivkontrolle zu niedrig. Beides ist fail-safe |
+| Spuren | Abfall alle 20 ms | Abfall alle 20 ms, höchstens 150 Punkte (3 s); Anstieg alle 0,5 ms über die 20 ms bis zur RESET-Freigabe | begrenzte Antwortgröße |
+
+Zusätzlich, nicht im Plan: `tools/camera_power_bench.py` für die Nachweisläufe (reines Host-Werkzeug).
+
+### 17.3 Bitgleichheit
+
+Baseline `a3199ad` (Firmware = `9156d3e`), ESP-IDF v5.4.2, `xtensa-esp-elf-gcc` 14.2.0. Selbsttest des Vergleichs bestanden, Wiederholungsbuild byte-identisch.
+
+| Stand | `project_babble` | `wrooms3` |
+|---|---|---|
+| AP1 `68cb4fa` | identisch | identisch |
+| AP2 `a703f47` | identisch | identisch |
+
+„Identisch" heißt: `app.bin` bis auf ELF-Hash, Prüfsumme und Image-SHA gleich, `bootloader.bin`, `partition-table.bin` und `sdkconfig.h` ganz gleich.
+
+Auf dem Stand von AP2 bauen alle neun S3-Konfigurationen: die drei FFVR-Boards mit Feature (ohne neue Warnungen), dazu `project_babble`, `wrooms3`, `wrooms3QIO`, `wrover`, `esp_eye` und `seed_studio_xiao_esp32s3`. Nicht gebaut sind die drei Boards mit klassischem ESP32 (`esp32AIThinker`, `esp32Cam`, `esp32M5Stack`), weil `switchBoardType.py` dafür Komponenten verschiebt. Der Feature-Code wird dort nicht übersetzt; geändert haben sich für sie nur `#if`-Zeilen und CMake-Listen.
+
+Das eingecheckte `sdkconfig` (eye_L) enthält die neuen Zeilen. Gegenprobe per `reconfigure` auf einer Kopie: kconfgen erzeugt dieselbe Datei.
+
+### 17.4 Hardware-Abnahme (von dir)
+
+Das Bench-Werkzeug braucht Setup-Modus: `switch_mode setup` → Neustart → innerhalb der Startverzögerung ein beliebiges Kommando (z. B. `--status`).
+
+**AP1, auf allen drei ESPs, je Rev.5 und Rev.4.5:**
+1. `uv run tools/camera_power_bench.py --port COMx --status`
+2. Erwartet: `lines.presence` = `present` (Rev.5) bzw. `absent` (Rev.4.5). Die Werte unter `probe_mv` brauche ich, um die Platzhalterschwellen festzulegen.
+3. Im Boot-Log die Zeilen `[CAM_LINES] CE/RESET lines: …` und `[CAMERA_STATUS] Last reset: …`.
+4. Kamera läuft danach im UVC-Modus wie bisher.
+
+**AP2 (Bench):**
+1. Rev.5: `--cycles 5 --trace --out ap2_<rolle>.jsonl`. Erwartet `rail collapsed`, `reinit ESP_OK`, erster Frame, PID gleich. Die Datei brauche ich für die Schwellen und die Aus-Zeit.
+2. Rev.4.5: ohne `--force` → `not_supported`, nichts angefasst. Mit `--force` → `not_collapsed` oder `inconclusive`, Kamera läuft danach.
+3. DMM-Blick (F16): `--off-ms 5000`, in den 5 s 1V5_Cx messen.
+4. Danach `switch_mode uvc`, Neustart, Stream läuft.
+
+**Bekannte Grenze:** `start_streaming` unmittelbar (< 150 ms) vor `camera_power_cycle` senden vermeiden. Der Streaming-Start läuft verzögert in einem Timer und würde mitten in den Zyklus fallen. Eine Absicherung bräuchte `openiris_main.cpp`, das unberührt bleibt.
+
+### 17.5 Nächste Schritte
+
+Nach Abschnitt 11 folgen jetzt die **Nachweisläufe** auf Hardware. Erst mit ihren Werten lege ich die Schwellen (Probe, Rail-Check) und die Aus-Zeit fest. Danach kommen AP3 (Gate, Worker) und AP4 (Recovery). AP3 berührt den heißen Pfad (UVC), deshalb erst nach deiner Abnahme von AP1/AP2.
 
 ---
 

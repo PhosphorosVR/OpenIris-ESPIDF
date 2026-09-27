@@ -30,6 +30,8 @@ enum class CameraRunState : uint8_t
     Uninitialized,
     Starting,
     Running,
+    Stopping,
+    Off,
     Failed,
 };
 
@@ -43,6 +45,55 @@ struct CameraStatus
 
 const char* cameraRunStateName(CameraRunState state);
 const char* resetReasonName(esp_reset_reason_t reason);
+
+#if CONFIG_CAMERA_POWER_CONTROL
+#include <vector>
+
+// Result of the rail check (docs/CAM_CE_RESET_Analyse.md, section 5).
+enum class RailVerdict : uint8_t
+{
+    NotChecked,
+    Collapsed,     // rail below the end reading at both pads
+    Partial,       // fell, but not below the collapse threshold
+    NotCollapsed,  // did not fall (expected where the lines are absent)
+    Inconclusive,  // no valid control reading, or the pads disagree
+};
+
+struct PowerCycleRequest
+{
+    uint32_t off_ms = 500;  // time CE is held low
+    bool trace = false;     // record the fall and rise of the rail
+    bool force = false;     // full sequence even where the probe found no lines
+};
+
+struct RailPoint
+{
+    uint32_t t_us;  // since CE low (fall) or CE release (rise)
+    int16_t mv[2];
+};
+
+struct PowerCycleReport
+{
+    LineOutcome power = LineOutcome::NotAvailable;
+    LineOutcome reset = LineOutcome::NotAvailable;
+    RailVerdict rail = RailVerdict::NotChecked;
+    int control_mv[2] = {-1, -1};  // powered and in reset, before CE low
+    int end_mv[2] = {-1, -1};      // end of the off time
+    uint32_t off_ms = 0;           // measured CE low time
+    int32_t rise_us = -1;          // CE release until both pads are back near control; -1 if not traced
+    esp_err_t reinit = ESP_FAIL;
+    uint16_t pid_before = 0;
+    uint16_t pid_after = 0;
+    bool first_frame = false;
+    uint32_t first_frame_ms = 0;
+    uint32_t duration_ms = 0;
+    const char* failed_step = nullptr;  // nullptr on success
+    std::vector<RailPoint> fall;
+    std::vector<RailPoint> rise;
+};
+
+const char* railVerdictName(RailVerdict verdict);
+#endif
 #endif
 
 class CameraManager
@@ -75,12 +126,18 @@ class CameraManager
     {
         return camLines;
     }
+    // CameraPower.cpp. Synchronous; only while no consumer takes frames (the caller checks).
+    PowerCycleReport powerCycle(const PowerCycleRequest& request);
 #endif
 
    private:
     // CameraStatus.cpp
     void beginSetup();
     void endSetup(esp_err_t result);
+#if CONFIG_CAMERA_POWER_CONTROL
+    // CameraPower.cpp
+    void parkPins();
+#endif
 
     CameraStatus status{};
     bool boot_seen = false;

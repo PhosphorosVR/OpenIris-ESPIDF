@@ -11,6 +11,10 @@ const char* cameraRunStateName(const CameraRunState state)
             return "starting";
         case CameraRunState::Running:
             return "running";
+        case CameraRunState::Stopping:
+            return "stopping";
+        case CameraRunState::Off:
+            return "off";
         case CameraRunState::Failed:
             return "failed";
         default:

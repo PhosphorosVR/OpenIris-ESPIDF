@@ -67,6 +67,9 @@ enum class CommandType
 #if CONFIG_CAMERA_STATUS
     GET_CAMERA_STATUS,
 #endif
+#if CONFIG_CAMERA_POWER_CONTROL
+    CAMERA_POWER_CYCLE,
+#endif
 };
 
 class CommandManager

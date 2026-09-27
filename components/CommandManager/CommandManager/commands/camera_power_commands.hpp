@@ -1,6 +1,8 @@
 #ifndef CAMERA_POWER_COMMANDS_HPP
 #define CAMERA_POWER_COMMANDS_HPP
 #include <CameraManager.hpp>
+#include <ProjectConfig.hpp>
+#include <main_globals.hpp>
 #include <memory>
 #include <nlohmann-json.hpp>
 #include "CommandResult.hpp"
@@ -8,5 +10,10 @@
 
 // Only built with CONFIG_CAMERA_STATUS (see CMakeLists.txt).
 CommandResult getCameraStatusCommand(std::shared_ptr<DependencyRegistry> registry);
+
+#if CONFIG_CAMERA_POWER_CONTROL
+// Bench: {"off_ms": 1..30000 (500), "trace": false, "force": false}; setup mode only.
+CommandResult cameraPowerCycleCommand(std::shared_ptr<DependencyRegistry> registry, const nlohmann::json& json);
+#endif
 
 #endif

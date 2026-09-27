@@ -137,6 +137,28 @@ menu "Camera power control and recovery"
             Camera reset line with an external pull-up. Keep RESET_GPIO_NUM at -1:
             the camera driver would drive its own reset pin push-pull.
 
+    config CAMERA_RAIL_SENSE
+        bool "Prove the camera rail collapsed (DVP pads over ADC2)"
+        depends on CAMERA_POWER_CONTROL && !GENERAL_ENABLE_WIRELESS
+        default n
+        help
+            During a power cycle two DVP data pads are read over ADC2 with the
+            internal pull-up. A camera output PMOS clamps its pad to the camera
+            rail, so a low reading bounds the rail from above. Needs ADC2, which
+            Wi-Fi occupies, hence no wireless.
+
+    config CAMERA_RAIL_SENSE_GPIO_A
+        int "Rail sense pad A (a DVP data pin on ADC2)"
+        depends on CAMERA_RAIL_SENSE
+        range -1 48
+        default -1
+
+    config CAMERA_RAIL_SENSE_GPIO_B
+        int "Rail sense pad B (a DVP data pin on ADC2)"
+        depends on CAMERA_RAIL_SENSE
+        range -1 48
+        default -1
+
     # Derived, no prompt: status and reset-reason reporting for any of the above.
     config CAMERA_STATUS
         bool

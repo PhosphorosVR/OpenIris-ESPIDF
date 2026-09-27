@@ -42,6 +42,9 @@ std::unordered_map<std::string, CommandType> commandTypeMap = {
 #if CONFIG_CAMERA_STATUS
     {"get_camera_status", CommandType::GET_CAMERA_STATUS},
 #endif
+#if CONFIG_CAMERA_POWER_CONTROL
+    {"camera_power_cycle", CommandType::CAMERA_POWER_CYCLE},
+#endif
 };
 
 std::function<CommandResult()> CommandManager::createCommand(const CommandType type, const nlohmann::json& json) const
@@ -125,6 +128,10 @@ std::function<CommandResult()> CommandManager::createCommand(const CommandType t
 #if CONFIG_CAMERA_STATUS
     case CommandType::GET_CAMERA_STATUS:
         return [this] { return getCameraStatusCommand(this->registry); };
+#endif
+#if CONFIG_CAMERA_POWER_CONTROL
+    case CommandType::CAMERA_POWER_CYCLE:
+        return [this, json] { return cameraPowerCycleCommand(this->registry, json); };
 #endif
     default:
         return nullptr;

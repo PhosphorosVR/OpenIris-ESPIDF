@@ -22,11 +22,35 @@ import os
 import sys
 import time
 
+import serial
+
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from openiris_device import OpenIrisDevice  # noqa: E402
 
 # Reinit plus first frame can take several seconds on top of the off time.
 CYCLE_TIMEOUT_MARGIN_S = 30
+
+
+def connect_quietly(port: str, debug: bool) -> OpenIrisDevice | None:
+    """Open with DTR/RTS already low. OpenIrisDevice.connect() lowers them only after
+    opening, and on USB-Serial-JTAG that edge resets the chip (rst:0x15), which would
+    wipe the state and the reset reason this bench is meant to observe."""
+    device = OpenIrisDevice(port, debug, debug)
+    connection = serial.Serial()
+    connection.port = port
+    connection.baudrate = 115200
+    connection.timeout = 1
+    connection.write_timeout = 1
+    connection.dtr = False
+    connection.rts = False
+    try:
+        connection.open()
+    except serial.SerialException as e:
+        print(f"Failed to open {port}: {e}")
+        return None
+    device.connection = connection
+    device.connected = True
+    return device
 
 
 def result_of(response: dict) -> dict:
@@ -72,9 +96,8 @@ def main() -> int:
             out.write(json.dumps({"time": time.time(), "port": args.port, "kind": kind, "response": response}) + "\n")
             out.flush()
 
-    device = OpenIrisDevice(args.port, args.debug, args.debug)
-    device.connect()
-    if not device.is_connected():
+    device = connect_quietly(args.port, args.debug)
+    if device is None:
         return 2
     try:
         status = device.send_command("get_camera_status")
@@ -85,8 +108,10 @@ def main() -> int:
 
         params = {"off_ms": args.off_ms, "trace": args.trace, "force": args.force}
         failures = 0
+        done = 0
         verdicts: dict = {}
         for i in range(1, args.cycles + 1):
+            done = i
             response = device.send_command("camera_power_cycle", params, timeout=args.off_ms // 1000 + CYCLE_TIMEOUT_MARGIN_S)
             record("power_cycle", response)
             result = result_of(response)
@@ -100,7 +125,7 @@ def main() -> int:
                     break
             if i < args.cycles:
                 time.sleep(args.pause_s)
-        print(f"\n{args.cycles} cycle(s), {failures} failed, rail verdicts: {verdicts}")
+        print(f"\n{done} cycle(s), {failures} failed, rail verdicts: {verdicts}")
         return 0 if failures == 0 else 1
     finally:
         device.disconnect()

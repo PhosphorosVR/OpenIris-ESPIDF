@@ -166,6 +166,9 @@ const LineProbe& CamLines::probe()
         AdcSampler adc;
         if (adc.init(kHwReset, ADC_ATTEN_DB_12))
         {
+            // The ADC cleared the RTC pulls. Clear the digital ones too, so only one set is in play.
+            gpio_pullup_dis(reset_pin);
+            gpio_pulldown_dis(reset_pin);
             // Pull-up first: on Rev.5 the node is already high, nothing moves.
             rtc_gpio_pullup_en(reset_pin);
             esp_rom_delay_us(kSettleUs);
@@ -184,6 +187,8 @@ const LineProbe& CamLines::probe()
         AdcSampler adc;
         if (adc.init(kPowerEn, ADC_ATTEN_DB_12))
         {
+            gpio_pullup_dis(static_cast<gpio_num_t>(kPowerEn));
+            gpio_pulldown_dis(static_cast<gpio_num_t>(kPowerEn));
             result.ce_mv = readMilliVolts(adc);
         }
         releaseToInput(kPowerEn);

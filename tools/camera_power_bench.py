@@ -121,7 +121,8 @@ def main() -> int:
             verdicts[verdict] = verdicts.get(verdict, 0) + 1
             if result.get("status") != "success":
                 failures += 1
-                if data.get("error") in ("busy", "not_supported"):
+                if data.get("error") in ("busy", "not_supported", "Command timeout"):
+                    # refused, or the device stopped answering: more commands only pile up
                     break
             if i < args.cycles:
                 time.sleep(args.pause_s)

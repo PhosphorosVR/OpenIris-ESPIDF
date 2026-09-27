@@ -536,8 +536,8 @@ Weiter offen:
 
 Neu:
 - **F21 (Kategorie-B-Kandidat, frage vorher, weil das beabsichtigte Verhalten zur Debatte steht):** `LogManager` sammelt bei aktivem Capture jede WARN- und ERROR-Zeile bis zum nächsten Flush (Default 10 s) in einem unbegrenzten `std::vector` (`LogManager.cpp:170-174`). Bei einer Log-Flut wächst das ohne Grenze. Auf Boards ohne PSRAM kann das den Heap erschöpfen. Eine Obergrenze hieße, bei Überlauf Zeilen zu verwerfen und das mitzuzählen. Soll der Log unter Flut vollständig bleiben oder gedeckelt werden?
-- **F24 (IDF, hoher Einfluss):** Wie wird die Endlosschleife im I2C-Treiber abgefangen (17.6, Befund 4)? Optionen in der Antwort an dich.
-- **F25:** Folgt der Fehler von eye_R der Kamera bzw. dem Kabel? Tauschversuch: Kamera von eye_R an eye_L stecken (oder Kabel tauschen) und die Serie wiederholen.
+- **F24 (erledigt):** Lösung A, Backport des Fixes aus v5.5 (17.6).
+- **F25 (erledigt):** Der Fehler folgt der Kamera mit dem geknickten Kabel (17.6).
 - **F23 (erledigt, deine Freigabe „wie es sinnvoller ist"):** Soll `tools/openiris_device.py` beim Verbinden DTR/RTS schon *vor* dem Öffnen auf low setzen, damit ein Verbinden im Setup-Modus den ESP nicht mehr neu startet (17.5, Befund 2)? Dagegen spricht nur, falls sich `setup_openiris.py` oder die Tests auf den frischen Boot verlassen, etwa um sicher im Startfenster zu landen. Das habe ich nicht geprüft.
 - **F22:** Referenzkonfigurationen für den Bitvergleich: `project_babble` (S3, UVC und WLAN; kompiliert UVCStream und StreamServer mit) und `wrooms3` (S3, nur WLAN). Einverstanden, oder willst du eine bestimmte? Ein klassischer ESP32 (`esp32AIThinker`) ginge zusätzlich, aber nur in einem eigenen Worktree, weil `switchBoardType.py` beim Plattformwechsel Komponenten verschiebt.
 
@@ -710,6 +710,10 @@ Zweig `feature/camera-power`. ⚠ Er zweigt von `fix/esp-timer-units` ab, nicht 
 | `e9a7214` | Bench-Werkzeug bricht ab, wenn das Gerät nicht mehr antwortet |
 
 Kategorie B, eigener Zweig von `main`: `fix/serial-no-reset-on-connect` (`7a7fe7f`), `tools/openiris_device.py` verbindet ohne Board-Reset (F23).
+Kategorie B, eigener Zweig von `main`: `fix/i2c-nack-busy-wait` (F24, Lösung A):
+- `a81b0a7`: `esp_driver_i2c` aus ESP-IDF v5.4.2 unverändert als Projektkomponente. ⚠ Zwei Commits statt einem, damit der eigentliche Fix im zweiten als kleiner Diff lesbar bleibt.
+- `0994932`: begrenzte Warteschleife nach NACK, wörtlich wie in v5.5, und ein Build-Schutz, der bei einer anderen IDF-Version abbricht.
+- In den Feature-Zweig gemergt als `ab89e37`.
 
 Nicht gepusht, nichts nach `main` gemergt.
 
@@ -739,6 +743,16 @@ Baseline `a3199ad` (Firmware = `9156d3e`), ESP-IDF v5.4.2, `xtensa-esp-elf-gcc` 
 | AP2 `a703f47` | identisch | identisch |
 | AP2-Nachtrag `ccca927` | identisch | identisch |
 | AP2-Nachtrag `80ba1a6` | nicht gebaut: geändert sind nur Dateien, die ohne Feature nicht übersetzt werden | – |
+
+**Neue Baseline nach dem I2C-Fix (Kategorie B, ändert jedes Image):** `8534138` = `fix/esp-timer-units` + `fix/i2c-nack-busy-wait` (lokaler Merge ohne Zweig; nachbaubar aus den beiden Zweigen). App-SHA-256 `project_babble` `d1cfa7f7…`, `wrooms3` `fdd29f92…`.
+
+Wirkung des Fixes auf `project_babble`:
+- `main` → unveränderte Kopie: Layout verschiebt sich, weil der eingebettete Quellpfad `/IDF/components/…` zu `./components/…` wird. Keines der 8963 Symbole ändert seine Größe.
+- Kopie → Fix: genau ein Symbol ändert sich, `s_i2c_send_commands` 524 → 592 Byte.
+
+| Stand | `project_babble` | `wrooms3` |
+|---|---|---|
+| Feature-Zweig `ab89e37` gegen Baseline 2 | identisch | identisch |
 
 „Identisch" heißt: `app.bin` bis auf ELF-Hash, Prüfsumme und Image-SHA gleich, `bootloader.bin`, `partition-table.bin` und `sdkconfig.h` ganz gleich.
 
@@ -824,12 +838,26 @@ Flash wie in 17.5 (jeweils vorher kompletter Erase). Rev.5 laut Lüfter-Erkennun
 - ⚠ Das korrigiert Abschnitt 7: Die Busfreigabe des IDF greift erst beim *nächsten* Transfer und wird in diesem Fall nie erreicht.
 - Betrifft alle Boards, auch den normalen Boot; mit dem Power-Cycle wird es nur häufiger ausgelöst, sobald eine Kamera grenzwertig ist.
 
+**F25 geklärt, Tauschversuch:** Kamera samt Kabel von eye_R und eye_L getauscht.
+- NACKs und Hänger **folgen der Kamera** mit dem geknickten Kabel: an eye_L 4 NACKs und ein Hänger in 15 Zyklen, an eye_R mit der guten Kamera 0 NACKs in 40 Zyklen.
+- Die Positivkontrolle am Anschlag **bleibt am eye_R-Platz**, gehört also zur Board-Seite, am ehesten zur ADC-Kalibrierung dieses ESP. Für das Verdikt ist das dank Begrenzung egal.
+
+**F24 gelöst (A), auf Hardware geprüft:** mit I2C-Fix auf allen drei ESPs.
+
+| ESP | Kamera | Zyklen | NACKs | Bus-Timeouts (vorher Hänger) | Fehlschläge | Hänger |
+|---|---|---|---|---|---|---|
+| eye_L | mit geknicktem Kabel | 60 | 14 | 9 | 6 × `first_frame` | 0 |
+| eye_R | gut | 30 | 0 | 0 | 0 | 0 |
+| face | gut | 30 | 0 | 0 | 0 | 0 |
+
+Die 6 Fehlschläge: `esp_camera_init` meldet `ESP_OK`, obwohl einzelne Registerschreibvorgänge scheiterten, danach kommen 8 s keine Frames. Die Prüfung auf den ersten Frame fängt das ab, und der jeweils nächste Zyklus holt die Kamera zurück. Das bestätigt das Erfolgskriterium aus Abschnitt 8 und begründet die Wiederholung in AP4.
+
 ### 17.7 Nächste Schritte
 
 AP1/AP2 sind auf Rev.4.5 und Rev.5 gelaufen, die Nachweisläufe sind gemacht (17.5, 17.6). Vor AP3/AP4 offen:
-1. **F24:** Umgang mit dem IDF-Fehler, deine Entscheidung. Ohne Abhilfe hängt jede Recovery, sobald eine Kamera den Bus festhält.
-2. **F25:** Tauschversuch mit der Kamera von eye_R.
-3. **F16:** DMM-Blick auf 1V5_Cx während `--off-ms 5000`.
+1. ~~F24~~ gelöst (A), ~~F25~~ geklärt (Kabel).
+2. **F16:** DMM-Blick auf 1V5_Cx während `--off-ms 5000`, steht noch aus.
+3. Weiter mit AP3 (Gate, Worker) und AP4 (Recovery). Die Kamera mit dem geknickten Kabel ist dafür ein guter Prüfling: Sie erzeugt reproduzierbar echte Ausfälle.
 
 ---
 

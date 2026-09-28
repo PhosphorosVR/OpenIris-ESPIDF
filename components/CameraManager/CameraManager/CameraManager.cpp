@@ -425,8 +425,11 @@ void CameraManager::loadConfigData()
     }
     this->setCameraResolution(requested_frame);
     xSemaphoreTake(sensor_mutex, portMAX_DELAY);
-    camera_sensor->set_quality(camera_sensor, cameraConfig.quality);
-    camera_sensor->set_agc_gain(camera_sensor, cameraConfig.brightness);
+    if (camera_sensor)  // checked again under the lock, see setVFlip()
+    {
+        camera_sensor->set_quality(camera_sensor, cameraConfig.quality);
+        camera_sensor->set_agc_gain(camera_sensor, cameraConfig.brightness);
+    }
     xSemaphoreGive(sensor_mutex);
     ESP_LOGD(CAMERA_MANAGER_TAG, "Loading camera config data done");
 }
@@ -450,18 +453,18 @@ int CameraManager::setCameraResolution(const framesize_t frameSize)
 
 int CameraManager::setVFlip(const int direction)
 {
-    if (!camera_sensor) return -1;
     xSemaphoreTake(sensor_mutex, portMAX_DELAY);
-    int ret = camera_sensor->set_vflip(camera_sensor, direction);
+    // Checked under the lock: a camera restart clears camera_sensor.
+    int ret = camera_sensor ? camera_sensor->set_vflip(camera_sensor, direction) : -1;
     xSemaphoreGive(sensor_mutex);
     return ret;
 }
 
 int CameraManager::setHFlip(const int direction)
 {
-    if (!camera_sensor) return -1;
     xSemaphoreTake(sensor_mutex, portMAX_DELAY);
-    int ret = camera_sensor->set_hmirror(camera_sensor, direction);
+    // Checked under the lock: a camera restart clears camera_sensor.
+    int ret = camera_sensor ? camera_sensor->set_hmirror(camera_sensor, direction) : -1;
     xSemaphoreGive(sensor_mutex);
     return ret;
 }

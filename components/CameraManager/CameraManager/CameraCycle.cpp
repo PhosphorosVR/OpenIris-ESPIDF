@@ -144,7 +144,8 @@ void CameraManager::parkPins()
 
 void CameraManager::takeDriverDown()
 {
-    // The setters check the sensor under this lock.
+    // Other tasks (setters, applyFrameSize, test hook) check camera_sensor under this
+    // lock and after taking it; a check before taking it can see a stale pointer.
     xSemaphoreTake(sensor_mutex, portMAX_DELAY);
     esp_camera_deinit();
     camera_sensor = nullptr;

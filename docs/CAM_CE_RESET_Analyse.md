@@ -948,6 +948,20 @@ Der Rail-Check bleibt (Entscheidung des Nutzers, Begründung in der Abnahme, 3.4
 
 Einzelheiten: Abnahme, Abschnitt 6.
 
+### 17.10 Budget und ESP-Neustart auf Hardware (2026-09-29)
+
+Rev.5, ESP face, Test-Image vom aktuellen `main` mit Testhaken und ESP-Neustart-Option; Ausfälle per `camera_test_fault hold_reset`, alle UVC-Streams am PC offen. Werkzeug: `tools/camera_budget_check.py` (`f548e1d`).
+
+| Prüfung | Ergebnis |
+|---|---|
+| `recover_camera` im Stream | 5/5, Power-Cycle, `collapsed`, 1176–1200 ms, Streams ohne Neuöffnen weiter |
+| gehaltene Erholungen | 11 automatische in 8,1 min, alle gehalten, keine Sperre, keine Ablehnung; Heap konstant (132 895 / 31 744 Byte) |
+| Sperre | nach drei nicht gehaltenen: `suspended`, `resume_in_s` 300, 30 s später 270 |
+| Selbstauflösung | nach 313 s bzw. 306 s: 300 s Ruhezeit + 0–8 s bis zum nächsten `frame_timeout` (einer etwa alle 8 s, solange die Kamera dunkel ist) + Abfrageintervall des Skripts (10 s bzw. 5 s) |
+| ESP-Neustart | Sperre mit scharfem Neustart: Neustart nach 12,6 s (12 s = Log-Flush 10 s + 2 s); direkt danach keine zweite; nach 30 s Frames wieder scharf, dann erneut Neustart. Zweimal geprüft |
+
+Nebenbefund: Der Marker „used" übersteht das Flashen (esptool macht einen USB-Reset, keinen Power-on). Details und Wiederholung: [ABNAHME_KAMERA_POWER.md](ABNAHME_KAMERA_POWER.md), Abschnitt 4.
+
 ---
 
 # Anhang A: Kontrollbericht Lüfterpfad (Stand 1, abgeschlossen)

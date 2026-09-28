@@ -1,6 +1,6 @@
 # Übergabe an den nächsten KI-Chat: CAM_CE / CAM_RESET, Kamera-Recovery (FaceFocusVR)
 
-Stand 2026-09-28, nach der Abnahme. `feature/camera-power` ist mit allen Fixes nach `main` gemergt (lokal, nichts gepusht).
+Stand 2026-09-29: nach Abnahme, Hardware-Test des Budgets und Release 1.3.2. `feature/camera-power` ist mit allen Fixes nach `main` gemergt; `main` ist gepusht.
 
 **Zuerst lesen:**
 1. dieses Dokument,
@@ -61,7 +61,7 @@ Stand 2026-09-28, nach der Abnahme. `feature/camera-power` ist mit allen Fixes n
   - Format: `idf.py merge-bin -o <x>.bin -f raw`, ein Image ab 0x0 mit Bootloader, Partitionstabelle und App bei 0x10000.
   - Namen: `FFVR Eye L [x.y.z].bin`, `FFVR Eye R [x.y.z].bin`, `FFVR Face [x.y.z].bin`.
   - Frühere Releases liegen in `../ffvr-multiflash/fw/<ver>/`; das Flash-Tool dort schreibt an 0x0.
-- **Version:** `CONFIG_GENERAL_VERSION` in `boards/facefocusvr/*` und im eingecheckten `sdkconfig`. Format dreiteilig; aktuell **1.3.1**.
+- **Version:** `CONFIG_GENERAL_VERSION` in `boards/facefocusvr/*` und im eingecheckten `sdkconfig`. Format dreiteilig; aktuell **1.3.2** (die 3.0.1 aus `e01f02b` war ein Tippfehler).
 
 ---
 
@@ -89,6 +89,7 @@ Der Merge nach `main` enthält alle Fixes. Die drei Kategorie-B-Fixes betreffen 
 | AP4 | `recover_camera`, Auto-Auslöser `frame_timeout`/`boot_failure`, Budget, Zähler, optionaler ESP-Neustart, Testhaken | `fbff171` |
 | AP5 (schlank) | `tools/camera_recovery_check.py` | `aa9378e` |
 | Abnahme | Budget neu (gehalten/nicht gehalten, Sperre löst sich nach 5 min), ESP-Neustart höchstens einmal bis wieder ein Start hält, Sensorzeiger unter dem Mutex, Befund C in der Analyse; alle 12 Konfigurationen gebaut, Bitvergleich | `a467192`, `9bf6447`, `8788d32`, `940d1b2` |
+| nach dem Merge | `get_camera_status`: `resume_in_s` und `unheld_limit`; `tools/camera_budget_check.py`; Version 1.3.2; Budget und ESP-Neustart auf Hardware geprüft (Abnahme, Abschnitt 4) | `40236ae`, `f548e1d`, `fff8d44` |
 | AP6 | Ergebnisse der ESD-Prüfläufe ins Dokument | **offen** |
 
 ### Kconfig (in `components/CameraManager/Kconfig.projbuild`, FFVR-Werte)
@@ -132,7 +133,7 @@ CONFIG_CAMERA_STATUS=y               abgeleitet, ohne Prompt
 
 | Kommando | Hinweis |
 |---|---|
-| `get_camera_status {"persist": false}` | Zustand, Leitungen, Recovery-Zähler (`held`, `not_held`, `unheld_in_row`, `suspended`, `suspensions`, `resumes`, je Eintrag `held`), Gate, Heap, Reset-Grund. `persist: true` schreibt eine WARN-Zusammenfassung in den persistenten Log |
+| `get_camera_status {"persist": false}` | Zustand, Leitungen, Recovery-Zähler (`held`, `not_held`, `unheld_in_row` von `unheld_limit`, `resume_in_s` während einer Sperre, `suspended`, `suspensions`, `resumes`, je Eintrag `held`), Gate, Heap, Reset-Grund. `persist: true` schreibt eine WARN-Zusammenfassung in den persistenten Log |
 | `recover_camera {"level": "auto"\|"reinit"\|"reset"\|"power_cycle"}` | auch im UVC-Stream; Cooldown 5 s |
 | `camera_power_cycle {"off_ms": 1..30000, "trace": bool, "force": bool}` | nur ohne laufendes UVC (Setup-Modus) |
 | `camera_test_fault {"kind": "hold_reset"\|"sensor_standby"}` | nur mit `CONFIG_CAMERA_TEST_HOOKS=y` |
@@ -151,7 +152,8 @@ CONFIG_CAMERA_STATUS=y               abgeleitet, ohne Prompt
   3. **Kamera an geknicktem Flachbandkabel:** Die Kamera, die ursprünglich an eye_R steckte, erzeugt nach Power-Cycles SCCB-NACKs. Per Tausch belegt; **diese Kamera steckt jetzt an eye_L**. Sie ist ein guter Prüfling.
   4. **IDF-I2C-Endlosschleife nach NACK:** Behoben per Backport.
   5. **Drain-Timeout nach dem Schließen der Kamera-App:** Windows beendet den Stream nicht, sondern holt nur nicht mehr ab. Behoben im Gate: Frames, die länger als 500 ms draußen sind, übernimmt der Neustart.
-- **Auf Hardware nicht ausgelöst:** das Budget nach der Abnahme (gehalten/nicht gehalten, Sperre, Auflösung nach 5 min), `boot_failure`, ESP-Neustart. Diese Pfade sind nur per Review und Build geprüft; zur Zeit der Änderung war keine Platine angeschlossen. Testablauf: Abnahme, Abschnitt 4.
+- **Budget und ESP-Neustart auf Hardware** (2026-09-29, Rev.5, face): 11 gehaltene Erholungen in 8,1 min ohne Sperre; Sperre nach drei nicht gehaltenen; Selbstauflösung nach 313 s bzw. 306 s (300 s Ruhezeit + bis 8 s bis zum nächsten `frame_timeout` + Abfrageintervall des Skripts); ESP-Neustart höchstens einmal, nach 30 s Frames wieder scharf. Einzelheiten: Abnahme, Abschnitt 4.
+- **Auf Hardware nicht ausgelöst:** `boot_failure`. Nur per Review geprüft.
 
 ---
 
@@ -235,6 +237,8 @@ uv run --with opencv-python tools/camera_recovery_check.py recover --port COMx -
 uv run --with opencv-python tools/camera_recovery_check.py after-close --port COMx --count 5
 uv run --with opencv-python tools/camera_recovery_check.py fault --port COMx --kind hold_reset   # Test-Build
 uv run tools/camera_power_bench.py --port COMx --cycles 5 --trace --out f.jsonl                  # Setup-Modus
+uv run --with opencv-python tools/camera_budget_check.py held --port COMx --count 11              # Test-Build
+uv run --with opencv-python tools/camera_budget_check.py suspend --port COMx                     # Test-Build, 7-12 min
 ```
 
 - OpenCV ist nicht Teil von `pyproject.toml`; bewusst, damit `uv.lock` unverändert bleibt.
@@ -247,7 +251,7 @@ uv run tools/camera_power_bench.py --port COMx --cycles 5 --trace --out f.jsonl 
 ## 6. Offene Punkte
 
 1. **AP6:** Ergebnisse der ESD-Prüfläufe ins Analyse-Dokument. Vorher `set_debug_log_enabled true` senden, am Ende `get_camera_status {"persist": true}` und `get_persistent_logs`. Grundlage nach IEC 61000-4-2: mindestens 10 Entladungen je Punkt und Polarität im Abstand von 1 s, mehrere Punkte. Das ist die Untergrenze; den konkreten Plan bestätigt der Nutzer noch.
-2. **Budget auf Hardware prüfen:** Das neue Budget und der ESP-Neustart sind nur per Review und Build geprüft. Testablauf mit Test-Build: Abnahme, Abschnitt 4. Die Sperre lässt sich mit `camera_test_fault hold_reset` innerhalb von 30 s nach jeder Erholung provozieren. `boot_failure` ist weiter nicht provoziert. **Kein** Kabelziehen im Betrieb vorschlagen.
+2. **`boot_failure` auf Hardware:** nicht provoziert. **Kein** Kabelziehen im Betrieb vorschlagen. Budget und ESP-Neustart sind seit 2026-09-29 auf Hardware geprüft (`tools/camera_budget_check.py`).
 3. **IDF-Version und vendorter I2C-Treiber: nichts anfangen.** Der nächste Schritt des Nutzers ist, auf das Upstream-Repo zu gehen und die Änderungen von dort zu übernehmen.
 4. **Rail-Check bleibt** (Entscheidung des Nutzers). Schritt 1 (Spur und adaptive Verlängerung entfernen) ist freigegeben, aber nicht gemacht. Schritt 2 (Check entfernen) erst, wenn eine Fertigungsprüfung den CE-Pfad abdeckt.
 5. **Offene Fragen aus dem Analyse-Dokument:**
@@ -262,21 +266,23 @@ uv run tools/camera_power_bench.py --port COMx --cycles 5 --trace --out f.jsonl 
 
 ## 7. Aktueller Zustand der angeschlossenen Hardware (Rev.5-Platine)
 
-- Alle drei ESPs tragen Firmware **3.0.1** aus `e01f02b`. Die ist funktional identisch zu 1.3.1, nur der Versionsstring unterscheidet sich; auf Wunsch des Nutzers wurde nicht neu geflasht.
-- ⚠ Die Änderungen aus der Abnahme (neues Budget, ESP-Neustart, Setter) sind auf keinem Gerät. Eine neue Version und neue Release-Bins entscheidet der Nutzer; die Version steht weiter auf 1.3.1.
-- NVS gelöscht, UVC-Modus, Automatik an, keine Testhaken.
-- **Release-Bins 1.3.1** (aus `3b35ef1`, `idf.py merge-bin -f raw`) liegen unversioniert im Repo-Wurzelordner:
-  - `FFVR Eye L [1.3.1].bin`
-  - `FFVR Eye R [1.3.1].bin`
-  - `FFVR Face [1.3.1].bin`
+- Alle drei ESPs tragen seit 2026-09-29 den **Produkt-Build 1.3.2** aus `fff8d44` (ohne Testhaken, ohne ESP-Neustart-Option), geflasht als Merge-Bin an 0x0 nach `erase_flash`.
+- NVS gelöscht, UVC-Modus, Automatik an. Kontrolle danach: alle drei Streams 28–30 fps ohne Lücke, je zwei `recover_camera` im Stream ok (Power-Cycle, `collapsed`, 1175–1193 ms).
+- **Release-Bins 1.3.2** (`idf.py merge-bin -f raw`) liegen unversioniert im Repo-Wurzelordner:
+  - `FFVR Eye L [1.3.2].bin`
+  - `FFVR Eye R [1.3.2].bin`
+  - `FFVR Face [1.3.2].bin`
 
-  Geprüft: Bootloader, Partitionstabelle und App byte-gleich zum Build, Header wie bei 1.2.4, Version 1.3.1 enthalten.
+  Geprüft: Bootloader, Partitionstabelle und App byte-gleich zum Build, Version 1.3.2 enthalten, weder `camera_test_fault` noch der ESP-Neustart im Image. In `../ffvr-multiflash/fw/` liegen sie nicht; das entscheidet der Nutzer.
 
 ---
 
 ## 8. Fallen, die schon einmal Zeit gekostet haben
 
 - **`sed -i` in Git-Bash** stellt CRLF-Dateien auf LF um. Für Git egal (autocrlf), der Diff bleibt sauber; für gezielte Ersetzungen besser Python. Außerdem ist `\U` in der Ersetzung von GNU-sed der Befehl „ab hier groß schreiben": Windows-Pfade wie `C:\Users` werden dabei zerstört.
+- **JSON als Argument aus PowerShell 5.1:** Beim Aufruf nativer Programme fallen die Anführungszeichen im JSON weg; das Kommando kommt nie an. Parameter als `key=value` übergeben oder Python direkt nutzen.
+- **Test-Image mit ESP-Neustart-Option:** Der Marker „used" im RTC-Speicher übersteht auch das Flashen (esptool macht nur einen USB-Reset). `esp_restart_armed` steht dann auf `false`, bis 30 s Frames kamen. `camera_budget_check.py held` vor `suspend` laufen lassen, dann ist er wieder scharf.
+- **OpenCV und uv:** Beides ist auf dem Rechner nicht installiert. Für die Werkzeuge mit Stream-Messung eine eigene venv mit `pyserial` und `opencv-python` anlegen (zuletzt im Scratchpad).
 - **Sicherheitsprüfung des PowerShell-Werkzeugs:** Sie blockiert manchmal harmlose Befehle mit „Remove-Item on system path '/c'“. Ohne `Remove-Item` arbeiten (`[System.IO.File]::Delete`) und lange Befehle aufteilen.
 - **Das eingecheckte `sdkconfig`:** Es ist die expandierte Konfiguration von eye_L. Neue Kconfig-Symbole von Hand eintragen, dann per `idf.py -B <tmp> -D SDKCONFIG=<kopie> reconfigure` gegenprüfen, ob kconfgen dieselbe Datei erzeugt.
 - **ADC2 (S3, 12 dB):** Die versorgte Kamera klemmt das Pad auf ~3,1 V, an der Grenze des Messbereichs. Vollausschlag wird auf ~4,97 V extrapoliert, deshalb begrenzt `RailSense` auf 3300 mV. Der eye_R-Platz misst systematisch höher (Board-/ESP-Seite, für das Verdikt egal).

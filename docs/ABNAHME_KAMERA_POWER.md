@@ -60,7 +60,7 @@ Bewertet ist der Stand nach den Änderungen aus Abschnitt 5.
 - Vorher zählte das Ratenfenster (10 automatische Versuche in 10 min) auch gelungene Erholungen. Es wäre nach dem zweiten Prüfpunkt aufgebraucht gewesen.
 - Die Sperre nach drei Fehlschlägen hielt, bis jemand ein Kommando schickte.
 - Beides ist ersetzt. Die neuen Regeln stehen in Abschnitt 4.
-- Weder die neuen Regeln noch der ESP-Neustart sind auf Hardware ausgelöst worden.
+- Auf Hardware geprüft am 2026-09-29 (Abschnitt 4): 11 gehaltene Erholungen ohne Sperre, Sperre nach drei nicht gehaltenen, Selbstauflösung nach 306 bis 313 s, ESP-Neustart höchstens einmal.
 
 **8. Andere Boardkonfigurationen sind unberührt, das Feature ist opt-in und wird sonst nicht kompiliert: erreicht für das Feature. Der Zweig ändert aber bewusst alle Boards.**
 - Alle Symbole sind per Default aus und werden nur in `boards/facefocusvr/*` gesetzt.
@@ -217,7 +217,7 @@ Gut abgesichert sind dagegen die RTC-Mux-Falle und die Reihenfolge RESET vor CE.
 **Die Grundlage ist die ESD-Prüfung.** Nach IEC 61000-4-2 gibt es mindestens 10 Einzelentladungen je Prüfpunkt und Polarität, bei Routineprüfung im Abstand von 1 s. Die Vorerkundung arbeitet mit bis zu 20 Entladungen pro Sekunde, und es gibt mehrere Prüfpunkte. Realistisch sind 40 bis über 100 Entladungen in einigen Minuten. Bewertet wird, ob sich das Gerät nach einer Salve selbst erholt. Dass es während einer Salve teilweise dunkel ist, ist in Ordnung. Den konkreten Prüfplan bestätigt der Nutzer noch; diese Werte sind die Untergrenze.
 
 **Regeln** (`CameraRecovery.cpp`):
-- **Gehalten:** Eine Erholung gilt als gehalten, wenn nach ihrem ersten Frame 30 s lang Frames kommen. Geprüft wird das bei jedem Frame, das durch das Gate geht; solange nichts beobachtet wird, kostet das eine einzige Ladeoperation. Gehaltene Erholungen zählen gegen kein Budget.
+- **Gehalten:** Eine Erholung gilt als gehalten, wenn nach ihrem ersten Frame 30 s lang Frames kommen. Geprüft wird das bei jedem Frame, das durch das Gate geht; solange nichts beobachtet wird, kostet das eine einzige Ladeoperation. Gehaltene Erholungen zählen gegen kein Budget. Eine Pause, in der der Host keine Frames abholt, ist kein Ausfall: Das erste Frame, das mehr als 30 s nach dem ersten kommt, macht die Erholung zur gehaltenen (im Test beobachtet, als die Streams nach einer Pause wieder geöffnet wurden).
 - **Nicht gehalten:** Kommt während der Beobachtung ein `frame_timeout`, hat die Erholung nicht gehalten. Ein gescheiterter Neustart hat per Definition nicht gehalten.
 - **Sperre:** Drei nicht gehaltene Neustarts in Folge sperren die automatischen Auslöser. Eine gehaltene Erholung setzt die Folge auf null.
 - **Ende der Sperre:** Sie löst sich nach 5 min ohne weiteren Fehlschlag selbst; die Folge beginnt dann neu. Ein erfolgreiches `recover_camera` oder ein Reset hebt sie sofort auf.
@@ -238,17 +238,40 @@ Gut abgesichert sind dagegen die RTC-Mux-Falle und die Reihenfolge RESET vor CE.
 Eine Schleife kann nur entstehen, wenn jeder Neustart die Kamera mindestens 30 s zum Laufen bringt. Dann ist jeder Neustart ein Gewinn, und sie liegen mindestens rund eine Minute auseinander.
 
 **Im Status** (`get_camera_status`):
-- `recovery.held`, `not_held`, `unheld_in_row`, `suspended`, `suspensions`, `resumes`,
+- `recovery.suspended` und, solange gesperrt, `resume_in_s`: die restliche Ruhezeit in Sekunden, sonst `null`. Die Sperre fällt beim nächsten automatischen Auslöser nach Ablauf, also einige Sekunden später (siehe unten).
+- `unheld_in_row` und `unheld_limit` (3): „2 von 3" heißt, die nächste nicht gehaltene Erholung sperrt.
+- `held`, `not_held`, `suspensions`, `resumes`,
 - je Eintrag in `last` das Feld `held` (`true`, `false`, oder `null` für „noch offen oder vom nächsten Neustart überholt"),
 - mit der Option zusätzlich `esp_restart_armed`.
 
-Die Zusammenfassung per `{"persist": true}` enthält dieselben Zähler.
+Die Zusammenfassung per `{"persist": true}` enthält dieselben Zähler und „suspended now no" bzw. „yes, resumes in N s".
 
-**Hardware-Test:** Nicht gemacht; zum Zeitpunkt der Änderung war keine Platine angeschlossen. Vorschlag mit einem Test-Build mit `CONFIG_CAMERA_TEST_HOOKS=y`:
-1. `camera_test_fault hold_reset` auslösen und die automatische Erholung abwarten (etwa 9 s).
-2. Nach jeder Erholung innerhalb von 30 s erneut `hold_reset` auslösen, dreimal. Erwartet: `not_held` zählt 1, 2, 3. Nach dem dritten Mal steht `suspended: true`, und `refused.suspended` steigt, solange die Kamera dunkel bleibt.
-3. 5 min warten. Erwartet: `resumes: 1`, danach läuft wieder eine Erholung.
-4. Nach einer Erholung länger als 30 s streamen lassen. Erwartet: `held` steigt um 1, `unheld_in_row` ist 0.
+**Hardware-Test** (2026-09-29, Rev.5, ESP face):
+- Test-Image vom aktuellen `main` mit `CONFIG_CAMERA_TEST_HOOKS=y` und `CONFIG_CAMERA_RECOVERY_ESP_RESTART=y`.
+- Ausfälle per `camera_test_fault hold_reset`, die das Gerät als `frame_timeout` erkennt.
+- Alle UVC-Streams am PC offen (OpenCV unter Windows).
+
+1. **Kein Rückschritt im Normalfall:**
+   - 5 von 5 `recover_camera` im Stream: Power-Cycle, Schiene `collapsed`, 1176 bis 1200 ms.
+   - Die Streams liefen ohne Neuöffnen weiter; face stand je etwa 1 s, die anderen Streams gar nicht.
+2. **Gehaltene Erholungen kosten kein Budget:**
+   - 11 automatische Erholungen in 8,1 min, jede gehalten.
+   - `unheld_in_row` blieb 0, es gab keine Sperre und keine Ablehnung. Das alte Ratenfenster hätte die elfte verweigert.
+   - Interner Heap konstant: frei 132 895 Byte, größter Block 31 744 Byte.
+3. **Sperre und Selbstauflösung:**
+   - Drei Erholungen fielen jeweils innerhalb von 30 s wieder aus. Danach standen `suspended: true`, `resume_in_s: 300` und `unheld_in_row` 3 von 3. 30 s später zeigte `resume_in_s` 270.
+   - Die Sperre löste sich 313 s nach dem Sperren (erster Lauf), im zweiten Lauf nach 306 s. Danach lief eine Erholung, die gehalten hat.
+   - Die Abweichung von 300 s setzt sich aus drei Teilen zusammen:
+     - **300 s Ruhezeit**, gezählt ab dem Fehlschlag, der gesperrt hat.
+     - **Warten auf den nächsten automatischen Auslöser: 0 bis 8 s.** Solange die Kamera dunkel ist, kommt etwa alle 8 s ein `frame_timeout` (4 s Treiber-Timeout, GDMA-Reset, noch einmal 4 s). Im ersten Lauf wurden zwischen 30 s nach dem Sperren und der Auflösung 34 davon abgewiesen, einer je 8,3 s. Die Sperre fällt beim ersten Auslöser nach Ablauf.
+     - **Abfrageintervall des Prüfskripts:** 10 s im ersten Lauf, 5 s im zweiten.
+4. **ESP-Neustart höchstens einmal:** zweimal geprüft, erst mit einem Skript, dann mit `tools/camera_budget_check.py`.
+   - Eine Sperre bei scharfem Neustart startete den ESP 12,6 s später neu. Die Verzögerung von 12 s setzt sich aus 10 s Log-Flush und 2 s zusammen. Danach meldete face `restarted_by_recovery: true` und `esp_restart_armed: false`.
+   - Eine Sperre direkt nach diesem Boot startete ihn nicht neu; die Uptime lief weiter, und die Sperre löste sich nach 5 min selbst.
+   - Nach 30 s Frames stand `esp_restart_armed` wieder auf `true`. Die nächste Sperre startete den ESP wieder neu (Gegenprobe).
+   - Nebenbefund: Der Marker „used" übersteht auch das Flashen, weil esptool nur einen USB-Reset auslöst. Nach dem Flashen eines Test-Images stand deshalb `esp_restart_armed: false`, bis 30 s Frames kamen. Das ist gewollt, denn nur ein Power-on oder ein gehaltener Lauf löschen ihn; beim Testen sollte man es aber wissen.
+
+**Wiederholen** mit einem Test-Image: `uv run --with opencv-python tools/camera_budget_check.py held --port COMx` (etwa 45 s je Erholung) und `... suspend --port COMx` (7 min, mit ESP-Neustart-Option 12 min). Das Werkzeug hält die Streams selbst offen und öffnet sie nach einem ESP-Neustart neu.
 
 ---
 
@@ -260,7 +283,10 @@ Die Zusammenfassung per `{"persist": true}` enthält dieselben Zähler.
 | `9bf6447` | ESP-Neustart höchstens einmal, bis wieder ein Start gehalten hat (Befund A) |
 | `8788d32` | Sensorzeiger unter dem Mutex prüfen in `setVFlip()`, `setHFlip()`, `loadConfigData()`; Kommentar in `takeDriverDown()` korrigiert (Falle 2). Kategorie B ohne Wirkung auf andere Images |
 | `940d1b2` | Befund C in der Analyse korrigiert, Kommentar an `parkPins()` (Falle 1) |
-| Doku-Commit vor dem Merge | dieses Dokument, Analyse 17.9, Übergabe |
+| `2514c91` | dieses Dokument, Analyse 17.9, Übergabe; danach Merge nach `main` (`55d21d3`) |
+| `40236ae` | `get_camera_status`: `resume_in_s` (restliche Ruhezeit) und `unheld_limit`, damit eine Sperre während einer Prüfung nicht wie ein Defekt aussieht |
+| `f548e1d` | `tools/camera_budget_check.py`: der Hardware-Test aus Abschnitt 4 als Werkzeug |
+| `fff8d44` | FFVR-Version 1.3.2 |
 
 Spur und adaptive Verlängerung (3.4, Schritt 1) sind nicht entfernt. Das spart knapp ein Drittel des Rail-Codes, würde aber kurz vor der Prüfung Bench-Werkzeug und Doku mitändern. Besser nach AP6.
 
@@ -286,4 +312,10 @@ Geprüft auf Stand `940d1b2`; der anschließende Doku-Commit ändert keinen Code
 
 **Bitvergleich gegen Baseline 2 (`8534138`):** `project_babble` und `wrooms3` sind identisch. Die `app.bin` ist bis auf ELF-Hash und Prüfsummen gleich; Bootloader, Partitionstabelle und `sdkconfig.h` sind ganz gleich. Für diese beiden Konfigurationen ist damit auch belegt, dass die Kategorie-B-Änderung an den Settern kein Image ändert.
 
-**Hardware:** nicht getestet, weil keine Platine angeschlossen war. Testablauf in Abschnitt 4.
+**Hardware:** Budget und ESP-Neustart am 2026-09-29 geprüft, Ergebnisse in Abschnitt 4.
+
+**Nach dem Merge, Release 1.3.2 (`fff8d44`):**
+- Bitvergleich gegen Baseline 2 erneut: `project_babble` und `wrooms3` identisch.
+- Release-Bins `FFVR Eye L [1.3.2].bin`, `FFVR Eye R [1.3.2].bin`, `FFVR Face [1.3.2].bin` (`merge-bin -f raw`). Bootloader, Partitionstabelle und App sind byte-gleich zum Build; weder Testhaken noch ESP-Neustart sind im Image.
+- Auf alle drei ESPs der Rev.5-Platine geflasht (vorher `erase_flash`).
+- Danach alle drei Streams 28 bis 30 fps ohne Lücke; je zwei `recover_camera` im Stream ok (Power-Cycle, `collapsed`, 1175 bis 1193 ms).

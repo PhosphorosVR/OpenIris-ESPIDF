@@ -229,6 +229,10 @@ camera_fb_t* cameraAcquireFrame()
         return nullptr;
     }
     s_missed_in_row.store(0, std::memory_order_relaxed);
+    if (s_owner)
+    {
+        s_owner->onFrameDelivered();
+    }
     return fb;
 }
 

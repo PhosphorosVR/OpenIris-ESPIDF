@@ -1,6 +1,6 @@
 // Only built with CONFIG_CAMERA_RECOVERY_ENABLE (see CMakeLists.txt).
 // Recovery policy: level choice, budget, counters, automatic triggers
-// (docs/CAM_CE_RESET_Analyse.md, section 8). The restart itself is CameraCycle.cpp.
+// (docs/CAM_CE_RESET_Analyse.md, sections 8 and 17.9). The restart itself is CameraCycle.cpp.
 #include "CameraManager.hpp"
 
 #include <cstring>
@@ -12,10 +12,13 @@ static const char* CAMERA_RECOVERY_TAG = "[CAMERA_RECOVERY]";
 namespace
 {
 constexpr int64_t kCooldownUs = 5 * 1000 * 1000LL;  // after every attempt, manual ones too
-constexpr uint32_t kSuspendAfterFailures = 3;       // in a row; suspends the automatic triggers
-constexpr int kRateMaxAttempts = 10;                // automatic attempts ...
-constexpr int64_t kRateWindowUs = 10 * 60 * 1000 * 1000LL;  // ... per ten minutes
-constexpr uint32_t kRecoveryOffMs = 500;            // minimum CE low time, adaptive beyond
+// A restart held when frames kept coming for this long. Held restarts cost no budget;
+// three in a row that failed or did not hold suspend the automatic triggers, until
+// the quiet time passes without a further failure.
+constexpr int64_t kHoldUs = 30 * 1000 * 1000LL;
+constexpr uint32_t kSuspendAfterUnheld = 3;
+constexpr int64_t kResumeAfterUs = 5 * 60 * 1000 * 1000LL;
+constexpr uint32_t kRecoveryOffMs = 500;  // minimum CE low time, adaptive beyond
 #if CONFIG_CAMERA_AUTO_RECOVERY
 // One more than the plan (F13): on a camera with a damaged flex cable one restart in ten
 // failed at the first frame and the next one always worked.
@@ -50,8 +53,6 @@ const char* recoveryRefusalName(const RecoveryRefusal refusal)
             return "cooldown";
         case RecoveryRefusal::Suspended:
             return "suspended";
-        case RecoveryRefusal::RateLimited:
-            return "rate_limited";
         default:
             return "busy";
     }
@@ -113,6 +114,71 @@ void CameraManager::onFrameMissing(const uint32_t in_row)
 #endif
 }
 
+void CameraManager::onFrameDelivered()
+{
+    // One load per frame while no restart is watched.
+    if (!watching.load(std::memory_order_relaxed))
+    {
+        return;
+    }
+    const int64_t now = esp_timer_get_time();
+    portENTER_CRITICAL(&stats_lock);
+    if (watching.load(std::memory_order_relaxed))
+    {
+        if (watch_first_frame_us == 0)
+        {
+            watch_first_frame_us = now;
+        }
+        else if (now - watch_first_frame_us >= kHoldUs)
+        {
+            this->endWatchLocked(true, now);
+        }
+    }
+    portEXIT_CRITICAL(&stats_lock);
+}
+
+// Under stats_lock. true: this suspends the automatic triggers.
+bool CameraManager::endWatchLocked(const bool held, const int64_t now)
+{
+    watching.store(false, std::memory_order_relaxed);
+    // The watched restart is the newest entry: every restart ends the previous watch.
+    stats.last[(stats.last_next + RecoveryStats::kLast - 1) % RecoveryStats::kLast].held = held ? 1 : 0;
+    if (!held)
+    {
+        ++stats.not_held;
+        return this->countUnheldLocked(now);
+    }
+    ++stats.held;
+    stats.unheld_in_row = 0;
+    return false;
+}
+
+// Under stats_lock: a restart failed or did not hold. true: this suspends the automatic triggers.
+bool CameraManager::countUnheldLocked(const int64_t now)
+{
+    last_unheld_us = now;
+    if (++stats.unheld_in_row < kSuspendAfterUnheld || stats.suspended)
+    {
+        return false;
+    }
+    stats.suspended = true;
+    ++stats.suspensions;
+    return true;
+}
+
+// Camera task only.
+void CameraManager::onSuspended()
+{
+    ESP_LOGW(CAMERA_RECOVERY_TAG, "Automatic camera recovery suspended after %lu restarts in a row that did not hold, resumes after %d min without a failure",
+             static_cast<unsigned long>(kSuspendAfterUnheld), static_cast<int>(kResumeAfterUs / 60000000));
+#if CONFIG_CAMERA_RECOVERY_ESP_RESTART
+    ESP_LOGW(CAMERA_RECOVERY_TAG, "Restarting the ESP in %lu ms as the last resort", static_cast<unsigned long>(kRestartDelayMs));
+    s_restart_marker = kRestartMagic;
+    vTaskDelay(pdMS_TO_TICKS(kRestartDelayMs));
+    esp_restart();
+#endif
+}
+
 // Camera task only. nullptr: go ahead.
 const char* CameraManager::admit(const RecoveryTrigger trigger)
 {
@@ -122,47 +188,53 @@ const char* CameraManager::admit(const RecoveryTrigger trigger)
     }
     const int64_t now = esp_timer_get_time();
     RecoveryRefusal refusal = RecoveryRefusal::Count;
+    bool not_held = false;
+    bool suspended_now = false;
+    bool resumed = false;
+    portENTER_CRITICAL(&stats_lock);
+    // Frames stopped before the last restart had held.
+    if (trigger == RecoveryTrigger::FrameTimeout && watching.load(std::memory_order_relaxed))
+    {
+        not_held = true;
+        suspended_now = this->endWatchLocked(false, now);
+    }
     if (last_attempt_us != 0 && now - last_attempt_us < kCooldownUs)
     {
         refusal = RecoveryRefusal::Cooldown;
     }
-    else if (isAutomatic(trigger))
+    else if (isAutomatic(trigger) && stats.suspended)
     {
-        int recent = 0;
-        for (const int64_t t : auto_attempts_us)
-        {
-            if (t != 0 && now - t < kRateWindowUs)
-            {
-                ++recent;
-            }
-        }
-        if (stats.suspended)
+        if (now - last_unheld_us < kResumeAfterUs)
         {
             refusal = RecoveryRefusal::Suspended;
         }
-        else if (recent >= kRateMaxAttempts)
+        else
         {
-            refusal = RecoveryRefusal::RateLimited;
+            stats.suspended = false;
+            stats.unheld_in_row = 0;
+            ++stats.resumes;
+            resumed = true;
         }
     }
-
-    if (refusal == RecoveryRefusal::Count)
+    if (refusal != RecoveryRefusal::Count)
     {
-        if (isAutomatic(trigger))
-        {
-            rate_warned = false;
-        }
-        return nullptr;
+        ++stats.refused[static_cast<int>(refusal)];
     }
-    portENTER_CRITICAL(&stats_lock);
-    ++stats.refused[static_cast<int>(refusal)];
     portEXIT_CRITICAL(&stats_lock);
-    if (refusal == RecoveryRefusal::RateLimited && !rate_warned)
+
+    if (not_held)
     {
-        rate_warned = true;
-        ESP_LOGW(CAMERA_RECOVERY_TAG, "Automatic camera recovery paused: %d attempts within 10 min", kRateMaxAttempts);
+        ESP_LOGW(CAMERA_RECOVERY_TAG, "Recovery did not hold: camera lost again within %d s", static_cast<int>(kHoldUs / 1000000));
     }
-    return recoveryRefusalName(refusal);
+    if (suspended_now)
+    {
+        this->onSuspended();
+    }
+    if (resumed)
+    {
+        ESP_LOGW(CAMERA_RECOVERY_TAG, "Automatic camera recovery resumed after %d min without a failure", static_cast<int>(kResumeAfterUs / 60000000));
+    }
+    return refusal == RecoveryRefusal::Count ? nullptr : recoveryRefusalName(refusal);
 }
 
 // Camera task only, after every restart that ran.
@@ -176,11 +248,6 @@ void CameraManager::recordCycle(const RecoveryTrigger trigger, const CycleReport
 
     const int64_t now = esp_timer_get_time();
     last_attempt_us = now;
-    if (isAutomatic(trigger))
-    {
-        auto_attempts_us[auto_attempts_next] = now;
-        auto_attempts_next = (auto_attempts_next + 1) % (sizeof(auto_attempts_us) / sizeof(auto_attempts_us[0]));
-    }
 
     const bool success = report.failed_step == nullptr;
     RecoveryEntry entry{};
@@ -189,40 +256,42 @@ void CameraManager::recordCycle(const RecoveryTrigger trigger, const CycleReport
     entry.level = report.level;
     entry.rail = report.rail;
     entry.failed_step = report.failed_step;
+    entry.held = success ? -1 : 0;
     entry.off_ms = report.off_ms;
     entry.first_frame_ms = report.first_frame_ms;
     entry.duration_ms = report.duration_ms;
 
     bool suspended_now = false;
-    uint32_t failures = 0;
     portENTER_CRITICAL(&stats_lock);
     RecoveryCounter& by_trigger = stats.by_trigger[static_cast<int>(trigger)];
     RecoveryCounter& by_level = stats.by_level[static_cast<int>(report.level)];
     ++by_trigger.attempts;
     ++by_level.attempts;
-    if (success)
-    {
-        ++by_trigger.successes;
-        ++by_level.successes;
-    }
     ++stats.rail[static_cast<int>(report.rail)];
-    if (success)
-    {
-        stats.consecutive_failures = 0;
-        stats.suspended = false;
-    }
-    else if (++stats.consecutive_failures >= kSuspendAfterFailures && !stats.suspended)
-    {
-        stats.suspended = true;
-        ++stats.suspensions;
-        suspended_now = true;
-    }
-    failures = stats.consecutive_failures;
     stats.last[stats.last_next] = entry;
     stats.last_next = (stats.last_next + 1) % RecoveryStats::kLast;
     if (stats.last_count < RecoveryStats::kLast)
     {
         ++stats.last_count;
+    }
+    // A new restart ends the watch of the previous one without a verdict.
+    watching.store(false, std::memory_order_relaxed);
+    if (success)
+    {
+        ++by_trigger.successes;
+        ++by_level.successes;
+        if (trigger == RecoveryTrigger::Command)
+        {
+            // Restarted on purpose: the suspension and the count start over.
+            stats.suspended = false;
+            stats.unheld_in_row = 0;
+        }
+        watch_first_frame_us = 0;
+        watching.store(true, std::memory_order_relaxed);
+    }
+    else
+    {
+        suspended_now = this->countUnheldLocked(now);
     }
     portEXIT_CRITICAL(&stats_lock);
 
@@ -236,16 +305,9 @@ void CameraManager::recordCycle(const RecoveryTrigger trigger, const CycleReport
         ESP_LOGE(CAMERA_RECOVERY_TAG, "Recovery failed at %s: %s, %s, rail %s, %lu ms", report.failed_step, recoveryTriggerName(trigger),
                  recoveryLevelName(report.level), railVerdictName(report.rail), static_cast<unsigned long>(report.duration_ms));
     }
-
     if (suspended_now)
     {
-        ESP_LOGW(CAMERA_RECOVERY_TAG, "Automatic camera recovery suspended after %lu failures in a row", static_cast<unsigned long>(failures));
-#if CONFIG_CAMERA_RECOVERY_ESP_RESTART
-        ESP_LOGW(CAMERA_RECOVERY_TAG, "Restarting the ESP in %lu ms as the last resort", static_cast<unsigned long>(kRestartDelayMs));
-        s_restart_marker = kRestartMagic;
-        vTaskDelay(pdMS_TO_TICKS(kRestartDelayMs));
-        esp_restart();
-#endif
+        this->onSuspended();
     }
 }
 

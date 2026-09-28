@@ -175,9 +175,11 @@ menu "Camera power control and recovery"
         default n
         help
             frame_timeout: a consumer got no frame (the driver waited 4 s, up to
-            8 s on the S3). boot_failure: the first camera init failed. Limited by
-            a cooldown, a suspension after three failures in a row and at most ten
-            automatic attempts in ten minutes.
+            8 s on the S3). boot_failure: the first camera init failed. A restart
+            holds when frames keep coming for 30 s afterwards. Three restarts in a
+            row that fail or do not hold suspend the automatic triggers until 5 min
+            pass without a further failure; recover_camera or a reset lifts the
+            suspension at once. 5 s cooldown after every restart.
 
     config CAMERA_AUTO_RECOVERY_MISSED_FRAMES
         int "Missing frames in a row before an automatic restart"

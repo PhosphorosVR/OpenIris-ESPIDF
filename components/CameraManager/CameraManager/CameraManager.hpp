@@ -115,6 +115,8 @@ class CameraManager
     // Consumer side (CameraGate.cpp): a request that got no frame; in_row counts them
     // since the last delivered frame.
     void onFrameMissing(uint32_t in_row);
+    // Consumer side, every delivered frame: tells whether the last restart held.
+    void onFrameDelivered();
     // CameraRecovery.cpp. recover_camera: level_auto picks the strongest level the board
     // has. false when another restart is running.
     bool recover(bool level_auto, RecoveryLevel level, CycleReport& report);
@@ -143,6 +145,9 @@ class CameraManager
     CycleRequest recoveryRequest(RecoveryLevel level) const;
     const char* admit(RecoveryTrigger trigger);
     void recordCycle(RecoveryTrigger trigger, const CycleReport& report);
+    bool endWatchLocked(bool held, int64_t now);
+    bool countUnheldLocked(int64_t now);
+    void onSuspended();
     void checkRestartMarker();
 #if CONFIG_CAMERA_AUTO_RECOVERY
     bool recoverBootFailure();
@@ -160,9 +165,11 @@ class CameraManager
     RecoveryStats stats{};
     mutable portMUX_TYPE stats_lock = portMUX_INITIALIZER_UNLOCKED;
     int64_t last_attempt_us = 0;
-    int64_t auto_attempts_us[10] = {};  // rate window, ring
-    uint8_t auto_attempts_next = 0;
-    bool rate_warned = false;
+    int64_t last_unheld_us = 0;  // last restart that failed or did not hold
+    // The last successful restart until it held or not; fields under stats_lock, the
+    // flag also read without it on every frame.
+    std::atomic<bool> watching{false};
+    int64_t watch_first_frame_us = 0;  // 0 until the first frame after that restart
 #if CONFIG_CAMERA_AUTO_RECOVERY
     bool boot_recovery_done = false;
 #endif

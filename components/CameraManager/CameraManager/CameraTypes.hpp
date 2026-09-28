@@ -123,6 +123,7 @@ struct RecoveryEntry
     RecoveryLevel level = RecoveryLevel::Reinit;
     RailVerdict rail = RailVerdict::NotChecked;
     const char* failed_step = nullptr;  // string literal, nullptr on success
+    int8_t held = -1;                   // 1: frames kept coming for 30 s, 0: did not, -1: open
     uint32_t off_ms = 0;
     uint32_t first_frame_ms = 0;
     uint32_t duration_ms = 0;
@@ -132,7 +133,6 @@ enum class RecoveryRefusal : uint8_t
 {
     Cooldown,
     Suspended,
-    RateLimited,
     Busy,
     Count,
 };
@@ -149,9 +149,12 @@ struct RecoveryStats
     RecoveryCounter by_level[kLevels];      // index: RecoveryLevel
     uint32_t rail[kVerdicts] = {};          // index: RailVerdict
     uint32_t refused[static_cast<int>(RecoveryRefusal::Count)] = {};
+    uint32_t held = 0;           // restarts after which frames kept coming for 30 s
+    uint32_t not_held = 0;       // restarts that worked, but the camera was lost again before
+    uint32_t unheld_in_row = 0;  // failed or not held, since the last one that held
     uint32_t suspensions = 0;
-    uint32_t consecutive_failures = 0;
-    bool suspended = false;              // automatic triggers refused until a success
+    uint32_t resumes = 0;                // suspensions lifted by the quiet time
+    bool suspended = false;              // automatic triggers refused
     bool restarted_by_recovery = false;  // this boot follows a recovery ESP restart
     RecoveryEntry last[kLast];           // ring, newest at (last_next - 1)
     uint8_t last_count = 0;

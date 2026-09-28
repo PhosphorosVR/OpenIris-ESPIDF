@@ -131,11 +131,18 @@ CommandResult getCameraStatusCommand(std::shared_ptr<DependencyRegistry> registr
     for (int n = 0; n < stats.last_count; ++n)
     {
         const RecoveryEntry& e = stats.last[(stats.last_next + RecoveryStats::kLast - 1 - n) % RecoveryStats::kLast];
+        // null while frames are still being watched, or when the next restart came first
+        nlohmann::json held = nullptr;
+        if (e.held >= 0)
+        {
+            held = e.held == 1;
+        }
         last.push_back({
             {"uptime_s", e.uptime_s},
             {"trigger", recoveryTriggerName(e.trigger)},
             {"level", recoveryLevelName(e.level)},
             {"result", e.failed_step ? e.failed_step : "ok"},
+            {"held", held},
             {"rail", railVerdictName(e.rail)},
             {"off_ms", e.off_ms},
             {"first_frame_ms", e.first_frame_ms},
@@ -151,8 +158,11 @@ CommandResult getCameraStatusCommand(std::shared_ptr<DependencyRegistry> registr
         {"automatic", automatic},
         {"strongest_level", recoveryLevelName(cameraManager->strongestLevel())},
         {"suspended", stats.suspended},
-        {"consecutive_failures", stats.consecutive_failures},
+        {"unheld_in_row", stats.unheld_in_row},
+        {"held", stats.held},
+        {"not_held", stats.not_held},
         {"suspensions", stats.suspensions},
+        {"resumes", stats.resumes},
         {"by_trigger", by_trigger},
         {"by_level", by_level},
         {"rail", rail},
@@ -185,8 +195,9 @@ CommandResult getCameraStatusCommand(std::shared_ptr<DependencyRegistry> registr
             successes += counter.successes;
         }
         ESP_LOGW("[CAMERA_RECOVERY]",
-                 "Summary: %lu/%lu ok (command %lu/%lu, frame_timeout %lu/%lu, boot_failure %lu/%lu), rail collapsed %lu partial %lu "
-                 "not_collapsed %lu inconclusive %lu, suspensions %lu, refused %lu/%lu/%lu/%lu, frames missing %lu, reset %s%s",
+                 "Summary: %lu/%lu ok (command %lu/%lu, frame_timeout %lu/%lu, boot_failure %lu/%lu), held %lu not_held %lu, rail collapsed %lu "
+                 "partial %lu not_collapsed %lu inconclusive %lu, suspensions %lu resumes %lu, refused cooldown %lu suspended %lu busy %lu, "
+                 "frames missing %lu, reset %s%s",
                  static_cast<unsigned long>(successes), static_cast<unsigned long>(attempts),
                  static_cast<unsigned long>(stats.by_trigger[static_cast<int>(RecoveryTrigger::Command)].successes),
                  static_cast<unsigned long>(stats.by_trigger[static_cast<int>(RecoveryTrigger::Command)].attempts),
@@ -194,12 +205,14 @@ CommandResult getCameraStatusCommand(std::shared_ptr<DependencyRegistry> registr
                  static_cast<unsigned long>(stats.by_trigger[static_cast<int>(RecoveryTrigger::FrameTimeout)].attempts),
                  static_cast<unsigned long>(stats.by_trigger[static_cast<int>(RecoveryTrigger::BootFailure)].successes),
                  static_cast<unsigned long>(stats.by_trigger[static_cast<int>(RecoveryTrigger::BootFailure)].attempts),
+                 static_cast<unsigned long>(stats.held), static_cast<unsigned long>(stats.not_held),
                  static_cast<unsigned long>(stats.rail[static_cast<int>(RailVerdict::Collapsed)]),
                  static_cast<unsigned long>(stats.rail[static_cast<int>(RailVerdict::Partial)]),
                  static_cast<unsigned long>(stats.rail[static_cast<int>(RailVerdict::NotCollapsed)]),
                  static_cast<unsigned long>(stats.rail[static_cast<int>(RailVerdict::Inconclusive)]), static_cast<unsigned long>(stats.suspensions),
-                 static_cast<unsigned long>(stats.refused[0]), static_cast<unsigned long>(stats.refused[1]),
-                 static_cast<unsigned long>(stats.refused[2]), static_cast<unsigned long>(stats.refused[3]),
+                 static_cast<unsigned long>(stats.resumes), static_cast<unsigned long>(stats.refused[static_cast<int>(RecoveryRefusal::Cooldown)]),
+                 static_cast<unsigned long>(stats.refused[static_cast<int>(RecoveryRefusal::Suspended)]),
+                 static_cast<unsigned long>(stats.refused[static_cast<int>(RecoveryRefusal::Busy)]),
                  static_cast<unsigned long>(status.frames_missing), resetReasonName(status.reset_reason),
                  stats.restarted_by_recovery ? " (by recovery)" : "");
         result["persisted"] = true;

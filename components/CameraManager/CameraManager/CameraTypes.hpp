@@ -154,6 +154,8 @@ struct RecoveryStats
     uint32_t unheld_in_row = 0;  // failed or not held, since the last one that held
     uint32_t suspensions = 0;
     uint32_t resumes = 0;                // suspensions lifted by the quiet time
+    uint32_t unheld_limit = 0;           // unheld_in_row that suspends
+    uint32_t resume_in_s = 0;            // while suspended: quiet time left, lifted at the next trigger after it
     bool suspended = false;              // automatic triggers refused
     bool restarted_by_recovery = false;  // this boot follows a recovery ESP restart
 #if CONFIG_CAMERA_RECOVERY_ESP_RESTART

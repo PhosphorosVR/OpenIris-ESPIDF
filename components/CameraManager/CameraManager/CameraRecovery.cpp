@@ -98,6 +98,12 @@ RecoveryStats CameraManager::recoveryStats() const
 {
     portENTER_CRITICAL(&stats_lock);
     RecoveryStats copy = stats;
+    copy.unheld_limit = kSuspendAfterUnheld;
+    if (copy.suspended)
+    {
+        const int64_t left_us = kResumeAfterUs - (esp_timer_get_time() - last_unheld_us);
+        copy.resume_in_s = left_us > 0 ? static_cast<uint32_t>((left_us + 999999) / 1000000) : 0;
+    }
 #if CONFIG_CAMERA_RECOVERY_ESP_RESTART
     copy.esp_restart_armed = s_restart_marker != kRestartUsed;
 #endif

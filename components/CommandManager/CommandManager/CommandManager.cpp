@@ -39,6 +39,18 @@ std::unordered_map<std::string, CommandType> commandTypeMap = {
     {"get_logs", CommandType::GET_LOGS},
     {"get_persistent_logs", CommandType::GET_PERSISTENT_LOGS},
     {"clear_persistent_logs", CommandType::CLEAR_PERSISTENT_LOGS},
+#if CONFIG_CAMERA_STATUS
+    {"get_camera_status", CommandType::GET_CAMERA_STATUS},
+#endif
+#if CONFIG_CAMERA_POWER_CONTROL
+    {"camera_power_cycle", CommandType::CAMERA_POWER_CYCLE},
+#endif
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+    {"recover_camera", CommandType::RECOVER_CAMERA},
+#endif
+#if CONFIG_CAMERA_TEST_HOOKS
+    {"camera_test_fault", CommandType::CAMERA_TEST_FAULT},
+#endif
 };
 
 std::function<CommandResult()> CommandManager::createCommand(const CommandType type, const nlohmann::json& json) const
@@ -119,6 +131,22 @@ std::function<CommandResult()> CommandManager::createCommand(const CommandType t
         return [this] { return getPersistentLogsCommand(this->registry); };
     case CommandType::CLEAR_PERSISTENT_LOGS:
         return [this] { return clearPersistentLogsCommand(this->registry); };
+#if CONFIG_CAMERA_STATUS
+    case CommandType::GET_CAMERA_STATUS:
+        return [this, json] { return getCameraStatusCommand(this->registry, json); };
+#endif
+#if CONFIG_CAMERA_POWER_CONTROL
+    case CommandType::CAMERA_POWER_CYCLE:
+        return [this, json] { return cameraPowerCycleCommand(this->registry, json); };
+#endif
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+    case CommandType::RECOVER_CAMERA:
+        return [this, json] { return recoverCameraCommand(this->registry, json); };
+#endif
+#if CONFIG_CAMERA_TEST_HOOKS
+    case CommandType::CAMERA_TEST_FAULT:
+        return [this, json] { return cameraTestFaultCommand(this->registry, json); };
+#endif
     default:
         return nullptr;
     }

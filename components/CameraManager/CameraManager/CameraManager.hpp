@@ -18,6 +18,61 @@
 
 #define OV5640_XCLK_FREQ_HZ CONFIG_CAMERA_WIFI_XCLK_FREQ
 
+#if CONFIG_CAMERA_STATUS
+#include <atomic>
+#include "CameraTypes.hpp"
+#if CONFIG_CAMERA_POWER_CONTROL
+#include "CamLines.hpp"
+#endif
+#endif
+
+// Frames for consumers (UVC). With the recovery they pass a gate that the recovery closes
+// before it takes the camera down; without it they are the plain driver calls.
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+camera_fb_t* cameraAcquireFrame();
+void cameraReleaseFrame(camera_fb_t* fb);
+uint16_t cameraSensorPid();
+// A consumer that can abandon a frame (UVC: host stopped the stream mid-transfer) gives
+// it back through this when a restart waits for it.
+enum class ReclaimResult : uint8_t
+{
+    None,      // not asked yet
+    Returned,  // a frame was given back
+    Streaming,  // the host still streams, the frame may be in transfer
+    NoFrame,   // nothing held
+};
+using CameraFrameReclaim = ReclaimResult (*)();
+void cameraGateSetReclaim(CameraFrameReclaim reclaim);
+
+// Diagnostics for get_camera_status.
+struct CameraGateState
+{
+    bool open = false;
+    int in_driver = 0;   // consumers inside esp_camera_fb_get()
+    int frames_out = 0;  // frames handed out, not returned
+    ReclaimResult last_reclaim = ReclaimResult::None;
+    uint32_t drain_timeouts = 0;
+    uint32_t taken_back = 0;    // frames a consumer held without sending, taken back for a restart
+    int timeout_in_driver = 0;  // at the last drain timeout
+    int timeout_frames_out = 0;
+};
+CameraGateState cameraGateState();
+#else
+__attribute__((always_inline)) static inline camera_fb_t* cameraAcquireFrame()
+{
+    return esp_camera_fb_get();
+}
+__attribute__((always_inline)) static inline void cameraReleaseFrame(camera_fb_t* fb)
+{
+    esp_camera_fb_return(fb);
+}
+__attribute__((always_inline)) static inline uint16_t cameraSensorPid()
+{
+    auto* sensor = esp_camera_sensor_get();
+    return sensor ? sensor->id.PID : 0;
+}
+#endif
+
 class CameraManager
 {
    private:
@@ -39,6 +94,92 @@ class CameraManager
     void loadConfigData();
     void setupCameraPinout();
     void setupCameraSensor();
+
+#if CONFIG_CAMERA_STATUS
+   public:
+    CameraStatus getStatus() const;
+    uint16_t sensorPid() const
+    {
+        return status.pid;
+    }
+#if CONFIG_CAMERA_POWER_CONTROL
+    const CamLines& lines() const
+    {
+        return camLines;
+    }
+#endif
+    // CameraCycle.cpp: restart the camera on the camera task and wait for the result.
+    // false when another cycle is running; the report is left untouched then.
+    bool runCycleBlocking(const CycleRequest& request, RecoveryTrigger trigger, CycleReport& report);
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+    // Consumer side (CameraGate.cpp): a request that got no frame; in_row counts them
+    // since the last delivered frame.
+    void onFrameMissing(uint32_t in_row);
+    // Consumer side, every delivered frame: tells whether the last restart held.
+    void onFrameDelivered();
+    // CameraRecovery.cpp. recover_camera: level_auto picks the strongest level the board
+    // has. false when another restart is running.
+    bool recover(bool level_auto, RecoveryLevel level, CycleReport& report);
+    RecoveryStats recoveryStats() const;
+    RecoveryLevel strongestLevel() const;
+#if CONFIG_CAMERA_TEST_HOOKS
+    // nullptr on success, otherwise the reason
+    const char* injectFault(const char* kind);
+#endif
+#endif
+
+   private:
+    // CameraStatus.cpp
+    void beginSetup();
+    void endSetup(esp_err_t result);
+    // CameraCycle.cpp
+    void startCameraTask();
+    static void cameraTask(void* arg);
+    CycleReport runCycle(const CycleRequest& request);
+    void parkPins();
+    void takeDriverDown();
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+    int applyFrameSize(framesize_t frameSize);
+    bool submitCycle(const CycleRequest& request, RecoveryTrigger trigger);
+    // CameraRecovery.cpp
+    CycleRequest recoveryRequest(RecoveryLevel level) const;
+    const char* admit(RecoveryTrigger trigger);
+    void recordCycle(RecoveryTrigger trigger, const CycleReport& report);
+    void watchBootRun();
+    bool endWatchLocked(bool held, int64_t now);
+    bool countUnheldLocked(int64_t now);
+    void onSuspended();
+    void checkRestartMarker();
+#if CONFIG_CAMERA_AUTO_RECOVERY
+    bool recoverBootFailure();
+#endif
+#endif
+
+    CameraStatus status{};
+    bool boot_seen = false;
+    bool in_cycle = false;
+    QueueHandle_t cycle_queue = nullptr;
+    std::atomic<bool> cycle_busy{false};
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+    std::atomic<uint32_t> frames_missing{0};
+    framesize_t requested_framesize = FRAMESIZE_INVALID;
+    RecoveryStats stats{};
+    mutable portMUX_TYPE stats_lock = portMUX_INITIALIZER_UNLOCKED;
+    int64_t last_attempt_us = 0;
+    int64_t last_unheld_us = 0;  // last restart that failed or did not hold
+    // The last start (successful restart, or the run after boot) until it held or not;
+    // fields under stats_lock, the flag also read without it on every frame.
+    std::atomic<bool> watching{false};
+    bool watch_after_recovery = false;  // false: the run after boot
+    int64_t watch_first_frame_us = 0;   // 0 until the first frame after that restart
+#if CONFIG_CAMERA_AUTO_RECOVERY
+    bool boot_recovery_done = false;
+#endif
+#endif
+#if CONFIG_CAMERA_POWER_CONTROL
+    CamLines camLines;
+#endif
+#endif
 };
 
 #endif  // CAMERAMANAGER_HPP

@@ -265,6 +265,9 @@ void CameraManager::setupCameraSensor()
 
 bool CameraManager::setupCamera()
 {
+#if CONFIG_CAMERA_STATUS
+    this->beginSetup();
+#endif
     ESP_LOGI(CAMERA_MANAGER_TAG, "Setting up camera pinout");
     this->setupCameraPinout();
     ESP_LOGI(CAMERA_MANAGER_TAG, "Initializing camera...");
@@ -286,7 +289,14 @@ bool CameraManager::setupCamera()
                  "camera and reboot the device.\r\n");
         constexpr auto event = SystemEvent{EventSource::CAMERA, CameraState_e::Camera_Error};
         xQueueSend(this->eventQueue, &event, 10);
+#if CONFIG_CAMERA_STATUS
+        this->endSetup(hasCameraBeenInitialized);
+#endif
+#if CONFIG_CAMERA_AUTO_RECOVERY
+        return this->recoverBootFailure();
+#else
         return false;
+#endif
     }
 
     // Per-sensor XCLK override applied after detection so SCCB probe stays stable.
@@ -394,6 +404,9 @@ bool CameraManager::setupCamera()
 #if CONFIG_XCLK_GPIO_NUM >= 0
     gpio_set_drive_capability(static_cast<gpio_num_t>(CONFIG_XCLK_GPIO_NUM), GPIO_DRIVE_CAP_0);
 #endif
+#if CONFIG_CAMERA_STATUS
+    this->endSetup(ESP_OK);
+#endif
     return true;
 }
 
@@ -412,14 +425,20 @@ void CameraManager::loadConfigData()
     }
     this->setCameraResolution(requested_frame);
     xSemaphoreTake(sensor_mutex, portMAX_DELAY);
-    camera_sensor->set_quality(camera_sensor, cameraConfig.quality);
-    camera_sensor->set_agc_gain(camera_sensor, cameraConfig.brightness);
+    if (camera_sensor)  // checked again under the lock, see setVFlip()
+    {
+        camera_sensor->set_quality(camera_sensor, cameraConfig.quality);
+        camera_sensor->set_agc_gain(camera_sensor, cameraConfig.brightness);
+    }
     xSemaphoreGive(sensor_mutex);
     ESP_LOGD(CAMERA_MANAGER_TAG, "Loading camera config data done");
 }
 
 int CameraManager::setCameraResolution(const framesize_t frameSize)
 {
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+    return this->applyFrameSize(frameSize);
+#else
     if (!camera_sensor) return -1;
     xSemaphoreTake(sensor_mutex, portMAX_DELAY);
     int ret = -1;
@@ -429,22 +448,23 @@ int CameraManager::setCameraResolution(const framesize_t frameSize)
     }
     xSemaphoreGive(sensor_mutex);
     return ret;
+#endif
 }
 
 int CameraManager::setVFlip(const int direction)
 {
-    if (!camera_sensor) return -1;
     xSemaphoreTake(sensor_mutex, portMAX_DELAY);
-    int ret = camera_sensor->set_vflip(camera_sensor, direction);
+    // Checked under the lock: a camera restart clears camera_sensor.
+    int ret = camera_sensor ? camera_sensor->set_vflip(camera_sensor, direction) : -1;
     xSemaphoreGive(sensor_mutex);
     return ret;
 }
 
 int CameraManager::setHFlip(const int direction)
 {
-    if (!camera_sensor) return -1;
     xSemaphoreTake(sensor_mutex, portMAX_DELAY);
-    int ret = camera_sensor->set_hmirror(camera_sensor, direction);
+    // Checked under the lock: a camera restart clears camera_sensor.
+    int ret = camera_sensor ? camera_sensor->set_hmirror(camera_sensor, direction) : -1;
     xSemaphoreGive(sensor_mutex);
     return ret;
 }

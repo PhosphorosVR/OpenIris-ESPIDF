@@ -12,6 +12,7 @@ void OpenIrisTasks::ScheduleRestart(const int milliseconds)
 
     if (const auto result = esp_timer_create(&args, &timerHandle); result == ESP_OK)
     {
-        esp_timer_start_once(timerHandle, milliseconds);
+        // esp_timer counts in microseconds
+        esp_timer_start_once(timerHandle, static_cast<uint64_t>(milliseconds) * 1000ULL);
     }
 }

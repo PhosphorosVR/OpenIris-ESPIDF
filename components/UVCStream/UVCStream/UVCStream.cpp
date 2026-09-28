@@ -51,13 +51,36 @@ static void reset_pacing_state()
     s_frame_inflight.store(false);
 }
 
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+// Public TinyUSB API; usb_device_uvc.h does not re-export it.
+extern "C" bool tud_video_n_streaming(uint_fast8_t ctl_idx, uint_fast8_t stm_idx);
+
+// A frame in transfer when the host stops the stream never sees its transfer-complete
+// callback and stays here. The frame gate asks for it before a camera restart.
+static ReclaimResult reclaim_abandoned_frame()
+{
+    if (tud_video_n_streaming(0, 0))
+    {
+        return ReclaimResult::Streaming;
+    }
+    camera_fb_t* fb = UVCStreamHelpers::s_fb.cam_fb_p;
+    if (!fb)
+    {
+        return ReclaimResult::NoFrame;
+    }
+    UVCStreamHelpers::s_fb.cam_fb_p = nullptr;
+    reset_pacing_state();
+    cameraReleaseFrame(fb);
+    return ReclaimResult::Returned;
+}
+#endif
+
 static esp_err_t UVCStreamHelpers::camera_start_cb(uvc_format_t format, int width, int height, int rate, void* cb_ctx)
 {
     ESP_LOGI(UVC_STREAM_TAG, "Camera Start");
     ESP_LOGI(UVC_STREAM_TAG, "Format: %d, width: %d, height: %d, rate: %d", format, width, height, rate);
     framesize_t frame_size = FRAMESIZE_240X240;
-    auto* sensor = esp_camera_sensor_get();
-    uint16_t pid = sensor ? sensor->id.PID : 0;
+    uint16_t pid = cameraSensorPid();
 
     if (format != UVC_FORMAT_JPEG)
     {
@@ -110,6 +133,14 @@ static esp_err_t UVCStreamHelpers::camera_start_cb(uvc_format_t format, int widt
 
     cameraHandler->setCameraResolution(frame_size);
 
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+    // A frame abandoned by the previous stream would be overwritten below and lost.
+    if (s_fb.cam_fb_p)
+    {
+        cameraReleaseFrame(s_fb.cam_fb_p);
+        s_fb.cam_fb_p = nullptr;
+    }
+#endif
     s_stopping.store(false);
     reset_pacing_state();
     SendStreamEvent(eventQueue, StreamState_e::Stream_ON);
@@ -127,7 +158,7 @@ static void UVCStreamHelpers::camera_stop_cb(void* cb_ctx)
     // from DRAM so returning the buffer here is safe.
     if (s_fb.cam_fb_p)
     {
-        esp_camera_fb_return(s_fb.cam_fb_p);
+        cameraReleaseFrame(s_fb.cam_fb_p);
         s_fb.cam_fb_p = nullptr;
     }
 
@@ -158,7 +189,7 @@ static uvc_fb_t* UVCStreamHelpers::camera_fb_get_cb(void* cb_ctx)
     // and excessive frame drops that could starve the USB host.
 
     // Acquire a fresh frame
-    camera_fb_t* cam_fb = esp_camera_fb_get();
+    camera_fb_t* cam_fb = cameraAcquireFrame();
     if (!cam_fb)
     {
         return nullptr;
@@ -176,7 +207,7 @@ static uvc_fb_t* UVCStreamHelpers::camera_fb_get_cb(void* cb_ctx)
     if (mgr && s_fb.uvc_fb.len > mgr->getUvcBufferSize())
     {
         ESP_LOGE(UVC_STREAM_TAG, "Frame size %d exceeds UVC buffer size %u", (int)s_fb.uvc_fb.len, (unsigned)mgr->getUvcBufferSize());
-        esp_camera_fb_return(cam_fb);
+        cameraReleaseFrame(cam_fb);
         s_fb.cam_fb_p = nullptr;
         return nullptr;
     }
@@ -193,7 +224,7 @@ static void UVCStreamHelpers::camera_fb_return_cb(uvc_fb_t* fb, void* cb_ctx)
     //  so the camera FB is returned here after USB finishes the transfer).
     if (s_fb.cam_fb_p)
     {
-        esp_camera_fb_return(s_fb.cam_fb_p);
+        cameraReleaseFrame(s_fb.cam_fb_p);
         s_fb.cam_fb_p = nullptr;
     }
     s_frame_inflight.store(false);
@@ -213,6 +244,9 @@ esp_err_t UVCStreamManager::setup()
         }
     }
     uvc_select_frame_profile(use_320);
+#if CONFIG_CAMERA_RECOVERY_ENABLE
+    cameraGateSetReclaim(reclaim_abandoned_frame);
+#endif
 
     // Allocate a fixed-size transfer buffer (compile-time constant)
     uvc_buffer_size = UVCStreamManager::UVC_MAX_FRAMESIZE_SIZE;

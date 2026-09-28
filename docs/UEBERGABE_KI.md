@@ -1,8 +1,11 @@
 # Übergabe an den nächsten KI-Chat: CAM_CE / CAM_RESET, Kamera-Recovery (FaceFocusVR)
 
-Stand 2026-09-28. Zweig `feature/camera-power` @ `3b35ef1`. Nichts ist gepusht, `main` ist unberührt.
+Stand 2026-09-28, nach der Abnahme. `feature/camera-power` ist mit allen Fixes nach `main` gemergt (lokal, nichts gepusht).
 
-**Zuerst lesen:** dieses Dokument, dann [CAM_CE_RESET_Analyse.md](CAM_CE_RESET_Analyse.md). Dort stehen in den Abschnitten 16 und 17 Isolation, Bitgleichheit, Befunde und Hardware-Ergebnisse; Abschnitt 13 enthält die offenen Fragen.
+**Zuerst lesen:**
+1. dieses Dokument,
+2. [ABNAHME_KAMERA_POWER.md](ABNAHME_KAMERA_POWER.md): Ziele, warum das Feature so gebaut ist, Budget nach der Abnahme,
+3. [CAM_CE_RESET_Analyse.md](CAM_CE_RESET_Analyse.md): In den Abschnitten 16 und 17 stehen Isolation, Bitgleichheit, Befunde und Hardware-Ergebnisse; Abschnitt 13 enthält die offenen Fragen.
 
 ---
 
@@ -68,12 +71,12 @@ Stand 2026-09-28. Zweig `feature/camera-power` @ `3b35ef1`. Nichts ist gepusht, 
 
 | Zweig | Inhalt | Status |
 |---|---|---|
-| `feature/camera-power` | alles; enthält die drei Fix-Zweige | aktiv, `3b35ef1` |
+| `feature/camera-power` | alles; enthält die drei Fix-Zweige und die Änderungen aus der Abnahme | nach `main` gemergt |
 | `fix/esp-timer-units` | AP0: `esp_timer` in µs (`restart_device` 2 s statt 2 ms, `start_streaming` 150 ms statt 150 µs) | Basis des Feature-Zweigs |
 | `fix/i2c-nack-busy-wait` | Backport aus IDF v5.5: begrenzte Busy-Warteschleife nach NACK in `esp_driver_i2c` (Projektkopie von v5.4.2 plus Fix, Build-Schutz für andere IDF-Versionen) | gemergt (`ab89e37`) |
 | `fix/serial-no-reset-on-connect` | `tools/openiris_device.py`: DTR/RTS low **vor** dem Öffnen, sonst startet jedes Verbinden im Setup-Modus den ESP neu | gemergt (`a06dd61`) |
 
-Nach `main`: Das entscheidet der Nutzer. Ein Merge von `feature/camera-power` genügt, er enthält alle Fixes.
+Der Merge nach `main` enthält alle Fixes. Die drei Kategorie-B-Fixes betreffen absichtlich jedes Board; der Merge-Text nennt sie.
 
 ### Was umgesetzt ist (Arbeitspakete)
 
@@ -85,6 +88,7 @@ Nach `main`: Das entscheidet der Nutzer. Ein Merge von `feature/camera-power` ge
 | AP3 | Frame-Gate für UVC, Stufen reinit/reset/power_cycle, fester Kamera-Task (6 KB) | `06bc04f`, `2b55766` |
 | AP4 | `recover_camera`, Auto-Auslöser `frame_timeout`/`boot_failure`, Budget, Zähler, optionaler ESP-Neustart, Testhaken | `fbff171` |
 | AP5 (schlank) | `tools/camera_recovery_check.py` | `aa9378e` |
+| Abnahme | Budget neu (gehalten/nicht gehalten, Sperre löst sich nach 5 min), ESP-Neustart höchstens einmal bis wieder ein Start hält, Sensorzeiger unter dem Mutex, Befund C in der Analyse; alle 12 Konfigurationen gebaut, Bitvergleich | `a467192`, `9bf6447`, `8788d32`, `940d1b2` |
 | AP6 | Ergebnisse der ESD-Prüfläufe ins Dokument | **offen** |
 
 ### Kconfig (in `components/CameraManager/Kconfig.projbuild`, FFVR-Werte)
@@ -112,7 +116,7 @@ CONFIG_CAMERA_STATUS=y               abgeleitet, ohne Prompt
   - `RailSense.*`: ADC2-Messung, Werte am oberen ADC-Anschlag auf 3300 mV begrenzt.
   - `CameraCycle.cpp`: Sequenz nach Abschnitt 7, Kamera-Task, `runCycleBlocking`.
   - `CameraGate.*`: Frame-Gate; führt ausgegebene Frames einzeln und übernimmt Frames, die länger als 500 ms draußen sind.
-  - `CameraRecovery.cpp`: Politik, Budget, Zähler, Auslöser, Testhaken.
+  - `CameraRecovery.cpp`: Politik, Budget (Erholung „gehalten" nach 30 s Frames, Sperre nach drei nicht gehaltenen in Folge, Auflösung nach 5 min), Zähler, Auslöser, ESP-Neustart, Testhaken.
   - `CameraStatus.cpp`: Namen, Boot-Hooks, Status.
 - **`components/CameraManager/CameraManager/CameraManager.cpp`:** nur `#if`-Einhängepunkte in `setupCamera()` und `setCameraResolution()`.
 - **`components/UVCStream/UVCStream/UVCStream.cpp`:** Frames über `cameraAcquireFrame`/`cameraReleaseFrame` (ohne Feature `always_inline`-Treiberaufrufe), Rückhol-Haken unter `#if`.
@@ -128,7 +132,7 @@ CONFIG_CAMERA_STATUS=y               abgeleitet, ohne Prompt
 
 | Kommando | Hinweis |
 |---|---|
-| `get_camera_status {"persist": false}` | Zustand, Leitungen, Recovery-Zähler, Gate, Heap, Reset-Grund. `persist: true` schreibt eine WARN-Zusammenfassung in den persistenten Log |
+| `get_camera_status {"persist": false}` | Zustand, Leitungen, Recovery-Zähler (`held`, `not_held`, `unheld_in_row`, `suspended`, `suspensions`, `resumes`, je Eintrag `held`), Gate, Heap, Reset-Grund. `persist: true` schreibt eine WARN-Zusammenfassung in den persistenten Log |
 | `recover_camera {"level": "auto"\|"reinit"\|"reset"\|"power_cycle"}` | auch im UVC-Stream; Cooldown 5 s |
 | `camera_power_cycle {"off_ms": 1..30000, "trace": bool, "force": bool}` | nur ohne laufendes UVC (Setup-Modus) |
 | `camera_test_fault {"kind": "hold_reset"\|"sensor_standby"}` | nur mit `CONFIG_CAMERA_TEST_HOOKS=y` |
@@ -147,7 +151,7 @@ CONFIG_CAMERA_STATUS=y               abgeleitet, ohne Prompt
   3. **Kamera an geknicktem Flachbandkabel:** Die Kamera, die ursprünglich an eye_R steckte, erzeugt nach Power-Cycles SCCB-NACKs. Per Tausch belegt; **diese Kamera steckt jetzt an eye_L**. Sie ist ein guter Prüfling.
   4. **IDF-I2C-Endlosschleife nach NACK:** Behoben per Backport.
   5. **Drain-Timeout nach dem Schließen der Kamera-App:** Windows beendet den Stream nicht, sondern holt nur nicht mehr ab. Behoben im Gate: Frames, die länger als 500 ms draußen sind, übernimmt der Neustart.
-- **Auf Hardware nicht ausgelöst** (jede Recovery gelang): Sperre nach 3 Fehlschlägen, Ratenlimit (10 in 10 min), `boot_failure`, ESP-Neustart. Diese Pfade sind nur per Review geprüft.
+- **Auf Hardware nicht ausgelöst:** das Budget nach der Abnahme (gehalten/nicht gehalten, Sperre, Auflösung nach 5 min), `boot_failure`, ESP-Neustart. Diese Pfade sind nur per Review und Build geprüft; zur Zeit der Änderung war keine Platine angeschlossen. Testablauf: Abnahme, Abschnitt 4.
 
 ---
 
@@ -202,6 +206,13 @@ lines = cb.merged_defaults(cb.sbt.normalize_board_name("facefocusvr_eye_L"))
 
 ⚠ Falle: Wird `sdkconfig.defaults` nur beim ersten Mal geschrieben, fehlen später neue Symbole. So war ein Build ohne Recovery entstanden.
 
+⚠ Falle: Ohne `-D IDF_TARGET=<ziel>` rät IDF das Ziel aus dem eingecheckten `sdkconfig` des Baums (esp32s3), nicht aus `SDKCONFIG_DEFAULTS`. Für die S3-Boards fällt das nicht auf, klassische ESP32-Boards scheitern dann mit „Failed to resolve component 'tinyusb'". Also immer `-D IDF_TARGET` mitgeben, dazu die Umgebungsvariable `IDF_TARGET`, weil einige Komponenten `$ENV{IDF_TARGET}` abfragen.
+
+**Klassische ESP32-Boards** (`esp32AIThinker`, `esp32Cam`, `esp32M5Stack`) bauen in einem eigenen Worktree `../OpenIris-refbuilds/wt32`:
+- Dort liegt `components/usb_device_uvc` außerhalb von `components/` (in `../OpenIris-refbuilds/wt32_parked/`), so wie es `switchBoardType.py` beim Plattformwechsel tut.
+- `managed_components` ist hineinkopiert; die `dependencies.lock` dort passt der Komponentenmanager beim ersten Build an.
+- Zuletzt gebaut beim Merge nach `main` (Abnahme, Abschnitt 6).
+
 Alternativ wie gewohnt: `uv run tools/switchBoardType.py --board facefocusvr_eye_L`, dann `idf.py build`. Das überschreibt das eingecheckte `sdkconfig`.
 
 ### Modus wechseln, Ports
@@ -235,22 +246,24 @@ uv run tools/camera_power_bench.py --port COMx --cycles 5 --trace --out f.jsonl 
 
 ## 6. Offene Punkte
 
-1. **AP6:** Ergebnisse der ESD-Prüfläufe ins Analyse-Dokument. Vorher `set_debug_log_enabled true` senden, am Ende `get_camera_status {"persist": true}` und `get_persistent_logs`.
-2. **Merge nach `main`:** Entscheidung des Nutzers.
-3. **Pfade nur per Review geprüft:** Sperre, Ratenlimit, `boot_failure`, ESP-Neustart. Optional ließe sich ein Testhaken „nächste Recovery scheitern lassen“ bauen; der Nutzer hat ihn bisher nicht beauftragt. **Kein** Kabelziehen im Betrieb vorschlagen.
-4. **Offene Fragen aus dem Analyse-Dokument:**
+1. **AP6:** Ergebnisse der ESD-Prüfläufe ins Analyse-Dokument. Vorher `set_debug_log_enabled true` senden, am Ende `get_camera_status {"persist": true}` und `get_persistent_logs`. Grundlage nach IEC 61000-4-2: mindestens 10 Entladungen je Punkt und Polarität im Abstand von 1 s, mehrere Punkte. Das ist die Untergrenze; den konkreten Plan bestätigt der Nutzer noch.
+2. **Budget auf Hardware prüfen:** Das neue Budget und der ESP-Neustart sind nur per Review und Build geprüft. Testablauf mit Test-Build: Abnahme, Abschnitt 4. Die Sperre lässt sich mit `camera_test_fault hold_reset` innerhalb von 30 s nach jeder Erholung provozieren. `boot_failure` ist weiter nicht provoziert. **Kein** Kabelziehen im Betrieb vorschlagen.
+3. **IDF-Version und vendorter I2C-Treiber: nichts anfangen.** Der nächste Schritt des Nutzers ist, auf das Upstream-Repo zu gehen und die Änderungen von dort zu übernehmen.
+4. **Rail-Check bleibt** (Entscheidung des Nutzers). Schritt 1 (Spur und adaptive Verlängerung entfernen) ist freigegeben, aber nicht gemacht. Schritt 2 (Check entfernen) erst, wenn eine Fertigungsprüfung den CE-Pfad abdeckt.
+5. **Offene Fragen aus dem Analyse-Dokument:**
    - F19: Revision des OV2640-Boards.
    - F20: schaltbarer USB-Port für Kaltstarts.
    - F21: `LogManager`-Sammelpuffer ist unbegrenzt; Kategorie-B-Kandidat, vorher fragen.
    - F22: Referenzkonfigurationen; `project_babble` und `wrooms3` wurden ohne Einwand genutzt.
-5. **Bekannte Eigenheit im UVC-Code (nicht geändert, nur benannt):** `camera_stop_cb` läuft nur bei USB-Suspend. Schließt der Host die Kamera, bleibt der letzte Frame in einer hängenden Übertragung liegen. Ohne Feature erholt sich der Code beim nächsten Stream-Start; mit Feature fängt das Gate es ab.
-6. **`tests/utils.py`:** wartet nach jedem Verbinden `SWITCH_MODE_REBOOT_TIME`. Seit dem Reset-Fix ist das länger als nötig, aber unschädlich.
+6. **Bekannte Eigenheit im UVC-Code (nicht geändert, nur benannt):** `camera_stop_cb` läuft nur bei USB-Suspend. Schließt der Host die Kamera, bleibt der letzte Frame in einer hängenden Übertragung liegen. Ohne Feature erholt sich der Code beim nächsten Stream-Start; mit Feature fängt das Gate es ab.
+7. **`tests/utils.py`:** wartet nach jedem Verbinden `SWITCH_MODE_REBOOT_TIME`. Seit dem Reset-Fix ist das länger als nötig, aber unschädlich.
 
 ---
 
 ## 7. Aktueller Zustand der angeschlossenen Hardware (Rev.5-Platine)
 
 - Alle drei ESPs tragen Firmware **3.0.1** aus `e01f02b`. Die ist funktional identisch zu 1.3.1, nur der Versionsstring unterscheidet sich; auf Wunsch des Nutzers wurde nicht neu geflasht.
+- ⚠ Die Änderungen aus der Abnahme (neues Budget, ESP-Neustart, Setter) sind auf keinem Gerät. Eine neue Version und neue Release-Bins entscheidet der Nutzer; die Version steht weiter auf 1.3.1.
 - NVS gelöscht, UVC-Modus, Automatik an, keine Testhaken.
 - **Release-Bins 1.3.1** (aus `3b35ef1`, `idf.py merge-bin -f raw`) liegen unversioniert im Repo-Wurzelordner:
   - `FFVR Eye L [1.3.1].bin`
@@ -263,7 +276,7 @@ uv run tools/camera_power_bench.py --port COMx --cycles 5 --trace --out f.jsonl 
 
 ## 8. Fallen, die schon einmal Zeit gekostet haben
 
-- **`sed -i` in Git-Bash** stellt CRLF-Dateien auf LF um. Für Git egal (autocrlf), der Diff bleibt sauber; für gezielte Ersetzungen besser Python.
+- **`sed -i` in Git-Bash** stellt CRLF-Dateien auf LF um. Für Git egal (autocrlf), der Diff bleibt sauber; für gezielte Ersetzungen besser Python. Außerdem ist `\U` in der Ersetzung von GNU-sed der Befehl „ab hier groß schreiben": Windows-Pfade wie `C:\Users` werden dabei zerstört.
 - **Sicherheitsprüfung des PowerShell-Werkzeugs:** Sie blockiert manchmal harmlose Befehle mit „Remove-Item on system path '/c'“. Ohne `Remove-Item` arbeiten (`[System.IO.File]::Delete`) und lange Befehle aufteilen.
 - **Das eingecheckte `sdkconfig`:** Es ist die expandierte Konfiguration von eye_L. Neue Kconfig-Symbole von Hand eintragen, dann per `idf.py -B <tmp> -D SDKCONFIG=<kopie> reconfigure` gegenprüfen, ob kconfgen dieselbe Datei erzeugt.
 - **ADC2 (S3, 12 dB):** Die versorgte Kamera klemmt das Pad auf ~3,1 V, an der Grenze des Messbereichs. Vollausschlag wird auf ~4,97 V extrapoliert, deshalb begrenzt `RailSense` auf 3300 mV. Der eye_R-Platz misst systematisch höher (Board-/ESP-Seite, für das Verdikt egal).

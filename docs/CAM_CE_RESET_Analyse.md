@@ -1,6 +1,6 @@
 # CAM_CE / CAM_RESET (Rev.5): Analyse und Plan
 
-**Umsetzung:** B0 und AP1–AP4 sind umgesetzt und auf Hardware geprüft, Stand und Abweichungen stehen in Abschnitt 17.
+**Umsetzung:** B0 und AP1–AP4 sind umgesetzt und auf Hardware geprüft, Stand und Abweichungen stehen in Abschnitt 17. Abnahme und die Änderungen danach: 17.9 und [ABNAHME_KAMERA_POWER.md](ABNAHME_KAMERA_POWER.md).
 
 Stand 3 vom 2026-09-27. Stand 3 zieht die Isolation durch (neuer Abschnitt 16) und arbeitet deine Antworten auf F13–F18 ein; alles Übrige ist Stand 2. Basis ist `main` @ `35e815a`. Der Vorab-Fix (AP0) liegt als `9156d3e` auf dem Zweig `fix/esp-timer-units`. Für CAM_CE und CAM_RESET gibt es bis zur Freigabe keinen Code; alle Schnipsel sind Skizzen.
 
@@ -927,6 +927,26 @@ AP1–AP5 (AP5 schlank) sind umgesetzt und auf Rev.4.5 bzw. Rev.5 geprüft; F16,
 1. **AP6:** Ergebnisse der ESD-Prüfläufe nach `docs/`.
 2. **Nach `main`:** deine Entscheidung. Weil der Feature-Zweig alle Fixes enthält, genügt ein Merge von `feature/camera-power`; einzeln wären die Fix-Zweige ebenfalls mergebar.
 4. Die ESD-Prüfung selbst; vorher `set_debug_log_enabled true`, am Ende `get_camera_status {"persist": true}`.
+
+### 17.9 Abnahme und Änderungen danach (2026-09-28)
+
+Die Abnahme gegen die Ziele samt Erklärung, warum das Feature so gebaut ist, steht in [ABNAHME_KAMERA_POWER.md](ABNAHME_KAMERA_POWER.md). Daraus folgten diese Änderungen:
+
+| Commit | Inhalt |
+|---|---|
+| `a467192` | **Budget neu.** Das Ratenfenster (10 automatische Versuche in 10 min) ist entfallen, weil es auch gelungene Erholungen zählte und nach zwei ESD-Prüfpunkten aufgebraucht wäre. Eine Erholung gilt als gehalten, wenn nach ihrem ersten Frame 30 s lang Frames kommen; gehaltene zählen gegen kein Budget. Drei Neustarts in Folge, die scheitern oder nicht halten, sperren die Automatik. Die Sperre löst sich nach 5 min ohne weiteren Fehlschlag selbst; `recover_camera` oder ein Reset heben sie sofort auf. Der Cooldown von 5 s bleibt |
+| `9bf6447` | **ESP-Neustart (Option, Default aus) höchstens einmal**, bis wieder ein Start gehalten hat, auch der Lauf direkt nach dem Boot. RTC-Marker „pending", dann „used" über weitere Resets hinweg, gelöscht nach 30 s Frames oder durch Power-on (Befund A: vorher mögliche Neustartschleife) |
+| `8788d32` | **Sensorzeiger unter dem Mutex prüfen** in `setVFlip()`, `setHFlip()` und `loadConfigData()`; der Kommentar in `takeDriverDown()` behauptete das schon vorher. Kategorie B, die drei Funktionen haben keinen Aufrufer und landen in keinem Image |
+| `940d1b2` | **Befund C:** Der Rail-Check belegt „Schiene nahe 0 V", nicht „keine Rückspeisung" (korrigiert in Abschnitt 5, Hinweis in Abschnitt 4). Kommentar an `parkPins()` |
+
+Der Rail-Check bleibt (Entscheidung des Nutzers, Begründung in der Abnahme, 3.4). Die neuen Regeln und der ESP-Neustart sind auf Hardware noch nicht ausgelöst worden; ein Testablauf steht in der Abnahme, Abschnitt 4.
+
+**Vor dem Merge nach `main` (Stand `940d1b2`):**
+- Alle 12 Boardkonfigurationen bauen, erstmals auch die drei klassischen ESP32; dazu drei Varianten des Features.
+- Aus dem Zweig kommen keine neuen Warnungen.
+- Bitvergleich gegen Baseline 2: `project_babble` und `wrooms3` identisch.
+
+Einzelheiten: Abnahme, Abschnitt 6.
 
 ---
 

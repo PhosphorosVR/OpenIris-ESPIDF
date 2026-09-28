@@ -192,8 +192,9 @@ menu "Camera power control and recovery"
         depends on CAMERA_AUTO_RECOVERY
         default n
         help
-            Last resort after three failed restarts in a row. The next boot reports
-            it separately from other resets.
+            Last resort when the automatic triggers get suspended. At most once
+            until a start holds again (frames for 30 s), so it cannot loop. The
+            next boot reports it separately from other resets.
 
     config CAMERA_TEST_HOOKS
         bool "camera_test_fault command (provoke a camera outage)"

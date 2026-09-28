@@ -145,6 +145,7 @@ class CameraManager
     CycleRequest recoveryRequest(RecoveryLevel level) const;
     const char* admit(RecoveryTrigger trigger);
     void recordCycle(RecoveryTrigger trigger, const CycleReport& report);
+    void watchBootRun();
     bool endWatchLocked(bool held, int64_t now);
     bool countUnheldLocked(int64_t now);
     void onSuspended();
@@ -166,10 +167,11 @@ class CameraManager
     mutable portMUX_TYPE stats_lock = portMUX_INITIALIZER_UNLOCKED;
     int64_t last_attempt_us = 0;
     int64_t last_unheld_us = 0;  // last restart that failed or did not hold
-    // The last successful restart until it held or not; fields under stats_lock, the
-    // flag also read without it on every frame.
+    // The last start (successful restart, or the run after boot) until it held or not;
+    // fields under stats_lock, the flag also read without it on every frame.
     std::atomic<bool> watching{false};
-    int64_t watch_first_frame_us = 0;  // 0 until the first frame after that restart
+    bool watch_after_recovery = false;  // false: the run after boot
+    int64_t watch_first_frame_us = 0;   // 0 until the first frame after that restart
 #if CONFIG_CAMERA_AUTO_RECOVERY
     bool boot_recovery_done = false;
 #endif

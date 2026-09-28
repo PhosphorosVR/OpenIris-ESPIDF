@@ -156,6 +156,9 @@ struct RecoveryStats
     uint32_t resumes = 0;                // suspensions lifted by the quiet time
     bool suspended = false;              // automatic triggers refused
     bool restarted_by_recovery = false;  // this boot follows a recovery ESP restart
+#if CONFIG_CAMERA_RECOVERY_ESP_RESTART
+    bool esp_restart_armed = false;  // false after such a restart until a start held
+#endif
     RecoveryEntry last[kLast];           // ring, newest at (last_next - 1)
     uint8_t last_count = 0;
     uint8_t last_next = 0;

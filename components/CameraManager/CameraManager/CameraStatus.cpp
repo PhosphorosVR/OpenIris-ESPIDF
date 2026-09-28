@@ -183,6 +183,7 @@ void CameraManager::endSetup(const esp_err_t result)
     // Within a cycle the gate opens only after the first frame proved the camera.
     if (!in_cycle)
     {
+        this->watchBootRun();
         cameraGateOpen();
     }
 #endif

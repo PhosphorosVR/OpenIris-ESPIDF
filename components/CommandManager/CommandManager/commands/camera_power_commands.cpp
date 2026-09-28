@@ -171,6 +171,9 @@ CommandResult getCameraStatusCommand(std::shared_ptr<DependencyRegistry> registr
         {"restarted_by_recovery", stats.restarted_by_recovery},
         {"last", last},
     };
+#if CONFIG_CAMERA_RECOVERY_ESP_RESTART
+    result["recovery"]["esp_restart_armed"] = stats.esp_restart_armed;
+#endif
     static constexpr const char* kReclaimNames[] = {"none", "returned", "streaming", "no_frame"};
     const CameraGateState gate = cameraGateState();
     result["gate"] = {

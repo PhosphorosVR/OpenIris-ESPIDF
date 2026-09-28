@@ -31,7 +31,10 @@ constexpr uint32_t kRestartDelayMs = CONFIG_DEBUG_LOG_FLUSH_INTERVAL_MS + 2000;
 #else
 constexpr uint32_t kRestartDelayMs = 500;
 #endif
-constexpr uint32_t kRestartMagic = 0x43414d52;  // "CAMR"
+constexpr uint32_t kRestartPending = 0x43414d52;  // "CAMR": set just before the restart
+// "CAMU": a restart happened and no start has held since; no second one until then,
+// across any further reset, so it cannot loop.
+constexpr uint32_t kRestartUsed = 0x43414d55;
 #endif
 
 bool isAutomatic(const RecoveryTrigger trigger)
@@ -41,7 +44,7 @@ bool isAutomatic(const RecoveryTrigger trigger)
 }  // namespace
 
 #if CONFIG_CAMERA_RECOVERY_ESP_RESTART
-// Survives a software reset and needs no flash write.
+// Survives every reset but power-on and needs no flash write.
 RTC_NOINIT_ATTR static uint32_t s_restart_marker;
 #endif
 
@@ -94,7 +97,10 @@ bool CameraManager::recover(const bool level_auto, const RecoveryLevel level, Cy
 RecoveryStats CameraManager::recoveryStats() const
 {
     portENTER_CRITICAL(&stats_lock);
-    const RecoveryStats copy = stats;
+    RecoveryStats copy = stats;
+#if CONFIG_CAMERA_RECOVERY_ESP_RESTART
+    copy.esp_restart_armed = s_restart_marker != kRestartUsed;
+#endif
     portEXIT_CRITICAL(&stats_lock);
     return copy;
 }
@@ -137,10 +143,31 @@ void CameraManager::onFrameDelivered()
     portEXIT_CRITICAL(&stats_lock);
 }
 
+// Boot only, camera up without a restart. Watched like a restart, but only to re-arm the
+// ESP restart; it counts nowhere.
+void CameraManager::watchBootRun()
+{
+    portENTER_CRITICAL(&stats_lock);
+    watch_after_recovery = false;
+    watch_first_frame_us = 0;
+    watching.store(true, std::memory_order_relaxed);
+    portEXIT_CRITICAL(&stats_lock);
+}
+
 // Under stats_lock. true: this suspends the automatic triggers.
 bool CameraManager::endWatchLocked(const bool held, const int64_t now)
 {
     watching.store(false, std::memory_order_relaxed);
+#if CONFIG_CAMERA_RECOVERY_ESP_RESTART
+    if (held)
+    {
+        s_restart_marker = 0;  // the camera runs again: the ESP restart is available again
+    }
+#endif
+    if (!watch_after_recovery)
+    {
+        return false;
+    }
     // The watched restart is the newest entry: every restart ends the previous watch.
     stats.last[(stats.last_next + RecoveryStats::kLast - 1) % RecoveryStats::kLast].held = held ? 1 : 0;
     if (!held)
@@ -172,8 +199,13 @@ void CameraManager::onSuspended()
     ESP_LOGW(CAMERA_RECOVERY_TAG, "Automatic camera recovery suspended after %lu restarts in a row that did not hold, resumes after %d min without a failure",
              static_cast<unsigned long>(kSuspendAfterUnheld), static_cast<int>(kResumeAfterUs / 60000000));
 #if CONFIG_CAMERA_RECOVERY_ESP_RESTART
+    if (s_restart_marker == kRestartUsed)
+    {
+        ESP_LOGW(CAMERA_RECOVERY_TAG, "No ESP restart: the camera has not held since the last one");
+        return;
+    }
     ESP_LOGW(CAMERA_RECOVERY_TAG, "Restarting the ESP in %lu ms as the last resort", static_cast<unsigned long>(kRestartDelayMs));
-    s_restart_marker = kRestartMagic;
+    s_restart_marker = kRestartPending;
     vTaskDelay(pdMS_TO_TICKS(kRestartDelayMs));
     esp_restart();
 #endif
@@ -195,7 +227,7 @@ const char* CameraManager::admit(const RecoveryTrigger trigger)
     // Frames stopped before the last restart had held.
     if (trigger == RecoveryTrigger::FrameTimeout && watching.load(std::memory_order_relaxed))
     {
-        not_held = true;
+        not_held = watch_after_recovery;
         suspended_now = this->endWatchLocked(false, now);
     }
     if (last_attempt_us != 0 && now - last_attempt_us < kCooldownUs)
@@ -286,6 +318,7 @@ void CameraManager::recordCycle(const RecoveryTrigger trigger, const CycleReport
             stats.suspended = false;
             stats.unheld_in_row = 0;
         }
+        watch_after_recovery = true;
         watch_first_frame_us = 0;
         watching.store(true, std::memory_order_relaxed);
     }
@@ -314,12 +347,16 @@ void CameraManager::recordCycle(const RecoveryTrigger trigger, const CycleReport
 void CameraManager::checkRestartMarker()
 {
 #if CONFIG_CAMERA_RECOVERY_ESP_RESTART
-    if (s_restart_marker == kRestartMagic && status.reset_reason == ESP_RST_SW)
+    const bool pending = s_restart_marker == kRestartPending;
+    if (pending && status.reset_reason == ESP_RST_SW)
     {
         stats.restarted_by_recovery = true;
         ESP_LOGW(CAMERA_RECOVERY_TAG, "This boot follows an ESP restart by the camera recovery");
     }
-    s_restart_marker = 0;
+    // Power-on leaves the RTC memory undefined; after any other reset the restart stays
+    // used until a start holds.
+    const bool used = pending || s_restart_marker == kRestartUsed;
+    s_restart_marker = used && status.reset_reason != ESP_RST_POWERON ? kRestartUsed : 0;
 #endif
 }
 

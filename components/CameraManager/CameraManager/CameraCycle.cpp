@@ -111,10 +111,12 @@ RailPoint point(int64_t since_us, const int (&mv)[2])
 }  // namespace
 
 // Camera off: nothing may feed the dead rail. esp_camera_init() configures every one
-// of these pins again, so parking never needs undoing.
+// of these pins again, so parking never needs undoing. No test notices a missing park:
+// the rail check cannot see XCLK and misses small feeds (analysis doc, section 5).
 void CameraManager::parkPins()
 {
-    // XCLK has no path into DOVDD, 3.3 V on it exceeds VDD-IO + 1 V (DS tab. 8-1).
+    // XCLK has no path into DOVDD, 3.3 V on it exceeds VDD-IO + 1 V (DS tab. 8-1). On the
+    // S3 the deinit leaves it routed to the camera clock; gpio_config() releases it.
     // DVP pads are camera outputs; pulled high, the output PMOS would feed the rail.
     uint64_t pulldown = pinBit(CONFIG_XCLK_GPIO_NUM);
     for (const int pin : kDvpPins)

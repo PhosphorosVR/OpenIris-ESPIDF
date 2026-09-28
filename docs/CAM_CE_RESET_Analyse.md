@@ -178,6 +178,8 @@ Es gilt DS §2.4.2 „power up with external DVDD source" (S. 27).
 | RESETB (GPIO8) | interner Pull-up-PMOS nach DOVDD | **Rückspeisung** ≈ 260 µA (deine Rechnung). Das Pad klemmt unterhalb VDD-IO + 1 V |
 | D0…D7, VSYNC | Ausgangs-PMOS nach DOVDD | nur, wenn die ESP-Seite hochzieht. Die Pull-downs verhindern das |
 
+Ob das Parken wirkt, zeigt kein Test: Der Rail-Check aus Abschnitt 5 erkennt ein fehlendes Parken nicht (Korrektur dort).
+
 ---
 
 ## 5. Softwarenachweis: war die Kamera stromlos?
@@ -186,7 +188,13 @@ Es gilt DS §2.4.2 „power up with external DVDD source" (S. 27).
 
 - **2V8_Cx (DOVDD und AVDD): ja, tragfähig, in jedem einzelnen Power-Cycle.** Der Nachweis läuft über einen DVP-Datenpin und ADC2. Er liefert eine obere Schranke für die Schienenspannung am Ende der Aus-Zeit und kann nie fälschlich „stromlos" melden.
 - **1V5_Cx (DVDD): per Software nicht beobachtbar.** Kein ESP-Pin hat einen Pfad in die DVDD-Domäne. Für den ESD-Zweck schließt ein Argument die Lücke weitgehend (siehe „Was offen bleibt"). Belegen lässt es sich nur mit einem einmaligen DMM-Blick (F16).
-- **Der 260-µA-Pfad am Reset-Pin** ist durch das gehaltene RESET geschlossen. Wäre er trotzdem offen, würde der Check „nicht zusammengebrochen" melden.
+- **Der 260-µA-Pfad am Reset-Pin** ist durch das gehaltene RESET geschlossen.
+- **⚠ Korrektur (Abnahme vom 2026-09-28): Der Check belegt „Schiene nahe 0 V", nicht „keine Rückspeisung".**
+  - Hier stand bis zur Abnahme, ein offener 260-µA-Pfad würde als „nicht zusammengebrochen" auffallen. Das stammt aus der Zeit vor den Messungen und hält nicht.
+  - Die Schiene fällt in wenigen Millisekunden unter 1 V (17.6). Sie wird also aktiv entladen oder merklich belastet. Gegen so einen Pfad heben einige hundert µA sie *vermutlich* nicht über die Schwelle von 1 V.
+  - Dass im Aus-Zustand nichts zurückspeist, stützt sich deshalb allein auf Reihenfolge und Parken im Code (Abschnitt 7): RESET gehalten, SCCB ohne Pull-ups, XCLK und DVP mit Pull-down. Belegt ist es nur durch Review.
+  - XCLK sieht der Check grundsätzlich nicht, weil XVCLK keinen Pfad nach DOVDD hat (Abschnitt 2). Ein fehlendes Parken bliebe also in jedem Test unbemerkt; die Kamera käme trotzdem wieder, und der Check meldete weiter `collapsed`.
+  - Prüfen ließe sich das mit einem Test-Build, der RESET absichtlich nicht hält, und einem Vergleich der Endwerte. Das ist nicht gemacht.
 
 ### Verworfene Wege
 
@@ -406,7 +414,7 @@ struct RecoveryReport
 - Eine explizite Stufe ist strikt: Fehlt sie auf dem Board, kommt `not_supported`.
 - Erfolg heißt: Init ok, PID gleich, erster Frame ≤ 2 s.
 
-**Budget (⚠ Abweichung von F7):**
+**Budget (⚠ Abweichung von F7):** ⚠ Nach der Abnahme ersetzt: kein Ratenfenster mehr, die Sperre zählt nur Neustarts, die nicht gehalten haben, und löst sich nach 5 min selbst (17.9). Der folgende Plan ist nur noch Verlauf.
 - Cooldown 5 s nach jedem Versuch.
 - Nach **3 Fehlschlägen in Folge** ist die Automatik gesperrt (`suspended`).
 - **Ratenfenster:** höchstens 10 automatische Versuche pro 10 min.
@@ -416,7 +424,7 @@ struct RecoveryReport
 
 **Endzustand nach Fehlschlag:** Kamera versorgt, CE und RESET losgelassen, Treiber unten (F6).
 
-**ESP-Neustart als letzte Stufe (F15):** eigene Kconfig-Option `CAMERA_RECOVERY_ESP_RESTART`, Default aus.
+**ESP-Neustart als letzte Stufe (F15):** eigene Kconfig-Option `CAMERA_RECOVERY_ESP_RESTART`, Default aus. ⚠ Nach der Abnahme ergänzt: höchstens ein solcher Neustart, bis ein Start wieder gehalten hat (17.9).
 - Ist sie an und die Automatik gesperrt, startet die Firmware den ESP neu.
 - Davor schreibt sie eine WARN-Zeile und setzt einen Marker in `RTC_NOINIT`-Speicher. Der überlebt einen Software-Reset, braucht aber keinen Flash-Zugriff.
 - Der nächste Boot erkennt am Marker „Neustart durch Kamera-Recovery". Er loggt das getrennt und zählt es getrennt von `restart_device` und von einem echten ESD-Reset.

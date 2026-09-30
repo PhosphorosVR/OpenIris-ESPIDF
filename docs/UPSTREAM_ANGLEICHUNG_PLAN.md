@@ -513,7 +513,63 @@ Auf GitHub bleiben `main`, `LUT`, `OV3660`, `fixes`, `v1.0.1_branch` und `v1.0.2
 
 ### 7.2 Releases v1.0.0 bis v1.2.4
 
-Folgt im nächsten Commit.
+**Entscheidung:** Alle fünf Tags werden auf GitHub gelöscht, die Releases werden damit zu Entwürfen.
+- Grund: Die Releases bieten FFVR-Images an, also die zweite Firmwarequelle, die es nach F1 und F4 nicht geben soll.
+- Die CI-Zips anderer Boards dürfen mit verschwinden.
+- Reihenfolge: `v1.0.0` als Probe, dann `v1.0.1` und `v1.0.2`, zuletzt `v1.2.4` und `v1.2.2`.
+
+Stand vor dem Löschen (GitHub-API, 2026-09-30):
+
+| Release | veröffentlicht | Tag → Commit | in `main` | Anhänge |
+|---|---|---|---|---|
+| v1.0.0 | 2025-10-18 | `1a54226` (Upstream-Merge PR #16) | ja | 3 FFVR-Images 1.0.0 |
+| v1.0.1 | 2026-01-02 | `0ed6037` (`v1.0.1_branch`) | nein | 3 FFVR-Images 1.0.1 |
+| v1.0.2 | 2026-02-19 | `65ceea7` (`v1.0.2_branch`) | nein | keine |
+| v1.2.2 | 2026-04-22 | `000530e` | ja | 3 FFVR-Images 1.2.2 und 9 CI-Zips anderer Boards |
+| v1.2.4 | 2026-04-28 | `91102ba` | ja | 3 FFVR-Images 1.2.4 und 9 CI-Zips anderer Boards |
+
+Die Commits bleiben erhalten: `v1.0.1` und `v1.0.2` über ihre Zweige, die übrigen über `main`.
+
+**FFVR-Images auf GitHub:** Alle sind per SHA-256 identisch mit den Dateien in `../ffvr-multiflash/fw/`.
+
+| GitHub-Anhang | SHA-256 | lokale Kopie |
+|---|---|---|
+| `FFVR.Eye.L.1.0.0.bin` | `c1b4cbb49bbfd216809e4449f386a9328ad6fa5d96dcf659f67cca62d7a1285e` | `fw/100/FFVR Eye L [1.0.0].bin` |
+| `FFVR.Eye.R.1.0.0.bin` | `6b09d8170b897bf8545a7b7b0bc85b7b9168b8cf6d685a32454bbb5d648ad7a1` | `fw/100/FFVR Eye R [1.0.0].bin` |
+| `FFVR.Face.1.0.0.bin` | `83485734c0b88ee2983cfd7eab48cc71e3ac854d1e561bfa59b819a2ab7bc7a6` | `fw/100/FFVR Face [1.0.0].bin` |
+| `FFVR.Eye.L.1.0.1.bin` | `7ee61bcc5f9f7a5465eb3849fea21e283016bba41e270dea0f1aad3352af19c5` | `fw/101/FFVR Eye L [1.0.1].bin` |
+| `FFVR.Eye.R.1.0.1.bin` | `8d6fc2b68238e6442bb021d500bacb5027c5c82082b00a12720b0626f66e1ea0` | `fw/101/FFVR Eye R [1.0.1].bin` |
+| `FFVR.Face.1.0.1.bin` | `fd0e91ce532d7a4678d424c96c2d8bcda0694e864ba80936ac9b0b2adc80beb5` | `fw/101/FFVR Face [1.0.1].bin` |
+| `FFVR.Eye.L.1.2.2.bin` | `0ed83b7559f106b17cbff36fbabd9e6de1b856a4e2c6e04875eb49a4d1725968` | `fw/122/FFVR Eye L [1.2.2].bin` |
+| `FFVR.Eye.R.1.2.2.bin` | `11e53469b47ce9e36274c4f6cef2397843d12957ac1259a6c5efc550864faa4a` | `fw/122/FFVR Eye R [1.2.2].bin` |
+| `FFVR.Face.1.2.2.bin` | `4cba1210848bc73232c14b93451faeaab1ee000dbcbe30949dfb2687ba205e41` | `fw/122/FFVR Face [1.2.2].bin` |
+| `FFVR.Eye.L.1.2.4.bin` | `bcf3ad30a6421eec913b2fde10a4d61512d233ab7052dabf816193eddc2baafe` | `fw/124/FFVR Eye L [1.2.4].bin` |
+| `FFVR.Eye.R.1.2.4.bin` | `5cbd067be96dc9b3512b95d1426b307845ad1e06744ec96fc7fd356e2d3be58b` | `fw/124/FFVR Eye R [1.2.4].bin` |
+| `FFVR.Face.1.2.4.bin` | `cff6681bd48cdba9b95cf3889bdc9f366090fb98636360dc0ecbb5f2b8c8d383` | `fw/124/FFVR Face [1.2.4].bin` |
+
+Für v1.0.2 gab es auf GitHub keine Images. Lokal liegen sie unter `fw/102/`.
+
+**Kern der Release-Texte.** Wörtlich stehen sie in Anhang A.
+- **v1.0.0:** erste Firmware für FaceFocusVR.
+- **v1.0.1:** wie v1.0.0, Augenringe 45 % → 100 %.
+- **v1.0.2:** wie v1.0.0, Augenringe 45 % → 100 % und Gesicht 85 % → 100 %.
+- **LED-Ring-Warnung (ab v1.0.1):** Diese Firmware nicht flashen, wenn die erste Ausgabe des LED-Rings bzw. des Gesichts verbaut ist (LEDs nicht gekapselt, sichtbar). Ist das Bild nach dem Flashen stark überbelichtet, v1.0.0 flashen.
+- **v1.2.2:** **„DO NOT USE, COMMIT 000530E BROKE THE AUTO UPDATE FUNCTION“**. Leistung: Augen 75 %, Gesicht 100 %. Dieselbe LED-Ring-Warnung. Änderungsliste zu Kamera/UVC, Lüfter/LED, LogManager und USB. Unter „Miscellaneous“ steht auch „Removed FFVR boards from the build matrix“, ein Hinweis zu F1.
+- **v1.2.4:** Augen 75 %, Gesicht 100 %, dieselbe LED-Ring-Warnung. Dazu:
+  - OV3660-Stabilität, XCLK 27 → 20 MHz;
+  - Build-Fix für den klassischen ESP32;
+  - Warmstart zurück in den Setup-Modus für das Update-Werkzeug;
+  - Übergabe JTAG → UVC unter Windows repariert;
+  - USB-Trennfenster 200 → 300 ms.
+
+**Was beim Löschen eines Tags passiert:**
+- Der veröffentlichte Release wird zum **Entwurf**: für die Öffentlichkeit unsichtbar, für dich weiter sichtbar, samt angehängten Dateien. Die „Source code“-Knöpfe entfallen. Wird der Tag wieder gepusht, lässt sich der Release erneut veröffentlichen.
+  - Quelle ist ein GitHub-Mitarbeiter im Community-Forum (Diskussion #7008, 2021). Die offizielle Doku sagt dazu nichts.
+- Ein **Release zu löschen** entfernt Eintrag und Anhänge, der Tag bleibt (`gh release delete` hat dafür eine eigene Option `--cleanup-tag`).
+- **Ohne Anmeldung sind Entwürfe nicht sichtbar.** Über die API lässt sich nur prüfen, dass Release und Anhänge öffentlich verschwunden sind. Ob der Entwurf mit Anhängen noch da ist, zeigt nur die Release-Seite, wenn man angemeldet ist.
+- **Selbst im schlechtesten Fall geht nichts verloren:** Alle Images liegen byteidentisch lokal, die Release-Texte stehen wörtlich in Anhang A. Jeder Release ließe sich daraus neu anlegen.
+
+**Ergebnis:** folgt nach dem Löschen.
 
 ### 7.3 Offene Prüfung: Käme das 1.3.2-Image nach dem Umschreiben noch einmal byteidentisch heraus?
 
@@ -530,3 +586,119 @@ egal ob über `PROJECT_VER`, den App-Deskriptor von IDF oder eine erzeugte Kopfd
 
 Die Vergleiche über Commits hinweg waren identisch, aber nur bei den Referenzbuilds. Diese setzen in `tools/compare_builds.py` `APP_REPRODUCIBLE_BUILD` und `APP_PROJECT_VER="reference"` fest, die normalen Produktbuilds nicht. Die identischen Vergleiche beantworten die Frage deshalb nicht.
 
+---
+
+## Anhang A: Release-Texte wörtlich
+
+Gelesen über die GitHub-API am 2026-09-30, bevor die Tags gelöscht wurden. Die Texte sind unverändert übernommen, einschließlich Tippfehlern.
+
+### v1.0.0 (veröffentlicht 2025-10-18, Release-ID 255552803)
+
+```text
+Initial firmware release for FaceFocusVR boards.
+```
+
+### v1.0.1 (veröffentlicht 2026-01-02, Release-ID 273856991)
+
+```text
+This firmware is the same as v1.0.0, but with increased power output for the eye rings (45% → 100%).
+In the newer IR ring design, the LEDs are encased in an additional plastic layer, which reduces light output. Therefore, more power is required to ensure the light remains clearly visible through the plastic.
+
+DO NOT FLASH THIS FIRMWARE IF YOU ARE USING THE FIRST EDITION OF MY LED RING (LEDs not encased and visible).
+
+After flashing, check the brightness in Babylonina. If the image is extremely bright (overexposed), flash v1.0.0 instead.
+
+**Full Changelog**: https://github.com/PhosphorosVR/OpenIris-ESPIDF/compare/v1.0.0...v1.0.1
+```
+
+### v1.0.2 (veröffentlicht 2026-02-19, Release-ID 288102094)
+
+```text
+This firmware is the same as v1.0.0, but with increased power output for the eye rings (45% → 100%) and increased power output for face leds (85% → 100%).
+
+In the newer IR ring/face design, the LEDs are encased in an additional plastic layer, which reduces light output. Therefore, more power is required to ensure the light remains clearly visible through the plastic.
+
+DO NOT FLASH THIS FIRMWARE IF YOU ARE USING THE FIRST EDITION OF MY LED RING/FACE (LEDs not encased and visible).
+
+After flashing, check the brightness in Babylonina. If the image is extremely bright (overexposed), flash v1.0.0 instead.
+
+**Full Changelog**: https://github.com/PhosphorosVR/OpenIris-ESPIDF/compare/v1.0.0...v1.0.2
+```
+
+### v1.2.2 (veröffentlicht 2026-04-22, Release-ID 312326369)
+
+```text
+DO NOT USE, COMMIT 000530E BROKE THE AUTO UPDATE FUNCTION LOL
+
+**Power Output:**
+Eyes: 75%
+Face: 100%
+
+**Important Notice**
+Do not flash this firmware if you are using the first edition of the LED ring/face (LEDs not encased and visible).
+
+<br>
+</br>
+
+
+**Camera & UVC**
+- Added sensor-specific handling for OV3660 and OV2640 (frame sizes, profiles, tuning)
+- Introduced per-sensor XCLK frequency overrides and updated default USB XCLK configuration
+- Improved UVC streaming stability through better pacing and bandwidth handling
+- Fixed buffer management issues and optimized frame transfer
+- Multiple iterations on OV3660 initialization and stability (including reverts where necessary)
+
+**Fan & LED Control**
+- Introduced configurable PWM limits (FAN_PWM_DUTY_MIN / FAN_PWM_DUTY_MAX)
+- Added conditional fan control via CONFIG_FAN_PWM_ENABLE
+- Implemented fan duty cycle linearization with LUT generator
+- Updated fan and LED configuration; removed LED current monitoring
+
+**System & Stability**
+- Introduced camera profiles with sensor-specific configuration sets
+- Added mutexes and general stability improvements
+- Improved error handling in FanManager and SerialManager
+- Addressed camera initialization issues
+
+**Logging & Debugging**
+- Added LogManager with support for RAM and persistent logging
+- Implemented commands for retrieving, clearing, and managing logs
+- Added configuration and runtime control for debug logging
+
+**USB & Low-Level Improvements**
+- Improved USB disconnect detection
+- Enhanced USB initialization with proper error reporting and logging
+
+**Miscellaneous**
+- Removed FFVR boards from the build matrix
+- General cleanup and minor fixes
+
+
+
+
+
+**Full Changelog**: https://github.com/PhosphorosVR/OpenIris-ESPIDF/compare/v1.0.0...v1.2.2
+```
+
+### v1.2.4 (veröffentlicht 2026-04-28, Release-ID 314877072)
+
+```text
+Important Notice
+Do not flash this firmware if you are using the first edition of the LED ring/face (LEDs not encased and visible).
+
+FFVR Power Output:
+Eyes: 75%
+Face: 100%
+
+
+- OV3660 sensor stability improvements
+- OV3660 XCLK frequency lowered from 27 MHz to 20 MHz
+- Build fix for classic ESP32 (LEDC_USE_XTAL_CLK guard)
+- Reliable warm reset back into SETUP/boot mode for the update tool
+- Fixed JTAG → UVC handover on Windows (no more re-enumeration as JTAG 0x1001)
+- USB disconnect window bumped 200 ms → 300 ms
+
+
+
+**Full Changelog**: https://github.com/PhosphorosVR/OpenIris-ESPIDF/compare/v1.2.2...v1.2.4
+```

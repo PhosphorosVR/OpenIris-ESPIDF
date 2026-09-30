@@ -197,6 +197,11 @@ Auto-merging tools/setup_openiris.py
   - Grund, der auch in den Merge-Text kommt: Das Produkt wird lokal gebaut, gegen die Baseline geprüft und mit dem eigenen Werkzeug geflasht. CI-Releases mit FFVR-Images wären eine zweite, unkontrollierte Firmwarequelle.
   - Aus demselben Grund verschwinden die FFVR-Images aus den eigenen Releases v1.0.0 bis v1.2.4 (Abschnitt 7.2).
 - **Erledigt:** `bc7c404` war gewollt. Der Release-Text von v1.2.2 nennt „Removed FFVR boards from the build matrix“ als eigene Änderung (Anhang A). Die vorgeschlagene CI-Prüfung entfällt; die Frage stellt sich beim nächsten Abgleich nicht wieder.
+- **Geändert am 2026-10-01: Die CI dieses Repos baut nur noch die drei FFVR-Boards** (`facefocusvr_eye_L`, `facefocusvr_eye_R`, `facefocusvr_face`), keine anderen Boards mehr.
+  - Anlass: Der Push des Tags `v1.3.3` hat über die Action automatisch einen öffentlichen Release mit Firmware für neun fremde Boards erzeugt. Mit denen hat dieses Repo nichts zu tun.
+  - Bei jedem Versions-Tag entsteht damit ein Release mit den **FFVR-Images, gebaut von GitHub**. Das hebt die F1-Entscheidung „keine zweite Firmwarequelle“ auf; der Inhaber will es so.
+  - Ein Tag-Build nimmt den Workflow aus dem getaggten Commit. Der schon bestehende Release `v1.3.3` behält deshalb die neun fremden Zips, bis er von Hand angepasst wird.
+- **Dauerregel für künftige Upstream-Abgleiche:** Die CI-Matrix nimmt die eigene Seite, also nur die drei FFVR-Boards. Upstreams Board-Liste wird nicht übernommen.
 
 ### 2b. Reine Textkonflikte: mechanisch aufzulösen
 
@@ -526,7 +531,7 @@ Das ist ungefähr eine halbe Stunde.
 
 | Frage | Entscheidung | Wo umgesetzt |
 |---|---|---|
-| **F1** CI-Matrix | FFVR bleibt draußen. Grund: keine zweite, unkontrollierte Firmwarequelle; das Produkt wird lokal gebaut, geprüft und mit dem eigenen Werkzeug geflasht. Der Grund kommt in den Merge-Text. Beleg, dass `bc7c404` gewollt war: der Release-Text von v1.2.2. Die CI-Prüfung entfällt | 2a.5, Phase 1, Abschnitt 7.2 (Releases) |
+| **F1** CI-Matrix | **Seit 2026-10-01 geändert: Die CI baut nur die drei FFVR-Boards, bei Tags mit Release (2a.5).** Ursprünglich: FFVR bleibt draußen. Grund: keine zweite, unkontrollierte Firmwarequelle; das Produkt wird lokal gebaut, geprüft und mit dem eigenen Werkzeug geflasht. Der Grund kommt in den Merge-Text. Beleg, dass `bc7c404` gewollt war: der Release-Text von v1.2.2. Die CI-Prüfung entfällt | 2a.5, Phase 1, Abschnitt 7.2 (Releases) |
 | **F2** XCLK-Symbol | Zurück auf `CAMERA_USB_XCLK_FREQ`. Overrides und 40-MHz-Bereich bleiben, Begründung in den Kconfig-Hilfetext. Eigener Folge-Commit | 2a.1, Phase 2 |
 | **F3** IDF | Abgleich auf 5.4.2, Treiberkopie bleibt. IDF-Sprung als eigenes Thema nach der ESD-Prüfung | 1.1, Phase 5 |
 | **F4** Upstreams FFVR | Ausgeliefert wird nur aus dem eigenen Repo. Upstreams FFVR bleibt ein allgemeiner Stand, nichts geht hinüber. Upstreams FFVR-Releases sind ein bekanntes Risiko | R11 |

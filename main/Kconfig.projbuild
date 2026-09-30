@@ -70,12 +70,16 @@ endmenu
 
 menu "OpenIris: Camera Configuration"
 
-    config CAMERA_USB_XCLK_FREQ_DEFAULT
+    config CAMERA_USB_XCLK_FREQ
         int "USB XCLK frequency (Hz)"
         default 10000000 # should be set in individual board config 
         range 1 40000000
         help
-            USB XCLK frequency in Hz.
+            XCLK in Hz the camera starts with in USB (UVC) mode. The per-sensor
+            overrides below switch to another XCLK once the sensor is detected,
+            because its type is only known after the probe. FaceFocusVR boots at
+            23 MHz and switches the OV3660 to 20 MHz: without that switch (override
+            equal to the boot value) the OV3660 delivered no frames on hardware.
 
     config CAMERA_WIFI_XCLK_FREQ
         int "WIFI XCLK frequency (Hz)"

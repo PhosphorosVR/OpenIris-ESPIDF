@@ -130,7 +130,7 @@ CONFIG_CAMERA_STATUS=y               abgeleitet, ohne Prompt
 - **`components/CameraManager/CameraManager/CameraManager.cpp`:** nur `#if`-Einhängepunkte in `setupCamera()` und `setCameraResolution()`.
 - **`components/UVCStream/UVCStream/UVCStream.cpp`:** Frames über `cameraAcquireFrame`/`cameraReleaseFrame` (ohne Feature `always_inline`-Treiberaufrufe), Rückhol-Haken unter `#if`.
 - **`components/CommandManager/…/commands/`:** `camera_power_commands.*` (Status, Bench), `camera_recovery_commands.*` (Recovery, Testhaken).
-- **`components/esp_driver_i2c/`:** IDF-v5.4.2-Kopie mit NACK-Fix. Entfernen, sobald auf IDF ≥ 5.5 umgestiegen wird.
+- **`components/esp_driver_i2c/`:** IDF-v5.4.2-Kopie mit NACK-Fix. Entfernen, sobald auf IDF ≥ 5.5.2 umgestiegen wird; 5.5.0 und 5.5.1 haben den Fehler noch.
 - **`tools/`:**
   - `compare_builds.py`
   - `camera_power_bench.py` (Setup-Modus, Bench)
@@ -187,11 +187,12 @@ Aufruf aus PowerShell: `cmd /c "`"<pfad>\idf.cmd`" python tools\compare_builds.p
 
 ```
 python tools/compare_builds.py build --board project_babble --out <dir>
-python tools/compare_builds.py compare ../OpenIris-refbuilds/baseline2/project_babble <dir>
+python tools/compare_builds.py compare ../OpenIris-refbuilds/baseline3/project_babble <dir>
 ```
 
-Ebenso für `wrooms3`.
-- **Aktuelle Baseline:** `../OpenIris-refbuilds/baseline2/`, gebaut aus `fix/esp-timer-units` + `fix/i2c-nack-busy-wait` (Merge `5e510c7`, lokaler Zweig `baseline2-source`, nicht auf GitHub).
+Ebenso für `wrooms3N8R2` (so heißt `wrooms3` seit dem Upstream-Abgleich; die Board-Datei ist unverändert, verglichen wird gegen `baseline3/wrooms3`) und für die drei FFVR-Boards.
+- **Aktuelle Baseline:** `../OpenIris-refbuilds/baseline3/`, gebaut am 2026-09-30 aus `7872367` für `facefocusvr_eye_L/R/face`, `project_babble` und `wrooms3`. `project_babble` und `wrooms3` sind identisch mit Baseline 2.
+- **Baseline 2** (`../OpenIris-refbuilds/baseline2/`) stammt aus `fix/esp-timer-units` + `fix/i2c-nack-busy-wait` (Merge `5e510c7`, lokaler Zweig `baseline2-source`, nicht auf GitHub).
 - **Maskiert** werden ELF-SHA-256 und Prüfsummen. Alles andere muss byte-gleich sein; zusätzlich werden Bootloader, Partitionstabelle und `sdkconfig.h` verglichen.
 - **Neue Baseline** bei jedem Kategorie-B-Fix.
 

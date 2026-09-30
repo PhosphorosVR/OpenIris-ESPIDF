@@ -242,7 +242,7 @@ Es gibt nur eine Umbenennung: **`wrooms3` → `wrooms3N8R2`** (und `wrooms3QIO` 
 4. Prüfen, ob ein Image vom Git-Zustand abhängt (Abschnitt 7.3). **Erledigt**, daraus folgte Version 1.3.3 mit reproduzierbarem Build.
 5. F5 Schritt 3, das Bereinigen der Historie. **Erledigt am 2026-09-30.** Ablauf und Prüfungen liegen außerhalb des Repos.
 6. Phase 0. **Erledigt am 2026-09-30:** Tag `v1.3.3` und Baseline 3 (Abschnitt „Phase 0“ unten).
-7. **Als Nächstes Phase 1**, dann 2 bis 4 wie unten. Die Phasen 5 (IDF) und 6 (PR-Vorbereitung) laufen in diesem Durchgang nicht.
+7. Phasen 1 bis 3: **erledigt am 2026-09-30** auf dem Zweig `sync/upstream-2026-09` (Ergebnis unter „Phase 3“). **Phase 4 wartet auf Freigabe.** Die Phasen 5 (IDF) und 6 (PR-Vorbereitung) laufen in diesem Durchgang nicht.
 
 **Festlegung:** Die Sicherungen von F5, alle außerhalb des Repos, bleiben liegen, bis der Upstream-Abgleich fertig ist. Aufgeräumt wird erst danach und nur nach Ansage.
 
@@ -342,6 +342,46 @@ Kontrolle vor dem Commit:
 ### Phase 3: Prüfung
 
 Siehe Abschnitt 5.2. Kurz: alle Konfigurationen bauen, FFVR und Referenzen bitgleich zu Baseline 3, pytest auf den drei FFVR-ESPs, kurzer Hardwaretest.
+
+**Ergebnis Phasen 1 bis 3 (2026-09-30), Zweig `sync/upstream-2026-09`:**
+
+- **Phase 1:**
+  - `upstream` ist als Remote eingetragen, mit `--no-tags`, damit Upstreams Tags nicht zwischen die eigenen geraten. Eine Push-Sperre für `upstream` ist nicht eingebaut; der Vorschlag steht weiter unter Phase 1.
+  - Upstream stand unverändert auf `4d13ec1`, die Basis auf `6971464`.
+  - Merge-Commit `6bb584f`, mit genau den zwei erwarteten Konflikten:
+    - CI-Matrix: Upstreams Liste ohne die drei `facefocusvr_*`;
+    - `sdkconfig`: ganz die eigene Seite.
+
+    `dependencies.lock` bleibt die eigene (`idf: 5.4.2`). Gegenüber `main` ändern sich nur Upstreams Dateien. Der Grund zu F1 steht im Merge-Text.
+- **Phase 2:**
+  - `44bf678`: Port-Prüfung unter Windows. Unter Windows geprüft: `COM69` wird angenommen.
+  - `3ca3992`: `CAMERA_USB_XCLK_FREQ` wieder als Basis-Symbol, die Overrides und der Bereich bis 40 MHz bleiben, der Hilfetext nennt den Grund.
+    - Im eingecheckten `sdkconfig` ist nur diese eine Symbolzeile umbenannt. Sonst fiele ein direkter Build ohne Board-Switch-Tool still auf den Kconfig-Standard von 10 MHz. Die Version darin bleibt 1.3.2.
+    - Kontrolle: `kconfgen` erzeugt die Datei unverändert.
+  - Dieser Doku-Commit: Referenzboard `wrooms3N8R2`, Baseline 3 in der Übergabe, „v5.5.2+“ im Versionsschutz der I2C-Kopie.
+- **Phase 3, Bauen:** Alle 14 Konfigurationen bauen.
+  - Die elf S3: `facefocusvr_eye_L/R/face`, `project_babble`, `venti_N8R8`, `wrooms3N8R2`, `wrooms3QION8R2`, `wrooms3N8R8`, `wrover`, `esp_eye`, `seed_studio_xiao_esp32s3`.
+  - Die drei klassischen ESP32 im Worktree `wt32`.
+  - Die Zahl verschiedener Compiler-Warnungen ist bei den fünf Referenzboards gleich wie in Baseline 3 (eye_L 30, eye_R 33, face 30, `project_babble` 30, `wrooms3N8R2` 26). Neue Boards: `venti_N8R8` 30, `wrooms3QION8R2` 26, `wrooms3N8R8` 26; klassische ESP32 je 33.
+  - Venti bekommt sein XCLK-Symbol jetzt erkannt (`CONFIG_CAMERA_USB_XCLK_FREQ=23000000`), ohne Override.
+- **Phase 3, Bitvergleich gegen Baseline 3** (`tools/compare_builds.py compare`):
+
+  | Board | `app.bin` | Bootloader | Partitionstabelle | `sdkconfig.h` |
+  |---|---|---|---|---|
+  | facefocusvr_eye_L | identisch | identisch | identisch | nur umbenanntes Makro |
+  | facefocusvr_eye_R | identisch | identisch | identisch | nur umbenanntes Makro |
+  | facefocusvr_face | identisch | identisch | identisch | nur umbenanntes Makro |
+  | project_babble | identisch | identisch | identisch | nur umbenanntes Makro |
+  | wrooms3N8R2 (gegen `wrooms3`) | identisch | identisch | identisch | nur umbenanntes Makro |
+
+  - `app.bin` ist identisch bis auf die maskierten Prüfsummen.
+  - Der einzige Unterschied in `sdkconfig.h`: `#define CONFIG_CAMERA_USB_XCLK_FREQ 23000000` statt `#define CONFIG_CAMERA_USB_XCLK_FREQ_DEFAULT 23000000`, gleicher Wert. Das hatte der Plan für Folge-Commit 2 so vorhergesagt.
+  - **Die Images selbst sind unverändert.** Der Abgleich ändert weder die FFVR-Firmware noch ein fremdes Board.
+- **Nicht gelaufen:**
+  - pytest am Gerät; dafür braucht es die Hardware und `tests/.env`.
+  - der Hardwaretest.
+
+  Weil die FFVR-Images bitgleich sind, ist der Hardwaretest formal nicht nötig; ein kurzer Test bleibt optional.
 
 ### Phase 4: nach `main`, nur nach deiner Freigabe
 

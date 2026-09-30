@@ -241,10 +241,8 @@ Es gibt nur eine Umbenennung: **`wrooms3` → `wrooms3N8R2`** (und `wrooms3QIO` 
 3. Tags und Releases (Abschnitt 7.2), `v1.0.0` als Probe zuerst. **Tags gelöscht.** Offen: v1.2.2 und v1.2.4 auf Entwurf stellen.
 4. Prüfen, ob ein Image vom Git-Zustand abhängt (Abschnitt 7.3). **Erledigt**, daraus folgte Version 1.3.3 mit reproduzierbarem Build.
 5. F5 Schritt 3, das Bereinigen der Historie. **Erledigt am 2026-09-30.** Ablauf und Prüfungen liegen außerhalb des Repos.
-6. **Jetzt Phase 0.**
-   - Der Tag `v1.3.2` ist hinfällig, weil 1.3.2 durch 1.3.3 ersetzt ist. Für 1.3.3 gibt es vorerst keinen Tag; ob und wann, entscheidet der Inhaber vor Phase 0.
-   - Baseline 3 entsteht auf dem aktuellen `main`.
-7. Phasen 1 bis 4 wie unten. Die Phasen 5 (IDF) und 6 (PR-Vorbereitung) laufen in diesem Durchgang nicht.
+6. Phase 0. **Erledigt am 2026-09-30:** Tag `v1.3.3` und Baseline 3 (Abschnitt „Phase 0“ unten).
+7. **Als Nächstes Phase 1**, dann 2 bis 4 wie unten. Die Phasen 5 (IDF) und 6 (PR-Vorbereitung) laufen in diesem Durchgang nicht.
 
 **Festlegung:** Die Sicherungen von F5, alle außerhalb des Repos, bleiben liegen, bis der Upstream-Abgleich fertig ist. Aufgeräumt wird erst danach und nur nach Ansage.
 
@@ -264,19 +262,21 @@ Es gibt nur eine Umbenennung: **`wrooms3` → `wrooms3N8R2`** (und `wrooms3QIO` 
 | Zweig | Basis | Zweck |
 |---|---|---|
 | `main` | – | **bleibt unangetastet**, bis Phase 4 freigegeben ist |
-| Tag der aktuellen Version | offen | 1.3.2 ist durch 1.3.3 ersetzt. Ob 1.3.3 einen Tag bekommt, entscheidet der Inhaber. Tags werden nur einzeln gepusht, nie mit `--tags` |
+| Tag `v1.3.3` | `5bd8f39` (Versions-Commit 1.3.3) | fester Rückweg auf den Auslieferstand. Ersetzt den früher geplanten `v1.3.2`. Tags werden nur einzeln gepusht, nie mit `--tags` |
 | `sync/upstream-2026-09` | `main` | Merge von `upstream/main` und die Folge-Commits |
 | `chore/idf-5.5` | später, von `main` | IDF-Wechsel auf ≥ 5.5.2 und Entfernen der I2C-Kopie (Phase 5) |
 | `pr/<thema>` | **`upstream/main`** | je ein PR-Thema (Phase 6) |
 
 ### Phase 0: Sicherung, vor allem anderen
 
-1. **Tag:** offen, siehe Reihenfolge Punkt 6. Früher war hier `v1.3.2` auf `61b5f2c` vorgesehen, 1.3.2 ist aber durch 1.3.3 ersetzt.
+1. **Tag:** `v1.3.3` auf `5bd8f39`, den Versions-Commit, aus dem die drei 1.3.3-Images gebaut wurden. Namentlich gepusht am 2026-09-30.
+   - Er ersetzt den früher geplanten `v1.3.2`; 1.3.2 bekommt keinen Tag.
+   - Am selben Tag wurde er versehentlich auf GitHub entfernt und danach erneut gepusht.
 2. **Images:**
    - 1.3.3 liegt benannt unter `../OpenIris-refbuilds/release_1.3.3/` (Abschnitt 7.3).
    - 1.3.2 liegt als `merged.bin` unter `../OpenIris-refbuilds/release_1.3.2/<board>/build/`. Es stammt aus dem Versions-Commit 1.3.2, heute `61b5f2c`. Die Version im Image nennt noch dessen Kennung von vor der Bereinigung.
    - Beide gehen **noch nicht** nach `../ffvr-multiflash/fw/`. Das kommt nach der ESD-Prüfung als eigener Schritt.
-   - Vorher zu belegen: ob das Multiflash-Werkzeug eine `merged.bin` ab Offset 0 erwartet oder Einzeldateien. Aus dem Werkzeug lesen, sonst fragen.
+   - **Geklärt:** Das Multiflash-Werkzeug schreibt je Rolle genau eine Datei an Adresse `0x0` (`config.json` und `src/config.py`: `"flash_address": "0x0"`; `src/flasher.py`: `write-flash <Adresse> <Datei>`). Es erwartet also die Merge-Images ab Offset 0, wie sie für 1.3.2 und 1.3.3 gebaut wurden.
 3. Baseline 3 bauen, auf dem aktuellen `main` mit IDF 5.4.2:
 
    ```
@@ -285,6 +285,20 @@ Es gibt nur eine Umbenennung: **`wrooms3` → `wrooms3N8R2`** (und `wrooms3QIO` 
    ```
 
    Bisher lagen nur `project_babble` und `wrooms3` in der Baseline. Für diesen Schritt zählen gerade die FFVR-Boards.
+
+   **Ergebnis (2026-09-30):** Gebaut aus `7872367`, sauberer Arbeitsbaum, unter `../OpenIris-refbuilds/baseline3/`. Das sind Referenzbuilds mit festgesetzter Version und reproduzierbarem Build; ihre App-Hashes sind deshalb nicht die der 1.3.3-Produktimages.
+
+   | Board | SHA-256 `app.bin` |
+   |---|---|
+   | facefocusvr_eye_L | `4cb88d8b05a382eb8035bff873a800520ade1f64ab6cc331b5e4d39d904d8632` |
+   | facefocusvr_eye_R | `81f497eb9ea8dd672959e8f3347d135da5d6852393ae52749f69af333f950d0c` |
+   | facefocusvr_face | `e3ba8f8e556246714856d94fc64df128566580791dff9d9a61fc63fc8b6f3c84` |
+   | project_babble | `637f48b8e5c59b49c2bbcaa032727d512ef484210b98703dc08b24681f132977` |
+   | wrooms3 | `f9a6faa91ed7c45083537a2df051b51e2fe9b48800ce9ee535091de17f460b8d` |
+
+   - `project_babble` und `wrooms3` sind per `compare_builds.py compare` **identisch mit Baseline 2**: App bis auf die maskierten Prüfsummen, dazu Bootloader, Partitionstabelle und `sdkconfig.h`.
+   - Weder der Versions-Commit 1.3.3 noch das Bereinigen der Historie hat also fremde Boards verändert.
+   - Nach dem Merge in Phase 3 wird `wrooms3N8R2` gegen `baseline3/wrooms3` verglichen.
 
 **Zurück auf den Stand vor dem Abgleich geht jederzeit:**
 - Bis Phase 4 ist `main` gar nicht berührt.
@@ -584,10 +598,34 @@ Für v1.0.2 gab es auf GitHub keine Images. Lokal liegen sie unter `fw/102/`.
   - Ein Unterschied zu den drei anderen: Ihre Zielzweige (`V1.2.4_branch`, `v1.2.2_branch`) waren schon gelöscht. Ob das der Grund ist, ist nicht belegt.
   - Vorher geprüft: Die Images sind per SHA-256 und Größe gleich den lokalen Kopien, die Release-Texte gleich Anhang A. Die Metadaten sind außerhalb des Repos gesichert.
 - **Entscheidung (2026-09-30): Nichts wird gelöscht.** Die Releases sollen als Entwürfe bestehen bleiben, damit nur der Inhaber Zugang hat.
-  - Für v1.2.2 und v1.2.4 steht das Umstellen auf Entwurf noch aus. Die GitHub-API kann das ohne Löschen („true makes the release a draft“), dafür braucht es eine angemeldete GitHub-CLI.
-  - Ob v1.0.0 bis v1.0.2 als Entwürfe existieren, prüft der Inhaber angemeldet.
   - Images werden nicht neu hochgeladen. Ob 1.2.x wieder angeboten wird, wird später entschieden.
-- **Festgehalten für das nächste Mal:** Dass ein Release nach dem Löschen seines Tags zum Entwurf wird, ist nur durch den Forumsbeitrag von 2021 belegt. Hier traf es für drei von fünf Releases zu.
+- **Nachprüfung (2026-09-30): Nichts ist verloren, nichts wird neu angelegt.**
+  - **v1.0.0 bis v1.0.2** sieht der Inhaber angemeldet als Entwürfe. Der zeichengenaue Vergleich ihrer Texte mit Anhang A folgt, sobald die GitHub-CLI angemeldet ist.
+  - **v1.2.2 und v1.2.4** fehlen in jeder Liste, weil ihr Tag fehlt. Gelöscht sind sie nicht:
+    - Text, Originaldatum, Ersteller und alle Anhänge sind unverändert, gegen die Sicherung geprüft.
+    - Sie werden per API auf Entwurf gestellt (`draft: true`, „true makes the release a draft“) statt neu angelegt. So entstehen keine Dubletten, und die Originale bleiben erhalten.
+    - Die CI-Zips anderer Boards bleiben dran; als Entwurf sind sie nicht öffentlich.
+    - Es wird kein Tag angelegt, also entsteht auch kein „Source code“-Zip.
+  - Weil nichts neu angelegt wird, gibt es keinen wiederhergestellten Release mit neuem Datum oder neuem Ersteller.
+- **Festgehalten für das nächste Mal:** Dass ein Release nach dem Löschen seines Tags zum Entwurf wird, ist nur durch den Forumsbeitrag von 2021 belegt. Hier traf es für drei von fünf Releases zu. Die übrigen zwei blieben veröffentlicht, aber ungelistet. **Tags von Releases deshalb nicht löschen**, sondern Releases direkt per API auf Entwurf stellen.
+
+### 7.4 Abschluss F5 (Stand 2026-09-30)
+
+- **Auf GitHub:**
+  - `main` = `7872367` mit bereinigter Historie. Darunter liegt der Versions-Commit 1.3.3, `5bd8f39`, mit dem Tag `v1.3.3`.
+  - Unverändert sind die Zweige `LUT`, `OV3660`, `fixes`, `v1.0.1_branch` und `v1.0.2_branch`. Weitere Tags gibt es nicht.
+  - Releases: v1.0.0 bis v1.0.2 sind Entwürfe. v1.2.2 und v1.2.4 stehen ohne Tag und ungelistet, bis sie auf Entwurf gestellt sind.
+- **Sicherungen**, lokal und außerhalb des Repos; sie bleiben bis zum Ende des Upstream-Abgleichs und werden erst nach Ansage aufgeräumt:
+  - `Sicherung_F5`: vollständige Kopie des Arbeitsordners vor dem Bereinigen, dazu ein Git-Bundle aller Stände;
+  - `OpenIris-F5`: die Wegwerf-Klone des Bereinigens;
+  - `OpenIris-ESPIDF_alt_vor_F5`: der alte Arbeitsordner, mit seinen weiter angebundenen Build-Worktrees `wt_alt` und `wt32_alt`;
+  - Images: 1.0.0 bis 1.2.4 in `ffvr-multiflash/fw/`, 1.3.2 und 1.3.3 unter `OpenIris-refbuilds/release_1.3.x/`;
+  - Release-Texte in Anhang A, Release-Metadaten außerhalb des Repos.
+- **Offen von F5**, beides nach der Anmeldung der GitHub-CLI:
+  - v1.2.2 und v1.2.4 auf Entwurf stellen und prüfen;
+  - die Texte der v1.0.x-Entwürfe mit Anhang A vergleichen.
+
+  Danach ist F5 abgeschlossen. Das Aufräumen der Sicherungen folgt nach dem Abgleich.
 
 ### 7.3 Reproduzierbarkeit: bei 1.3.2 nicht gegeben, ab 1.3.3 belegt
 

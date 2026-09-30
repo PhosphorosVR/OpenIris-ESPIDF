@@ -1,6 +1,6 @@
 # Abnahme: Kamera-Stromschaltung und Recovery (FaceFocusVR)
 
-Stand 2026-09-28. Geprüft wurde der Zweig `feature/camera-power` auf Stand `69680dd` gegen die Ziele des Nutzers. Aus der Abnahme folgten vier Änderungen (Abschnitt 5). Danach ging der Zweig nach `main`.
+Stand 2026-09-28. Geprüft wurde der Zweig `feature/camera-power` auf Stand `cdfbd91` gegen die Ziele des Nutzers. Aus der Abnahme folgten vier Änderungen (Abschnitt 5). Danach ging der Zweig nach `main`.
 
 Dieses Dokument beantwortet die Frage, **warum das Feature so gebaut ist**. Messwerte, Plan und Verlauf stehen in [CAM_CE_RESET_Analyse.md](CAM_CE_RESET_Analyse.md), die Arbeitsregeln in [UEBERGABE_KI.md](UEBERGABE_KI.md).
 
@@ -115,7 +115,7 @@ Der Diff täuscht über die Größe. Er hatte zur Abnahme 8.830 Zeilen:
 - 1.267 sind Doku,
 - rund 830 sind Host-Werkzeuge.
 
-Die Firmware des Features hat rund 2.800 Zeilen. Ohne Kommentare, Leerzeilen und einzelne Klammern bleiben rund 1.700. Aufgeteilt nach Zweck (Zählung zum Stand `69680dd`; die Zuordnung ist eine Einschätzung, die Zahlen sind gezählt):
+Die Firmware des Features hat rund 2.800 Zeilen. Ohne Kommentare, Leerzeilen und einzelne Klammern bleiben rund 1.700. Aufgeteilt nach Zweck (Zählung zum Stand `cdfbd91`; die Zuordnung ist eine Einschätzung, die Zahlen sind gezählt):
 
 - **Schalten** (CE und RESET treiben, Wartezeiten, Pins parken): ~100 Zeilen, 6 %
 - **Folgen des Anhaltens** (Gate, hängende UVC-Frames, Kamera-Task, Sensorzeiger, Framegröße, Erstframe-Prüfung, Endzustand nach Fehlschlag): ~315, 19 %
@@ -279,14 +279,14 @@ Die Zusammenfassung per `{"persist": true}` enthält dieselben Zähler und „su
 
 | Commit | Inhalt |
 |---|---|
-| `a467192` | Budget: Nur Neustarts, die nicht gehalten haben, zählen. Drei in Folge sperren die Automatik, die Sperre löst sich nach 5 min selbst. Ratenfenster entfernt |
-| `9bf6447` | ESP-Neustart höchstens einmal, bis wieder ein Start gehalten hat (Befund A) |
-| `8788d32` | Sensorzeiger unter dem Mutex prüfen in `setVFlip()`, `setHFlip()`, `loadConfigData()`; Kommentar in `takeDriverDown()` korrigiert (Falle 2). Kategorie B ohne Wirkung auf andere Images |
-| `940d1b2` | Befund C in der Analyse korrigiert, Kommentar an `parkPins()` (Falle 1) |
-| `2514c91` | dieses Dokument, Analyse 17.9, Übergabe; danach Merge nach `main` (`55d21d3`) |
-| `40236ae` | `get_camera_status`: `resume_in_s` (restliche Ruhezeit) und `unheld_limit`, damit eine Sperre während einer Prüfung nicht wie ein Defekt aussieht |
-| `f548e1d` | `tools/camera_budget_check.py`: der Hardware-Test aus Abschnitt 4 als Werkzeug |
-| `fff8d44` | FFVR-Version 1.3.2 |
+| `801c731` | Budget: Nur Neustarts, die nicht gehalten haben, zählen. Drei in Folge sperren die Automatik, die Sperre löst sich nach 5 min selbst. Ratenfenster entfernt |
+| `4d64c46` | ESP-Neustart höchstens einmal, bis wieder ein Start gehalten hat (Befund A) |
+| `4dde6ea` | Sensorzeiger unter dem Mutex prüfen in `setVFlip()`, `setHFlip()`, `loadConfigData()`; Kommentar in `takeDriverDown()` korrigiert (Falle 2). Kategorie B ohne Wirkung auf andere Images |
+| `870ffa0` | Befund C in der Analyse korrigiert, Kommentar an `parkPins()` (Falle 1) |
+| `1ea22b1` | dieses Dokument, Analyse 17.9, Übergabe; danach Merge nach `main` (`be1cea1`) |
+| `1e6e966` | `get_camera_status`: `resume_in_s` (restliche Ruhezeit) und `unheld_limit`, damit eine Sperre während einer Prüfung nicht wie ein Defekt aussieht |
+| `fb30735` | `tools/camera_budget_check.py`: der Hardware-Test aus Abschnitt 4 als Werkzeug |
+| `61b5f2c` | FFVR-Version 1.3.2 |
 
 Spur und adaptive Verlängerung (3.4, Schritt 1) sind nicht entfernt. Das spart knapp ein Drittel des Rail-Codes, würde aber kurz vor der Prüfung Bench-Werkzeug und Doku mitändern. Besser nach AP6.
 
@@ -294,7 +294,7 @@ Spur und adaptive Verlängerung (3.4, Schritt 1) sind nicht entfernt. Das spart 
 
 ## 6. Prüfstand vor dem Merge
 
-Geprüft auf Stand `940d1b2`; der anschließende Doku-Commit ändert keinen Code. Werkzeuge: ESP-IDF v5.4.2, `xtensa-esp-elf-gcc` 14.2.0.
+Geprüft auf Stand `870ffa0`; der anschließende Doku-Commit ändert keinen Code. Werkzeuge: ESP-IDF v5.4.2, `xtensa-esp-elf-gcc` 14.2.0.
 
 **Alle 12 Boardkonfigurationen bauen:**
 - die neun S3-Konfigurationen: `facefocusvr_eye_L`, `facefocusvr_eye_R`, `facefocusvr_face`, `project_babble`, `wrooms3`, `wrooms3QIO`, `wrover`, `esp_eye`, `seed_studio_xiao_esp32s3`;
@@ -310,11 +310,11 @@ Geprüft auf Stand `940d1b2`; der anschließende Doku-Commit ändert keinen Code
 - Die Variante ohne Leitungen warnt über drei unbenutzte Hilfsfunktionen in `CameraCycle.cpp`. Das ist so seit AP3, und kein Board nutzt diese Variante.
 - Auf den klassischen ESP32 kommen 303 Kconfig-Hinweise dazu: Symbole für S3 und UVC aus `base_defaults`, die es dort nicht gibt.
 
-**Bitvergleich gegen Baseline 2 (`8534138`):** `project_babble` und `wrooms3` sind identisch. Die `app.bin` ist bis auf ELF-Hash und Prüfsummen gleich; Bootloader, Partitionstabelle und `sdkconfig.h` sind ganz gleich. Für diese beiden Konfigurationen ist damit auch belegt, dass die Kategorie-B-Änderung an den Settern kein Image ändert.
+**Bitvergleich gegen Baseline 2 (`5e510c7`):** `project_babble` und `wrooms3` sind identisch. Die `app.bin` ist bis auf ELF-Hash und Prüfsummen gleich; Bootloader, Partitionstabelle und `sdkconfig.h` sind ganz gleich. Für diese beiden Konfigurationen ist damit auch belegt, dass die Kategorie-B-Änderung an den Settern kein Image ändert.
 
 **Hardware:** Budget und ESP-Neustart am 2026-09-29 geprüft, Ergebnisse in Abschnitt 4.
 
-**Nach dem Merge, Release 1.3.2 (`fff8d44`):**
+**Nach dem Merge, Release 1.3.2 (`61b5f2c`):**
 - Bitvergleich gegen Baseline 2 erneut: `project_babble` und `wrooms3` identisch.
 - Release-Bins `FFVR Eye L [1.3.2].bin`, `FFVR Eye R [1.3.2].bin`, `FFVR Face [1.3.2].bin` (`merge-bin -f raw`). Bootloader, Partitionstabelle und App sind byte-gleich zum Build; weder Testhaken noch ESP-Neustart sind im Image.
 - Auf alle drei ESPs der Rev.5-Platine geflasht (vorher `erase_flash`).

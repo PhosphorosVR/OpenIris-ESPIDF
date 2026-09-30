@@ -2,6 +2,11 @@
 
 Stand 2026-09-29: nach Abnahme, Hardware-Test des Budgets und Release 1.3.2. `feature/camera-power` ist mit allen Fixes nach `main` gemergt; `main` ist gepusht.
 
+**Nachtrag 2026-09-30:**
+- **Version 1.3.3:** App-Version fest aus Kconfig, reproduzierbarer Build. Siehe Abschnitt 2 und [UPSTREAM_ANGLEICHUNG_PLAN.md](UPSTREAM_ANGLEICHUNG_PLAN.md), Abschnitt 7.3.
+- **Historie bereinigt:** Die Kennungen in diesem Dokument sind die neuen.
+- **Upstream-Abgleich:** Stand und nächste Schritte stehen im Angleichungsplan.
+
 **Zuerst lesen:**
 1. dieses Dokument,
 2. [ABNAHME_KAMERA_POWER.md](ABNAHME_KAMERA_POWER.md): Ziele, warum das Feature so gebaut ist, Budget nach der Abnahme,
@@ -61,7 +66,10 @@ Stand 2026-09-29: nach Abnahme, Hardware-Test des Budgets und Release 1.3.2. `fe
   - Format: `idf.py merge-bin -o <x>.bin -f raw`, ein Image ab 0x0 mit Bootloader, Partitionstabelle und App bei 0x10000.
   - Namen: `FFVR Eye L [x.y.z].bin`, `FFVR Eye R [x.y.z].bin`, `FFVR Face [x.y.z].bin`.
   - Frühere Releases liegen in `../ffvr-multiflash/fw/<ver>/`; das Flash-Tool dort schreibt an 0x0.
-- **Version:** `CONFIG_GENERAL_VERSION` in `boards/facefocusvr/*` und im eingecheckten `sdkconfig`. Format dreiteilig; aktuell **1.3.2** (die 3.0.1 aus `e01f02b` war ein Tippfehler).
+- **Version:** `CONFIG_GENERAL_VERSION` in `boards/facefocusvr/*`. Format dreiteilig; aktuell **1.3.3** (die 3.0.1 aus `e6fb78d` war ein Tippfehler).
+  - Seit 1.3.3 kommt auch die App-Version im Image fest aus `CONFIG_APP_PROJECT_VER`, nicht mehr aus `git describe`. Bei jedem Release beide Werte anheben.
+  - `CONFIG_APP_REPRODUCIBLE_BUILD=y`: Derselbe Commit ergibt dasselbe Image.
+  - Das eingecheckte `sdkconfig` erzeugt das Board-Switch-Tool. Es wird nicht von Hand angepasst (Entscheidung 2026-09-30) und nennt deshalb noch 1.3.2.
 
 ---
 
@@ -73,8 +81,8 @@ Stand 2026-09-29: nach Abnahme, Hardware-Test des Budgets und Release 1.3.2. `fe
 |---|---|---|
 | `feature/camera-power` | alles; enthält die drei Fix-Zweige und die Änderungen aus der Abnahme | nach `main` gemergt |
 | `fix/esp-timer-units` | AP0: `esp_timer` in µs (`restart_device` 2 s statt 2 ms, `start_streaming` 150 ms statt 150 µs) | Basis des Feature-Zweigs |
-| `fix/i2c-nack-busy-wait` | Backport aus IDF v5.5: begrenzte Busy-Warteschleife nach NACK in `esp_driver_i2c` (Projektkopie von v5.4.2 plus Fix, Build-Schutz für andere IDF-Versionen) | gemergt (`ab89e37`) |
-| `fix/serial-no-reset-on-connect` | `tools/openiris_device.py`: DTR/RTS low **vor** dem Öffnen, sonst startet jedes Verbinden im Setup-Modus den ESP neu | gemergt (`a06dd61`) |
+| `fix/i2c-nack-busy-wait` | Backport aus IDF v5.5: begrenzte Busy-Warteschleife nach NACK in `esp_driver_i2c` (Projektkopie von v5.4.2 plus Fix, Build-Schutz für andere IDF-Versionen) | gemergt (`daedcb0`) |
+| `fix/serial-no-reset-on-connect` | `tools/openiris_device.py`: DTR/RTS low **vor** dem Öffnen, sonst startet jedes Verbinden im Setup-Modus den ESP neu | gemergt (`03f1e7b`) |
 
 Der Merge nach `main` enthält alle Fixes. Die drei Kategorie-B-Fixes betreffen absichtlich jedes Board; der Merge-Text nennt sie.
 
@@ -82,14 +90,14 @@ Der Merge nach `main` enthält alle Fixes. Die drei Kategorie-B-Fixes betreffen 
 
 | AP | Inhalt | Kern-Commits |
 |---|---|---|
-| B0 | `tools/compare_builds.py`: Referenzbuilds und maskierter Vergleich | `de3ae87` |
-| AP1 | `CamLines` (CE/RESET Open Drain), Leitungsprobe beim Boot, `get_camera_status`, Reset-Grund | `68cb4fa`, `c003f0e` |
-| AP2 | `camera_power_cycle` (Bench, nur Setup-Modus), Rail-Check über ADC2 (`RailSense`, D0 = GPIO15, D6 = GPIO11), Kamera-Task | `a703f47`, `ccca927`, `80ba1a6` |
-| AP3 | Frame-Gate für UVC, Stufen reinit/reset/power_cycle, fester Kamera-Task (6 KB) | `06bc04f`, `2b55766` |
-| AP4 | `recover_camera`, Auto-Auslöser `frame_timeout`/`boot_failure`, Budget, Zähler, optionaler ESP-Neustart, Testhaken | `fbff171` |
-| AP5 (schlank) | `tools/camera_recovery_check.py` | `aa9378e` |
-| Abnahme | Budget neu (gehalten/nicht gehalten, Sperre löst sich nach 5 min), ESP-Neustart höchstens einmal bis wieder ein Start hält, Sensorzeiger unter dem Mutex, Befund C in der Analyse; alle 12 Konfigurationen gebaut, Bitvergleich | `a467192`, `9bf6447`, `8788d32`, `940d1b2` |
-| nach dem Merge | `get_camera_status`: `resume_in_s` und `unheld_limit`; `tools/camera_budget_check.py`; Version 1.3.2; Budget und ESP-Neustart auf Hardware geprüft (Abnahme, Abschnitt 4) | `40236ae`, `f548e1d`, `fff8d44` |
+| B0 | `tools/compare_builds.py`: Referenzbuilds und maskierter Vergleich | `7451499` |
+| AP1 | `CamLines` (CE/RESET Open Drain), Leitungsprobe beim Boot, `get_camera_status`, Reset-Grund | `2bccf8c`, `6bfaced` |
+| AP2 | `camera_power_cycle` (Bench, nur Setup-Modus), Rail-Check über ADC2 (`RailSense`, D0 = GPIO15, D6 = GPIO11), Kamera-Task | `9ab40e5`, `a217825`, `cd2ee31` |
+| AP3 | Frame-Gate für UVC, Stufen reinit/reset/power_cycle, fester Kamera-Task (6 KB) | `64c4649`, `f93d1e2` |
+| AP4 | `recover_camera`, Auto-Auslöser `frame_timeout`/`boot_failure`, Budget, Zähler, optionaler ESP-Neustart, Testhaken | `9f56628` |
+| AP5 (schlank) | `tools/camera_recovery_check.py` | `4e134ef` |
+| Abnahme | Budget neu (gehalten/nicht gehalten, Sperre löst sich nach 5 min), ESP-Neustart höchstens einmal bis wieder ein Start hält, Sensorzeiger unter dem Mutex, Befund C in der Analyse; alle 12 Konfigurationen gebaut, Bitvergleich | `801c731`, `4d64c46`, `4dde6ea`, `870ffa0` |
+| nach dem Merge | `get_camera_status`: `resume_in_s` und `unheld_limit`; `tools/camera_budget_check.py`; Version 1.3.2; Budget und ESP-Neustart auf Hardware geprüft (Abnahme, Abschnitt 4) | `1e6e966`, `fb30735`, `61b5f2c` |
 | AP6 | Ergebnisse der ESD-Prüfläufe ins Dokument | **offen** |
 
 ### Kconfig (in `components/CameraManager/Kconfig.projbuild`, FFVR-Werte)
@@ -183,7 +191,7 @@ python tools/compare_builds.py compare ../OpenIris-refbuilds/baseline2/project_b
 ```
 
 Ebenso für `wrooms3`.
-- **Aktuelle Baseline:** `../OpenIris-refbuilds/baseline2/`, gebaut aus `fix/esp-timer-units` + `fix/i2c-nack-busy-wait` (Merge `8534138`, kein Zweig).
+- **Aktuelle Baseline:** `../OpenIris-refbuilds/baseline2/`, gebaut aus `fix/esp-timer-units` + `fix/i2c-nack-busy-wait` (Merge `5e510c7`, lokaler Zweig `baseline2-source`, nicht auf GitHub).
 - **Maskiert** werden ELF-SHA-256 und Prüfsummen. Alles andere muss byte-gleich sein; zusätzlich werden Bootloader, Partitionstabelle und `sdkconfig.h` verglichen.
 - **Neue Baseline** bei jedem Kategorie-B-Fix.
 
@@ -266,14 +274,15 @@ uv run --with opencv-python tools/camera_budget_check.py suspend --port COMx    
 
 ## 7. Aktueller Zustand der angeschlossenen Hardware (Rev.5-Platine)
 
-- Alle drei ESPs tragen seit 2026-09-29 den **Produkt-Build 1.3.2** aus `fff8d44` (ohne Testhaken, ohne ESP-Neustart-Option), geflasht als Merge-Bin an 0x0 nach `erase_flash`.
+- Alle drei ESPs tragen seit 2026-09-29 den **Produkt-Build 1.3.2** aus `61b5f2c` (ohne Testhaken, ohne ESP-Neustart-Option), geflasht als Merge-Bin an 0x0 nach `erase_flash`.
 - NVS gelöscht, UVC-Modus, Automatik an. Kontrolle danach: alle drei Streams 28–30 fps ohne Lücke, je zwei `recover_camera` im Stream ok (Power-Cycle, `collapsed`, 1175–1193 ms).
-- **Release-Bins 1.3.2** (`idf.py merge-bin -f raw`) liegen unversioniert im Repo-Wurzelordner:
-  - `FFVR Eye L [1.3.2].bin`
-  - `FFVR Eye R [1.3.2].bin`
-  - `FFVR Face [1.3.2].bin`
-
-  Geprüft: Bootloader, Partitionstabelle und App byte-gleich zum Build, Version 1.3.2 enthalten, weder `camera_test_fault` noch der ESP-Neustart im Image. In `../ffvr-multiflash/fw/` liegen sie nicht; das entscheidet der Nutzer.
+- **Release-Bins 1.3.2** (`idf.py merge-bin -f raw`) liegen als `merged.bin` unter `../OpenIris-refbuilds/release_1.3.2/<board>/build/`. Die benannten Kopien im Repo-Wurzelordner gibt es nicht mehr.
+  - Geprüft: Bootloader, Partitionstabelle und App byte-gleich zum Build, Version 1.3.2 enthalten, weder `camera_test_fault` noch der ESP-Neustart im Image.
+- **Release-Bins 1.3.3** (2026-09-30) liegen benannt unter `../OpenIris-refbuilds/release_1.3.3/`: `FFVR Eye L [1.3.3].bin`, `FFVR Eye R [1.3.3].bin`, `FFVR Face [1.3.3].bin`.
+  - Zweimal gebaut, byteidentisch; die Hashes stehen im Angleichungsplan, Abschnitt 7.3.
+  - Kein Release, kein Tag.
+  - **Nicht geflasht:** Die Hardware trägt weiter 1.3.2. Das entscheidet der Nutzer.
+- In `../ffvr-multiflash/fw/` liegen weder 1.3.2 noch 1.3.3. Das kommt nach der ESD-Prüfung und entscheidet der Nutzer.
 
 ---
 

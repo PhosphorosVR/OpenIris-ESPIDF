@@ -11,7 +11,7 @@ Erstellt am 2026-09-29, Stand 2026-09-30.
 - **Git auf dem üblichen Weg.** Vor jedem Befehl, der löscht oder umschreibt, steht ein Satz, was er tut und was danach anders ist.
 
 **Grundlage der Analyse:**
-- `main` = `e1656ee` (FFVR 1.3.2). Seit 2026-09-30 sind Commits dazugekommen (Abschnitt 7).
+- `main` = `9b4ccfc` (FFVR 1.3.2). Seit 2026-09-30 sind Commits dazugekommen (Abschnitt 7).
 - `upstream/main` = `4d13ec1`
 - gemeinsame Basis `6971464` (Merge von PR #33, 2026-02-05)
 - Stand: 76 Commits vor, 8 hinter Upstream
@@ -44,9 +44,9 @@ Erstellt am 2026-09-29, Stand 2026-09-30.
    - Erst dann nach `main`.
    - PRs entstehen später **nicht aus `main`**, sondern als kleine Themen-Zweige direkt von `upstream/main`.
 6. **Korrektur an deiner Einschätzung:**
-   - Die „drei Kategorie-B-Fixes“ sind für Upstream **ein** eigenständiger Bugfix: `9156d3e`, `esp_timer` in µs an zwei Stellen, `restart_device` und `startStreamingCommand`.
-   - Der Sensorzeiger unter dem Mutex (`8788d32`) ist bei Upstream kein Fehler. Dort gibt es weder `sensor_mutex` noch wird `camera_sensor` je auf null gesetzt. Der Fix gehört zum Kamera-Lebenszyklus.
-   - Dafür gibt es zwei weitere sofort PR-taugliche Kandidaten: den Serial-Fix `7a7fe7f` und den LEDC-Timer-Fix. Den LEDC-Timer-Fix hat der Maintainer in deinem PR #20 schon als „good catch“ gelobt.
+   - Die „drei Kategorie-B-Fixes“ sind für Upstream **ein** eigenständiger Bugfix: `c59c41c`, `esp_timer` in µs an zwei Stellen, `restart_device` und `startStreamingCommand`.
+   - Der Sensorzeiger unter dem Mutex (`4dde6ea`) ist bei Upstream kein Fehler. Dort gibt es weder `sensor_mutex` noch wird `camera_sensor` je auf null gesetzt. Der Fix gehört zum Kamera-Lebenszyklus.
+   - Dafür gibt es zwei weitere sofort PR-taugliche Kandidaten: den Serial-Fix `2fad53c` und den LEDC-Timer-Fix. Den LEDC-Timer-Fix hat der Maintainer in deinem PR #20 schon als „good catch“ gelobt.
 
 ---
 
@@ -191,12 +191,12 @@ Auto-merging tools/setup_openiris.py
 **2a.5 CI-Matrix.**
 
 - Upstream: Venti dazu, `wrooms3*` umbenannt, `wrooms3N8R8` dazu.
-- Ich: die drei FFVR-Boards entfernt (`57f5653`, „Removed FFCR boards from Build-Matrix“).
-- **Empfehlung:** Upstreams Liste übernehmen und die drei FFVR-Einträge weiter weglassen, so bleibt deine Absicht erhalten. Den Grund für `57f5653` kenne ich nicht (Frage F1).
+- Ich: die drei FFVR-Boards entfernt (`bc7c404`, „Removed FFCR boards from Build-Matrix“).
+- **Empfehlung:** Upstreams Liste übernehmen und die drei FFVR-Einträge weiter weglassen, so bleibt deine Absicht erhalten. Den Grund für `bc7c404` kenne ich nicht (Frage F1).
 - **Entschieden (F1):** FFVR bleibt draußen.
   - Grund, der auch in den Merge-Text kommt: Das Produkt wird lokal gebaut, gegen die Baseline geprüft und mit dem eigenen Werkzeug geflasht. CI-Releases mit FFVR-Images wären eine zweite, unkontrollierte Firmwarequelle.
   - Aus demselben Grund verschwinden die FFVR-Images aus den eigenen Releases v1.0.0 bis v1.2.4 (Abschnitt 7.2).
-- **Erledigt:** `57f5653` war gewollt. Der Release-Text von v1.2.2 nennt „Removed FFVR boards from the build matrix“ als eigene Änderung (Anhang A). Die vorgeschlagene CI-Prüfung entfällt; die Frage stellt sich beim nächsten Abgleich nicht wieder.
+- **Erledigt:** `bc7c404` war gewollt. Der Release-Text von v1.2.2 nennt „Removed FFVR boards from the build matrix“ als eigene Änderung (Anhang A). Die vorgeschlagene CI-Prüfung entfällt; die Frage stellt sich beim nächsten Abgleich nicht wieder.
 
 ### 2b. Reine Textkonflikte: mechanisch aufzulösen
 
@@ -237,21 +237,25 @@ Es gibt nur eine Umbenennung: **`wrooms3` → `wrooms3N8R2`** (und `wrooms3QIO` 
 ### Reihenfolge (Entscheidung vom 2026-09-30)
 
 1. F5, Schritte 1 und 2: die Datei aus dem aktuellen Stand entfernt, nicht mehr benötigte Zweige gelöscht. **Erledigt** (Abschnitt 7).
-2. Dieser Plan als eigener Commit.
-3. Tags und Releases (Abschnitt 7.2), `v1.0.0` als Probe zuerst.
-4. Prüfen, ob ein Image vom Git-Zustand abhängt (Abschnitt 7.3).
-5. F5 Schritt 3, das Bereinigen der Historie, nur mit ausdrücklicher Freigabe. Ablauf und Prüfungen liegen außerhalb des Repos.
-6. **Erst danach Phase 0.** Tag `v1.3.2` und Baseline 3 entstehen so nur einmal, auf der endgültigen Historie. `fff8d44` hat dann eine neue Kennung, nachzulesen in der Zuordnungsdatei.
+2. Dieser Plan als eigener Commit. **Erledigt.**
+3. Tags und Releases (Abschnitt 7.2), `v1.0.0` als Probe zuerst. **Tags gelöscht.** Offen: v1.2.2 und v1.2.4 auf Entwurf stellen.
+4. Prüfen, ob ein Image vom Git-Zustand abhängt (Abschnitt 7.3). **Erledigt**, daraus folgte Version 1.3.3 mit reproduzierbarem Build.
+5. F5 Schritt 3, das Bereinigen der Historie. **Erledigt am 2026-09-30.** Ablauf und Prüfungen liegen außerhalb des Repos.
+6. **Jetzt Phase 0.**
+   - Der Tag `v1.3.2` ist hinfällig, weil 1.3.2 durch 1.3.3 ersetzt ist. Für 1.3.3 gibt es vorerst keinen Tag; ob und wann, entscheidet der Inhaber vor Phase 0.
+   - Baseline 3 entsteht auf dem aktuellen `main`.
 7. Phasen 1 bis 4 wie unten. Die Phasen 5 (IDF) und 6 (PR-Vorbereitung) laufen in diesem Durchgang nicht.
 
-**Die gemeinsame Basis `6971464` bleibt beim Umschreiben erhalten.**
-- Neue Kennungen bekommen nur der Commit, mit dem die Datei kam, und seine Nachfahren.
-- `6971464` ist Vorfahre dieses Commits, nicht Nachfahre (geprüft mit `git merge-base --is-ancestor`, nicht aus dem Datum geschlossen).
-- Die Merge-Simulation findet ihre Basis danach genauso.
+**Festlegung:** Die Sicherungen von F5, alle außerhalb des Repos, bleiben liegen, bis der Upstream-Abgleich fertig ist. Aufgeräumt wird erst danach und nur nach Ansage.
+
+**Die gemeinsame Basis `6971464` ist beim Bereinigen erhalten geblieben** (nachgeprüft am 2026-09-30).
+- Neue Kennungen haben nur der Commit, mit dem die Datei kam, und seine Nachfahren bekommen. Alle älteren Commits haben ihre Kennung behalten.
+- `6971464` ist Vorfahre des aktuellen `main`.
+- Die Merge-Simulation findet ihre Basis damit wie vorher.
 
 ### Entscheidung: Merge, nicht Rebase
 
-- `main` ist gepusht (`origin/main`). Ein Rebase würde 76 veröffentlichte Commits umschreiben, einschließlich der drei Fix-Merges und des Feature-Merges `55d21d3`.
+- `main` ist gepusht (`origin/main`). Ein Rebase würde 76 veröffentlichte Commits umschreiben, einschließlich der drei Fix-Merges und des Feature-Merges `be1cea1`.
 - Beim Rebase käme jeder der vielen `sdkconfig`-Commits einzeln in Konflikt. Beim Merge sind es 2 Textkonflikte.
 - Ein Rebase macht den PR nicht leichter. PRs werden ohnehin als eigene Zweige von `upstream/main` geschnitten (Phase 6). Ein hübscher linearer Verlauf von `main` nützt dem Maintainer nichts, er sieht nur den PR-Zweig.
 
@@ -260,20 +264,20 @@ Es gibt nur eine Umbenennung: **`wrooms3` → `wrooms3N8R2`** (und `wrooms3QIO` 
 | Zweig | Basis | Zweck |
 |---|---|---|
 | `main` | – | **bleibt unangetastet**, bis Phase 4 freigegeben ist |
-| Tag `v1.3.2` | `fff8d44`, nach dem Umschreiben dessen neue Kennung | fester Rückweg. Wird nach Freigabe einzeln gepusht (`git push origin v1.3.2`), nie mit `--tags` |
+| Tag der aktuellen Version | offen | 1.3.2 ist durch 1.3.3 ersetzt. Ob 1.3.3 einen Tag bekommt, entscheidet der Inhaber. Tags werden nur einzeln gepusht, nie mit `--tags` |
 | `sync/upstream-2026-09` | `main` | Merge von `upstream/main` und die Folge-Commits |
 | `chore/idf-5.5` | später, von `main` | IDF-Wechsel auf ≥ 5.5.2 und Entfernen der I2C-Kopie (Phase 5) |
 | `pr/<thema>` | **`upstream/main`** | je ein PR-Thema (Phase 6) |
 
 ### Phase 0: Sicherung, vor allem anderen
 
-1. Tag `v1.3.2` auf `fff8d44` setzen, nach dem Umschreiben auf dessen neue Kennung. Aus diesem Commit stammen die Release-Bins, `e1656ee` ist nur Doku. Push nur dieses einen Tags nach Freigabe.
-2. Die 1.3.2-Images sichern. Die in der Übergabe genannten `FFVR … [1.3.2].bin` liegen **nicht mehr** im Repo-Wurzelordner, ich finde sie nirgends. Vorhanden sind die `merged.bin` unter `../OpenIris-refbuilds/release_1.3.2/<board>/build/`.
-   - **Entschieden:** sichern ja, aber **noch nicht** nach `../ffvr-multiflash/fw/132/`. Das kommt nach der ESD-Prüfung als eigener Schritt.
-   - Vorher zu belegen:
-     - aus welchem Commit der Refbuild unter `release_1.3.2/` stammt (`fff8d44` erwartet; `e1656ee` wäre auch in Ordnung, dann steht es hier);
-     - ob das Multiflash-Werkzeug eine `merged.bin` ab Offset 0 erwartet oder Einzeldateien. Aus dem Werkzeug lesen, sonst fragen.
-3. Baseline 3 bauen, auf `main` = `e1656ee` mit IDF 5.4.2:
+1. **Tag:** offen, siehe Reihenfolge Punkt 6. Früher war hier `v1.3.2` auf `61b5f2c` vorgesehen, 1.3.2 ist aber durch 1.3.3 ersetzt.
+2. **Images:**
+   - 1.3.3 liegt benannt unter `../OpenIris-refbuilds/release_1.3.3/` (Abschnitt 7.3).
+   - 1.3.2 liegt als `merged.bin` unter `../OpenIris-refbuilds/release_1.3.2/<board>/build/`. Es stammt aus dem Versions-Commit 1.3.2, heute `61b5f2c`. Die Version im Image nennt noch dessen Kennung von vor der Bereinigung.
+   - Beide gehen **noch nicht** nach `../ffvr-multiflash/fw/`. Das kommt nach der ESD-Prüfung als eigener Schritt.
+   - Vorher zu belegen: ob das Multiflash-Werkzeug eine `merged.bin` ab Offset 0 erwartet oder Einzeldateien. Aus dem Werkzeug lesen, sonst fragen.
+3. Baseline 3 bauen, auf dem aktuellen `main` mit IDF 5.4.2:
 
    ```
    python tools/compare_builds.py build --board facefocusvr_eye_L --out ../OpenIris-refbuilds/baseline3/facefocusvr_eye_L
@@ -282,9 +286,9 @@ Es gibt nur eine Umbenennung: **`wrooms3` → `wrooms3N8R2`** (und `wrooms3QIO` 
 
    Bisher lagen nur `project_babble` und `wrooms3` in der Baseline. Für diesen Schritt zählen gerade die FFVR-Boards.
 
-**Zurück auf 1.3.2 geht jederzeit:**
+**Zurück auf den Stand vor dem Abgleich geht jederzeit:**
 - Bis Phase 4 ist `main` gar nicht berührt.
-- Danach ohne Umschreiben: `git revert -m 1 <Merge-Commit>`, oder aus dem Tag bauen (`git worktree add ../OpenIris-refbuilds/v132 v1.3.2`), oder die gesicherten Bins flashen (vorher `erase-flash`).
+- Danach ohne Umschreiben: `git revert -m 1 <Merge-Commit>`, oder aus dem Versions-Commit bauen (`git worktree add --detach ../OpenIris-refbuilds/v133 5bd8f39`, das Image ist reproduzierbar), oder die gesicherten Bins flashen (vorher `erase-flash`).
 
 ### Phase 1: Sync-Zweig und Merge (mechanisch)
 
@@ -352,9 +356,9 @@ Zweige von `upstream/main` aus, je Thema einer, siehe Abschnitt 4. Schon simulie
 
 | Commit | Ergebnis |
 |---|---|
-| `9156d3e` (esp_timer) | **sauber** |
-| `7a7fe7f` (Serial ohne Reset) | **sauber** |
-| `8788d32` (Sensorzeiger) | Konflikte: `CameraCycle.cpp` gibt es upstream nicht, `CameraManager.cpp` in Konflikt. Bestätigt, dass er am Lebenszyklus hängt |
+| `c59c41c` (esp_timer) | **sauber** |
+| `2fad53c` (Serial ohne Reset) | **sauber** |
+| `4dde6ea` (Sensorzeiger) | Konflikte: `CameraCycle.cpp` gibt es upstream nicht, `CameraManager.cpp` in Konflikt. Bestätigt, dass er am Lebenszyklus hängt |
 
 **Abweichung von deinem Vorschlag:** „Die drei Kategorie-B-Fixes getrennt von den Features“ passt im Kern: Bugfixes gehören getrennt. Für Upstream sind es aber nur zwei eigenständige Fixes (esp_timer, Serial) plus die zwei neuen (Windows-Port, LEDC-Timer). Der Sensorzeiger geht mit dem Lebenszyklus.
 
@@ -370,11 +374,11 @@ Annehmbar sind kleine Themen-Zweige, jeder für sich baubar und begründet. Dass
 
 | Block | Urteil | Begründung | Was es bräuchte |
 |---|---|---|---|
-| **esp_timer in µs** (`9156d3e`: `ScheduleRestart`, `startStreamingCommand`) | **PR-tauglich** | Echter Fehler bei Upstream, noch vorhanden (`device_commands.cpp:111`, `OpenIrisTasks.cpp:15`). 2 Zeilen, Cherry-Pick sauber | Nichts. Commit-Text ist schon englisch und begründet |
-| **Serial ohne Reset** (`7a7fe7f`, `tools/openiris_device.py`) | **PR-tauglich** | Jedes Verbinden startete S3 und USB-UART-Boards neu. Betrifft alle. Cherry-Pick sauber | Nichts |
+| **esp_timer in µs** (`c59c41c`: `ScheduleRestart`, `startStreamingCommand`) | **PR-tauglich** | Echter Fehler bei Upstream, noch vorhanden (`device_commands.cpp:111`, `OpenIrisTasks.cpp:15`). 2 Zeilen, Cherry-Pick sauber | Nichts. Commit-Text ist schon englisch und begründet |
+| **Serial ohne Reset** (`2fad53c`, `tools/openiris_device.py`) | **PR-tauglich** | Jedes Verbinden startete S3 und USB-UART-Boards neu. Betrifft alle. Cherry-Pick sauber | Nichts |
 | **Windows-Port-Prüfung** (neu, Phase 2) | **PR-tauglich** | Upstreams eigener Fehler aus #38, eine Zeile | Commit in Phase 2 |
-| **LED auf eigenem LEDC-Timer/-Kanal** (Teil von `dea4790`/`ddfb93d`) | **PR-tauglich, kleiner Aufwand** | Maintainer: „good catch with the timers, thank you!“ (#20). Vermeidet die Kollision mit dem XCLK-Timer 0 auf LEDC-Plattformen | Aus den Misch-Commits herauslösen. Den Timer-Teil und die Duty-Skala (×256, 100 % = voll) als zwei Commits. Auf einem S3-Board mit externer LED gegenprüfen |
-| **Sensorzeiger unter dem Mutex** (`8788d32`) | **gehört zum Lebenszyklus** | Bei Upstream gibt es keinen `sensor_mutex`, `camera_sensor` wird nie null. Also kein Fehler dort | Mit dem Lebenszyklus-Block |
+| **LED auf eigenem LEDC-Timer/-Kanal** (Teil von `dea4790`/`d559191`) | **PR-tauglich, kleiner Aufwand** | Maintainer: „good catch with the timers, thank you!“ (#20). Vermeidet die Kollision mit dem XCLK-Timer 0 auf LEDC-Plattformen | Aus den Misch-Commits herauslösen. Den Timer-Teil und die Duty-Skala (×256, 100 % = voll) als zwei Commits. Auf einem S3-Board mit externer LED gegenprüfen |
+| **Sensorzeiger unter dem Mutex** (`4dde6ea`) | **gehört zum Lebenszyklus** | Bei Upstream gibt es keinen `sensor_mutex`, `camera_sensor` wird nie null. Also kein Fehler dort | Mit dem Lebenszyklus-Block |
 | **Pro-Sensor-XCLK mit Umschaltung** (`c0c3f06` ff., `setupCamera()`) | **mit Aufwand** | Maintainer will das Prinzip, nicht die damalige Form | Basis-Symbol behalten (2a.1), Override-Auswahl als kleine Methode, OV3660-Umschaltpfad mit dem Hardwarebefund begründen. Eigener PR, Babble und XIAO mit OV2640 gegentesten |
 | **OV2640-Register nur bei OV2640** (Teil von `97d34e5`/`bf74dbc`) | **mit Aufwand** | Echter Fehler für jedes Board mit OV3660: `0xFF/0xD3` bedeuten dort etwas anderes | Aus den Profil-Commits herauslösen. Ohne Profile als kleiner Fix |
 | **Kamera-Profile, OV3660-Spiegelung, DPC-Schwellen, 320×320, `GRAB_LATEST`, XCLK-Treiberstärke** | **bleibt bei mir** (vorerst) | Tuning für FFVR (kurzes FPC, 320×320, Wärme). Ändert heute Verhalten aller Boards | Wenn überhaupt: pro Board per Kconfig, Default = Upstream-Verhalten, und nur mit Tests auf Fremd-Hardware |
@@ -468,7 +472,7 @@ Das ist ungefähr eine halbe Stunde.
 
 | Frage | Entscheidung | Wo umgesetzt |
 |---|---|---|
-| **F1** CI-Matrix | FFVR bleibt draußen. Grund: keine zweite, unkontrollierte Firmwarequelle; das Produkt wird lokal gebaut, geprüft und mit dem eigenen Werkzeug geflasht. Der Grund kommt in den Merge-Text. Beleg, dass `57f5653` gewollt war: der Release-Text von v1.2.2. Die CI-Prüfung entfällt | 2a.5, Phase 1, Abschnitt 7.2 (Releases) |
+| **F1** CI-Matrix | FFVR bleibt draußen. Grund: keine zweite, unkontrollierte Firmwarequelle; das Produkt wird lokal gebaut, geprüft und mit dem eigenen Werkzeug geflasht. Der Grund kommt in den Merge-Text. Beleg, dass `bc7c404` gewollt war: der Release-Text von v1.2.2. Die CI-Prüfung entfällt | 2a.5, Phase 1, Abschnitt 7.2 (Releases) |
 | **F2** XCLK-Symbol | Zurück auf `CAMERA_USB_XCLK_FREQ`. Overrides und 40-MHz-Bereich bleiben, Begründung in den Kconfig-Hilfetext. Eigener Folge-Commit | 2a.1, Phase 2 |
 | **F3** IDF | Abgleich auf 5.4.2, Treiberkopie bleibt. IDF-Sprung als eigenes Thema nach der ESD-Prüfung | 1.1, Phase 5 |
 | **F4** Upstreams FFVR | Ausgeliefert wird nur aus dem eigenen Repo. Upstreams FFVR bleibt ein allgemeiner Stand, nichts geht hinüber. Upstreams FFVR-Releases sind ein bekanntes Risiko | R11 |
@@ -487,7 +491,10 @@ Weitere Festlegungen:
 ## 7. F5: Entfernte Datei, Zweige und Releases
 
 - Am 2026-09-30 wurde eine Datei aus Lizenzgründen aus dem Repo entfernt.
-- Die Historie wird dazu bereinigt (Schritt 3, vor Phase 0).
+- Die Historie wurde dazu am selben Tag bereinigt.
+  - Dabei haben sich die Kennungen ab dem betroffenen Commit geändert. Die Dokumente nennen die neuen, ältere Fassungen in der Historie behalten die alten.
+  - Die Zuordnung alt → neu liegt außerhalb des Repos.
+  - Ältere Commits und die gemeinsame Basis mit Upstream (`6971464`) sind unverändert.
 - Die Aufarbeitung mit allen Einzelheiten liegt bewusst nicht im Repo.
 
 ### 7.1 Aufgeräumte Zweige (2026-09-30)
@@ -501,9 +508,9 @@ Gelöscht wurden, auf GitHub und lokal, Zweige, die nicht mehr gebraucht werden.
 
 | Zweig | Spitze | Inhalt |
 |---|---|---|
-| `fix/esp-timer-units` | `9156d3e` | Kategorie-B-Fix (AP0): `esp_timer` bekommt Mikrosekunden, also `restart_device` nach 2 s statt 2 ms und `startStreamingCommand` nach 150 ms statt 150 µs. Basis von `feature/camera-power`. |
-| `fix/i2c-nack-busy-wait` | `0994932` (davor `a81b0a7`) | `esp_driver_i2c` aus IDF 5.4.2 als Projektkopie, plus begrenzte Warteschleife nach NACK aus IDF ≥ 5.5.2 und Versionsschutz. Gemergt in `ab89e37`. |
-| `fix/serial-no-reset-on-connect` | `7a7fe7f` | `tools/openiris_device.py` öffnet den Port mit DTR/RTS low, damit Verbinden das Board nicht neu startet. Gemergt in `a06dd61`. |
+| `fix/esp-timer-units` | `c59c41c` | Kategorie-B-Fix (AP0): `esp_timer` bekommt Mikrosekunden, also `restart_device` nach 2 s statt 2 ms und `startStreamingCommand` nach 150 ms statt 150 µs. Basis von `feature/camera-power`. |
+| `fix/i2c-nack-busy-wait` | `7a04b60` (davor `b80d4fe`) | `esp_driver_i2c` aus IDF 5.4.2 als Projektkopie, plus begrenzte Warteschleife nach NACK aus IDF ≥ 5.5.2 und Versionsschutz. Gemergt in `daedcb0`. |
+| `fix/serial-no-reset-on-connect` | `2fad53c` | `tools/openiris_device.py` öffnet den Port mit DTR/RTS low, damit Verbinden das Board nicht neu startet. Gemergt in `03f1e7b`. |
 
 **Mit reproduzierbarem Inhalt:** die vier Zweige `kannweg_I-hate-m,y-life_3995545`, `kannweg_commands-for_3995545`, `kannweg_explicit-D+_-000530e` und `kannweg_fixed_5313f41`.
 - Das waren Testbuilds vom 2026-04-24. Jeder stellte nur das eingecheckte `sdkconfig` eines älteren Stands auf eye_R um.
@@ -525,8 +532,8 @@ Stand vor dem Löschen (GitHub-API, 2026-09-30):
 | v1.0.0 | 2025-10-18 | `1a54226` (Upstream-Merge PR #16) | ja | 3 FFVR-Images 1.0.0 |
 | v1.0.1 | 2026-01-02 | `0ed6037` (`v1.0.1_branch`) | nein | 3 FFVR-Images 1.0.1 |
 | v1.0.2 | 2026-02-19 | `65ceea7` (`v1.0.2_branch`) | nein | keine |
-| v1.2.2 | 2026-04-22 | `000530e` | ja | 3 FFVR-Images 1.2.2 und 9 CI-Zips anderer Boards |
-| v1.2.4 | 2026-04-28 | `91102ba` | ja | 3 FFVR-Images 1.2.4 und 9 CI-Zips anderer Boards |
+| v1.2.2 | 2026-04-22 | `8ca8292` | ja | 3 FFVR-Images 1.2.2 und 9 CI-Zips anderer Boards |
+| v1.2.4 | 2026-04-28 | `aa471cb` | ja | 3 FFVR-Images 1.2.4 und 9 CI-Zips anderer Boards |
 
 Die Commits bleiben erhalten: `v1.0.1` und `v1.0.2` über ihre Zweige, die übrigen über `main`.
 
@@ -573,13 +580,16 @@ Für v1.0.2 gab es auf GitHub keine Images. Lokal liegen sie unter `fw/102/`.
 - **Alle fünf Tags sind auf GitHub gelöscht.** `git ls-remote origin` zeigt keine Tags mehr. `v1.0.1_branch` und `v1.0.2_branch` stehen unverändert, lokal gibt es die Tags weiter.
 - Direkt nach jedem Löschen meldete GitHub noch etwa eine Minute lang den alten Stand, weil öffentliche Antworten zwischengespeichert werden. Geprüft wurde deshalb mit Abfragen, die den Zwischenspeicher umgehen.
 - **v1.0.0, v1.0.1, v1.0.2:** öffentlich weg. Release-Seite, Release-Endpunkt und Anhänge liefern 404, die Releases fehlen in der öffentlichen Liste. Ob sie als Entwürfe mit Anhängen existieren, zeigt nur die angemeldete Ansicht; das steht noch aus.
-- **v1.2.2, v1.2.4:** Sie sind nach dem Löschen der Tags nicht zu Entwürfen geworden und blieben als veröffentlicht stehen.
+- **v1.2.2, v1.2.4:** Sie sind nach dem Löschen der Tags nicht zu Entwürfen geworden und blieben als veröffentlicht stehen, auch Stunden später noch.
   - Ein Unterschied zu den drei anderen: Ihre Zielzweige (`V1.2.4_branch`, `v1.2.2_branch`) waren schon gelöscht. Ob das der Grund ist, ist nicht belegt.
-  - **Entscheidung (2026-09-30): Beide Releases werden gelöscht.**
   - Vorher geprüft: Die Images sind per SHA-256 und Größe gleich den lokalen Kopien, die Release-Texte gleich Anhang A. Die Metadaten sind außerhalb des Repos gesichert.
+- **Entscheidung (2026-09-30): Nichts wird gelöscht.** Die Releases sollen als Entwürfe bestehen bleiben, damit nur der Inhaber Zugang hat.
+  - Für v1.2.2 und v1.2.4 steht das Umstellen auf Entwurf noch aus. Die GitHub-API kann das ohne Löschen („true makes the release a draft“), dafür braucht es eine angemeldete GitHub-CLI.
+  - Ob v1.0.0 bis v1.0.2 als Entwürfe existieren, prüft der Inhaber angemeldet.
   - Images werden nicht neu hochgeladen. Ob 1.2.x wieder angeboten wird, wird später entschieden.
+- **Festgehalten für das nächste Mal:** Dass ein Release nach dem Löschen seines Tags zum Entwurf wird, ist nur durch den Forumsbeitrag von 2021 belegt. Hier traf es für drei von fünf Releases zu.
 
-### 7.3 Offene Prüfung: Käme das 1.3.2-Image nach dem Umschreiben noch einmal byteidentisch heraus?
+### 7.3 Reproduzierbarkeit: bei 1.3.2 nicht gegeben, ab 1.3.3 belegt
 
 Zu klären, bevor Schritt 3 freigegeben wird: Fließt etwas davon ins Image?
 - Commit-Kennung, `git describe`, Dirty-Markierung, Zweigname,
@@ -622,7 +632,20 @@ Bedingungen:
 - Alle drei Images werden zweimal gebaut und per SHA-256 verglichen. Das Ergebnis liegt vor, bevor der Commit gepusht wird.
 - Die 1.3.3-Bins bleiben lokal: kein Release, kein Tag, nichts auf GitHub.
 
-Danach ergibt derselbe Commit mit derselben IDF und demselben Compiler ein byteidentisches FFVR-Image, unabhängig von Tags, Kennungen und Bauzeit. Das gestern gebaute 1.3.2 bleibt nur in der Sicherung.
+Danach ergibt derselbe Commit mit derselben IDF und demselben Compiler ein byteidentisches FFVR-Image, unabhängig von Tags, Kennungen und Bauzeit. Das am 2026-09-29 gebaute 1.3.2 bleibt nur in der Sicherung.
+
+**Ergebnis 1.3.3 (2026-09-30)**, Versions-Commit `5bd8f39`:
+- Alle drei Images sind zweimal gebaut worden, jeweils in einem frischen Ordner und aus einem sauberen Arbeitsbaum. Die beiden Durchgänge sind **byteidentisch**, einzeln auch für App, Bootloader und Partitionstabelle.
+- Im Image stehen Version `1.3.3` und keine Zeit, kein Datum. `get_who_am_i` meldet 1.3.3.
+
+  | Image | SHA-256 `merged.bin` |
+  |---|---|
+  | eye_L | `183dcd15922ff93f52a88ed9165ee385953c135ff1ddaae43d13ed1ec2e0b2a3` |
+  | eye_R | `51187d818358f30cb2f179bdf119c19551624659667b2afe7339e71cce6666d6` |
+  | face | `02db73f572650df85ed9a0b8044ee5070fe8d9c6f25bbf80cf2220e40ab9bb1c` |
+
+- Ein eye_L-Build aus der bereinigten Historie, also mit anderer Commit-Kennung und in einem anderen Ordner, ergab denselben Hash. Das Bereinigen hat die Firmware nicht berührt.
+- Die Bins liegen nur lokal unter `../OpenIris-refbuilds/release_1.3.3/` (`FFVR Eye L [1.3.3].bin` usw.): kein Release, kein Tag. Die Hardware trägt weiter 1.3.2.
 
 ---
 

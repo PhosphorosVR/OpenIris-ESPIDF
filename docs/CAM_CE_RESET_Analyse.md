@@ -2,7 +2,7 @@
 
 **Umsetzung:** B0 und AP1–AP4 sind umgesetzt und auf Hardware geprüft, Stand und Abweichungen stehen in Abschnitt 17. Abnahme und die Änderungen danach: 17.9 und [ABNAHME_KAMERA_POWER.md](ABNAHME_KAMERA_POWER.md).
 
-Stand 3 vom 2026-09-27. Stand 3 zieht die Isolation durch (neuer Abschnitt 16) und arbeitet deine Antworten auf F13–F18 ein; alles Übrige ist Stand 2. Basis ist `main` @ `35e815a`. Der Vorab-Fix (AP0) liegt als `9156d3e` auf dem Zweig `fix/esp-timer-units`. Für CAM_CE und CAM_RESET gibt es bis zur Freigabe keinen Code; alle Schnipsel sind Skizzen.
+Stand 3 vom 2026-09-27. Stand 3 zieht die Isolation durch (neuer Abschnitt 16) und arbeitet deine Antworten auf F13–F18 ein; alles Übrige ist Stand 2. Basis ist `main` @ `9272416`. Der Vorab-Fix (AP0) liegt als `c59c41c` auf dem Zweig `fix/esp-timer-units`. Für CAM_CE und CAM_RESET gibt es bis zur Freigabe keinen Code; alle Schnipsel sind Skizzen.
 
 Quellen:
 - Code im Repo.
@@ -54,8 +54,8 @@ Kennzeichnung: ⚠ = Widerspruch oder Abweichung von deinem Vorschlag, *Vermutun
 
 | | Befund | Stand |
 |---|---|---|
-| (a) `OpenIrisTasks::ScheduleRestart` | bestätigt | behoben in `9156d3e`: `esp_timer_start_once(timer, ms * 1000)` |
-| (b) `startStreamingCommand` | bestätigt | behoben in `9156d3e`: 150 ms statt 150 µs |
+| (a) `OpenIrisTasks::ScheduleRestart` | bestätigt | behoben in `c59c41c`: `esp_timer_start_once(timer, ms * 1000)` |
+| (b) `startStreamingCommand` | bestätigt | behoben in `c59c41c`: 150 ms statt 150 µs |
 | (c) `CONFIG_LED_DEBUG_GPIO` = 8 | ⚠ **anders eingeschätzt, nicht umgesetzt** | wandert als erster Punkt in AP1 |
 
 Warum (c) nicht jetzt:
@@ -502,7 +502,7 @@ Deiner Reihenfolge stimme ich zu. Das Bench-Kommando braucht kein Gate, weil es 
 | AP6 | Ergebnisse der Nachweisläufe nach `docs/` | – | – |
 
 **Branches und Commits**, damit alles nachvollziehbar bleibt:
-- **Kategorie B:** je Fix ein eigener Zweig `fix/<thema>` von `main`, ein Commit, mit Angabe im Commit-Text, was sich für andere Boards ändert. AP0 liegt so auf `fix/esp-timer-units`, einziger Commit ist `9156d3e`. Nach deiner Hardware-Abnahme geht er per Fast-Forward nach `main`.
+- **Kategorie B:** je Fix ein eigener Zweig `fix/<thema>` von `main`, ein Commit, mit Angabe im Commit-Text, was sich für andere Boards ändert. AP0 liegt so auf `fix/esp-timer-units`, einziger Commit ist `c59c41c`. Nach deiner Hardware-Abnahme geht er per Fast-Forward nach `main`.
 - **Kategorie A:** ein Zweig `feature/camera-power` von `main`, erst **nach** dem Merge von AP0, damit die Baseline AP0 enthält. Pro AP mindestens ein Commit; jede Commit-Nachricht nennt das AP und das Ergebnis des Bitvergleichs.
 - **Baseline:** Die Binärstände liegen außerhalb des Repos. Commit-Hash, Konfiguration und Toolchain-Version stehen im Commit von B0.
 - **Dieses Dokument:** Es ist noch nicht eingecheckt; Stand 1 ist dadurch nicht mehr im Original vorhanden, nur über die Änderungstabellen. Vorschlag: Stand 3 nach deiner Freigabe auf einem eigenen Zweig `docs/cam-ce-reset` committen, jeder weitere Stand als eigener Commit.
@@ -691,7 +691,7 @@ Nebenwirkung: Das eingecheckte `sdkconfig` bekommt beim nächsten Build Zeilen w
 
 | Fix | Stand | Änderung für andere Boards |
 |---|---|---|
-| AP0, Timer-Einheiten | Commit `9156d3e` auf `fix/esp-timer-units`, wartet auf deine Hardware-Abnahme | Abschnitt 1 |
+| AP0, Timer-Einheiten | Commit `c59c41c` auf `fix/esp-timer-units`, wartet auf deine Hardware-Abnahme | Abschnitt 1 |
 | `SCCB_Deinit` | zurückgezogen, kein Fehler | – |
 | `LogManager`-Sammelpuffer | Kandidat, Frage F21 | – |
 
@@ -705,29 +705,29 @@ Zweig `feature/camera-power`. ⚠ Er zweigt von `fix/esp-timer-units` ab, nicht 
 
 | Commit | Inhalt |
 |---|---|
-| `a3199ad` | dieses Dokument, Stand 3 (⚠ auf dem Feature-Zweig statt auf einem eigenen `docs/`-Zweig, damit es nicht zu viele Zweige werden) |
-| `de3ae87` | B0: `tools/compare_builds.py`, Baseline-Angaben im Commit-Text |
-| `68cb4fa` | AP1: `CamLines`, Probe beim Boot, `get_camera_status` |
-| `c003f0e` | AP1-Nachtrag: digitale Pulls vor der Probe löschen |
-| `a703f47` | AP2: `camera_power_cycle`, Rail-Check (`RailSense`) |
-| `a69d7d2` | `tools/camera_power_bench.py` |
-| `ccca927` | AP2-Nachtrag: Zyklus auf eigenem Task (Stack, Befund auf Hardware, 17.5) |
-| `16effe2` | Bench-Werkzeug öffnet den Port ohne Chip-Reset (17.5) |
-| `76d14c4` | Dokument: Ergebnisse Rev.4.5 |
-| `80ba1a6` | AP2-Nachtrag: übersteuerte ADC-Werte begrenzen, gemessene Schwellen (17.6) |
-| `e9a7214` | Bench-Werkzeug bricht ab, wenn das Gerät nicht mehr antwortet |
+| `4eb1ffd` | dieses Dokument, Stand 3 (⚠ auf dem Feature-Zweig statt auf einem eigenen `docs/`-Zweig, damit es nicht zu viele Zweige werden) |
+| `7451499` | B0: `tools/compare_builds.py`, Baseline-Angaben im Commit-Text |
+| `2bccf8c` | AP1: `CamLines`, Probe beim Boot, `get_camera_status` |
+| `6bfaced` | AP1-Nachtrag: digitale Pulls vor der Probe löschen |
+| `9ab40e5` | AP2: `camera_power_cycle`, Rail-Check (`RailSense`) |
+| `1e1677b` | `tools/camera_power_bench.py` |
+| `a217825` | AP2-Nachtrag: Zyklus auf eigenem Task (Stack, Befund auf Hardware, 17.5) |
+| `1197439` | Bench-Werkzeug öffnet den Port ohne Chip-Reset (17.5) |
+| `7ef6145` | Dokument: Ergebnisse Rev.4.5 |
+| `cd2ee31` | AP2-Nachtrag: übersteuerte ADC-Werte begrenzen, gemessene Schwellen (17.6) |
+| `1046eea` | Bench-Werkzeug bricht ab, wenn das Gerät nicht mehr antwortet |
 
-Kategorie B, eigener Zweig von `main`: `fix/serial-no-reset-on-connect` (`7a7fe7f`), `tools/openiris_device.py` verbindet ohne Board-Reset (F23).
-| `06bc04f` | AP3: Frame-Gate, Kamera-Task, Stufen reinit/reset/power_cycle |
-| `fbff171` | AP4: Recovery-Politik, automatische Auslöser, `recover_camera`, Zähler |
-| `2b55766` | AP3-Nachtrag: Gate führt Frames einzeln, übernimmt Frames, die der Host nicht mehr abholt (17.7) |
-| `a06dd61` | Merge `fix/serial-no-reset-on-connect` in den Feature-Zweig |
-| `aa9378e` | AP5 schlank: `tools/camera_recovery_check.py` (17.7) |
+Kategorie B, eigener Zweig von `main`: `fix/serial-no-reset-on-connect` (`2fad53c`), `tools/openiris_device.py` verbindet ohne Board-Reset (F23).
+| `64c4649` | AP3: Frame-Gate, Kamera-Task, Stufen reinit/reset/power_cycle |
+| `9f56628` | AP4: Recovery-Politik, automatische Auslöser, `recover_camera`, Zähler |
+| `f93d1e2` | AP3-Nachtrag: Gate führt Frames einzeln, übernimmt Frames, die der Host nicht mehr abholt (17.7) |
+| `03f1e7b` | Merge `fix/serial-no-reset-on-connect` in den Feature-Zweig |
+| `4e134ef` | AP5 schlank: `tools/camera_recovery_check.py` (17.7) |
 
 Kategorie B, eigener Zweig von `main`: `fix/i2c-nack-busy-wait` (F24, Lösung A):
-- `a81b0a7`: `esp_driver_i2c` aus ESP-IDF v5.4.2 unverändert als Projektkomponente. ⚠ Zwei Commits statt einem, damit der eigentliche Fix im zweiten als kleiner Diff lesbar bleibt.
-- `0994932`: begrenzte Warteschleife nach NACK, wörtlich wie in v5.5, und ein Build-Schutz, der bei einer anderen IDF-Version abbricht.
-- In den Feature-Zweig gemergt als `ab89e37`.
+- `b80d4fe`: `esp_driver_i2c` aus ESP-IDF v5.4.2 unverändert als Projektkomponente. ⚠ Zwei Commits statt einem, damit der eigentliche Fix im zweiten als kleiner Diff lesbar bleibt.
+- `7a04b60`: begrenzte Warteschleife nach NACK, wörtlich wie in v5.5, und ein Build-Schutz, der bei einer anderen IDF-Version abbricht.
+- In den Feature-Zweig gemergt als `daedcb0`.
 
 Nicht gepusht, nichts nach `main` gemergt.
 
@@ -755,16 +755,16 @@ Zusätzlich, nicht im Plan: `tools/camera_power_bench.py` für die Nachweisläuf
 
 ### 17.3 Bitgleichheit
 
-Baseline `a3199ad` (Firmware = `9156d3e`), ESP-IDF v5.4.2, `xtensa-esp-elf-gcc` 14.2.0. Selbsttest des Vergleichs bestanden, Wiederholungsbuild byte-identisch.
+Baseline `4eb1ffd` (Firmware = `c59c41c`), ESP-IDF v5.4.2, `xtensa-esp-elf-gcc` 14.2.0. Selbsttest des Vergleichs bestanden, Wiederholungsbuild byte-identisch.
 
 | Stand | `project_babble` | `wrooms3` |
 |---|---|---|
-| AP1 `68cb4fa` | identisch | identisch |
-| AP2 `a703f47` | identisch | identisch |
-| AP2-Nachtrag `ccca927` | identisch | identisch |
-| AP2-Nachtrag `80ba1a6` | nicht gebaut: geändert sind nur Dateien, die ohne Feature nicht übersetzt werden | – |
+| AP1 `2bccf8c` | identisch | identisch |
+| AP2 `9ab40e5` | identisch | identisch |
+| AP2-Nachtrag `a217825` | identisch | identisch |
+| AP2-Nachtrag `cd2ee31` | nicht gebaut: geändert sind nur Dateien, die ohne Feature nicht übersetzt werden | – |
 
-**Neue Baseline nach dem I2C-Fix (Kategorie B, ändert jedes Image):** `8534138` = `fix/esp-timer-units` + `fix/i2c-nack-busy-wait` (lokaler Merge ohne Zweig; nachbaubar aus den beiden Zweigen). App-SHA-256 `project_babble` `d1cfa7f7…`, `wrooms3` `fdd29f92…`.
+**Neue Baseline nach dem I2C-Fix (Kategorie B, ändert jedes Image):** `5e510c7` = `fix/esp-timer-units` + `fix/i2c-nack-busy-wait` (lokaler Merge ohne Zweig; nachbaubar aus den beiden Zweigen). App-SHA-256 `project_babble` `d1cfa7f7…`, `wrooms3` `fdd29f92…`.
 
 Wirkung des Fixes auf `project_babble`:
 - `main` → unveränderte Kopie: Layout verschiebt sich, weil der eingebettete Quellpfad `/IDF/components/…` zu `./components/…` wird. Keines der 8963 Symbole ändert seine Größe.
@@ -772,10 +772,10 @@ Wirkung des Fixes auf `project_babble`:
 
 | Stand | `project_babble` | `wrooms3` |
 |---|---|---|
-| Feature-Zweig `ab89e37` gegen Baseline 2 | identisch | identisch |
-| AP3 `06bc04f` | identisch | identisch |
-| AP4 `fbff171` | identisch | identisch |
-| AP3-Nachtrag `2b55766` | identisch | identisch |
+| Feature-Zweig `daedcb0` gegen Baseline 2 | identisch | identisch |
+| AP3 `64c4649` | identisch | identisch |
+| AP4 `9f56628` | identisch | identisch |
+| AP3-Nachtrag `f93d1e2` | identisch | identisch |
 
 Die `always_inline`-Wrapper erzeugen denselben Code wie der direkte Treiberaufruf (offener Punkt aus Abschnitt 14 erledigt); `project_babble` übersetzt `UVCStream.cpp` mit, ohne Feature. Eine Variante nur mit Recovery, ohne Leitungen, lässt sich übersetzen. ⚠ Korrektur zum AP3-Commit: Dessen Aussage „facefocusvr_eye_R baut“ beruhte auf einer veralteten Build-Konfiguration ohne Recovery; die volle FFVR-Kombination wurde erst bei AP4 gebaut (Fehler in meinem Hilfsskript, behoben).
 
@@ -821,7 +821,7 @@ Eine Platine mit drei ESPs, von mir geflasht (jeweils vorher kompletter Erase). 
 | AP0 `restart_device` | Antwort nach 0,10 s, Gerät weg nach 2,8 s (2 s Verzögerung + Windows-Erkennung) |
 | AP0 `start_streaming` | Antwort kommt, UVC startet 150 ms später (mit gespeichertem Modus `uvc`, siehe Korrektur in Abschnitt 1) |
 
-**Befund 1, behoben (`ccca927`):** Im Serial-Task blieben beim Zyklus nur 440 Byte Stack frei; der Reinit läuft tief im Kommandopfad. Der Zyklus läuft jetzt auf einem eigenen Task mit 6 KB (belegt ≤ 3,4 KB), das Kommando wartet synchron. Danach frei: Zyklus-Task ≥ 2760 Byte, Serial-Task ≥ 2312 Byte. Das ist zugleich die Größenangabe für den Worker in AP3.
+**Befund 1, behoben (`a217825`):** Im Serial-Task blieben beim Zyklus nur 440 Byte Stack frei; der Reinit läuft tief im Kommandopfad. Der Zyklus läuft jetzt auf einem eigenen Task mit 6 KB (belegt ≤ 3,4 KB), das Kommando wartet synchron. Danach frei: Zyklus-Task ≥ 2760 Byte, Serial-Task ≥ 2312 Byte. Das ist zugleich die Größenangabe für den Worker in AP3.
 
 **Befund 2, nur benannt (F23):** `tools/openiris_device.py` setzt beim Verbinden im Setup-Modus den ESP zurück. pyserial öffnet mit DTR/RTS aktiv, das Tool nimmt sie erst danach zurück; auf USB-Serial-JTAG ist das der Reset (`rst:0x15 USB_UART_CHIP_RESET`). Jede Verbindung von `setup_openiris.py` oder den Tests startet das Gerät also neu. Deshalb stand überall `reset_reason: usb`, und ein direkt nach dem Öffnen gesendetes Kommando kann mit `Write timeout` scheitern. Mein Bench-Werkzeug öffnet jetzt ohne diesen Übergang; `openiris_device.py` habe ich nicht geändert.
 
@@ -839,7 +839,7 @@ Flash wie in 17.5 (jeweils vorher kompletter Erase). Rev.5 laut Lüfter-Erkennun
 | SCCB-NACKs | 0 | 0 | 5 in 24 Zyklen |
 
 **Messwerte (eye_L und face, 2 × 70 Zyklen mit Spur):**
-- Positivkontrolle 3102–3119 mV (einzelne Werte am ADC-Anschlag, jetzt auf 3300 mV begrenzt, `80ba1a6`), Endwert 410–451 mV. Die Endwerte sind Schiene plus Diodenspannung: **V(2V8_Cx) < 0,45 V** am Ende jeder Aus-Zeit.
+- Positivkontrolle 3102–3119 mV (einzelne Werte am ADC-Anschlag, jetzt auf 3300 mV begrenzt, `cd2ee31`), Endwert 410–451 mV. Die Endwerte sind Schiene plus Diodenspannung: **V(2V8_Cx) < 0,45 V** am Ende jeder Aus-Zeit.
 - Abfall: 0,4 ms nach CE low schon ≈ 2,1 V, beide Pads < 1 V nach ≤ 20 ms (erster Punkt des 20-ms-Rasters), Plateau ab ≈ 60 ms. So schnell fällt die Schiene nur mit aktiver Ausgangsentladung im TP132LC28 oder einer merklichen Last. Für LC15 ist das weiter nur die Vermutung aus Abschnitt 5 (c).
 - Anstieg: ≤ 0,4 ms nach der CE-Freigabe zurück auf Kontrollniveau (DS fordert < 5 ms).
 - Zyklus 1,16 s, erster Frame 3 ms, PID gleich, `reinit ESP_OK`; Zyklus-Task ≥ 2840 Byte Stack frei.
@@ -896,7 +896,7 @@ Alle drei ESPs, Test-Images mit `CONFIG_CAMERA_TEST_HOOKS`, die drei UVC-Streams
 | Kamera mit geknicktem Kabel | 30 Recoveries, 30 ok, 1,2–2,3 s (NACKs, die der I2C-Fix nach 1 s abbricht) |
 | Produkt-Firmware | Testhaken nicht vorhanden (`Unknown command`), Automatik an |
 
-**Befund 5, behoben (`2b55766`):** Nach dem Schließen der Kamera-App scheiterte jede Recovery mit `drain_timeout`.
+**Befund 5, behoben (`f93d1e2`):** Nach dem Schließen der Kamera-App scheiterte jede Recovery mit `drain_timeout`.
 - Ursache: Windows beendet den Stream beim Schließen nicht, es holt die Daten nur nicht mehr ab. Der Frame der letzten Übertragung bleibt bei UVC, TinyUSB meldet weiter „streamt“, und das Gate wartete auf ihn.
 - Jetzt führt das Gate die ausgegebenen Frames einzeln mit Zeitstempel. Ein Frame, der länger als 500 ms draußen ist, wird nicht mehr übertragen; eine Übertragung dauert ~30 ms. Der Neustart übernimmt ihn, und die spätere Rückgabe durch UVC wird ignoriert. Holt der PC die hängende Übertragung doch noch ab, bekommt er ein verdorbenes Bild. Der ESP-Speicher wird dabei nur gelesen.
 - Nebeneffekt: Eine doppelte Rückgabe desselben Frames erreicht den Treiber nicht mehr.
@@ -934,14 +934,14 @@ Die Abnahme gegen die Ziele samt Erklärung, warum das Feature so gebaut ist, st
 
 | Commit | Inhalt |
 |---|---|
-| `a467192` | **Budget neu.** Das Ratenfenster (10 automatische Versuche in 10 min) ist entfallen, weil es auch gelungene Erholungen zählte und nach zwei ESD-Prüfpunkten aufgebraucht wäre. Eine Erholung gilt als gehalten, wenn nach ihrem ersten Frame 30 s lang Frames kommen; gehaltene zählen gegen kein Budget. Drei Neustarts in Folge, die scheitern oder nicht halten, sperren die Automatik. Die Sperre löst sich nach 5 min ohne weiteren Fehlschlag selbst; `recover_camera` oder ein Reset heben sie sofort auf. Der Cooldown von 5 s bleibt |
-| `9bf6447` | **ESP-Neustart (Option, Default aus) höchstens einmal**, bis wieder ein Start gehalten hat, auch der Lauf direkt nach dem Boot. RTC-Marker „pending", dann „used" über weitere Resets hinweg, gelöscht nach 30 s Frames oder durch Power-on (Befund A: vorher mögliche Neustartschleife) |
-| `8788d32` | **Sensorzeiger unter dem Mutex prüfen** in `setVFlip()`, `setHFlip()` und `loadConfigData()`; der Kommentar in `takeDriverDown()` behauptete das schon vorher. Kategorie B, die drei Funktionen haben keinen Aufrufer und landen in keinem Image |
-| `940d1b2` | **Befund C:** Der Rail-Check belegt „Schiene nahe 0 V", nicht „keine Rückspeisung" (korrigiert in Abschnitt 5, Hinweis in Abschnitt 4). Kommentar an `parkPins()` |
+| `801c731` | **Budget neu.** Das Ratenfenster (10 automatische Versuche in 10 min) ist entfallen, weil es auch gelungene Erholungen zählte und nach zwei ESD-Prüfpunkten aufgebraucht wäre. Eine Erholung gilt als gehalten, wenn nach ihrem ersten Frame 30 s lang Frames kommen; gehaltene zählen gegen kein Budget. Drei Neustarts in Folge, die scheitern oder nicht halten, sperren die Automatik. Die Sperre löst sich nach 5 min ohne weiteren Fehlschlag selbst; `recover_camera` oder ein Reset heben sie sofort auf. Der Cooldown von 5 s bleibt |
+| `4d64c46` | **ESP-Neustart (Option, Default aus) höchstens einmal**, bis wieder ein Start gehalten hat, auch der Lauf direkt nach dem Boot. RTC-Marker „pending", dann „used" über weitere Resets hinweg, gelöscht nach 30 s Frames oder durch Power-on (Befund A: vorher mögliche Neustartschleife) |
+| `4dde6ea` | **Sensorzeiger unter dem Mutex prüfen** in `setVFlip()`, `setHFlip()` und `loadConfigData()`; der Kommentar in `takeDriverDown()` behauptete das schon vorher. Kategorie B, die drei Funktionen haben keinen Aufrufer und landen in keinem Image |
+| `870ffa0` | **Befund C:** Der Rail-Check belegt „Schiene nahe 0 V", nicht „keine Rückspeisung" (korrigiert in Abschnitt 5, Hinweis in Abschnitt 4). Kommentar an `parkPins()` |
 
 Der Rail-Check bleibt (Entscheidung des Nutzers, Begründung in der Abnahme, 3.4). Die neuen Regeln und der ESP-Neustart sind auf Hardware noch nicht ausgelöst worden; ein Testablauf steht in der Abnahme, Abschnitt 4.
 
-**Vor dem Merge nach `main` (Stand `940d1b2`):**
+**Vor dem Merge nach `main` (Stand `870ffa0`):**
 - Alle 12 Boardkonfigurationen bauen, erstmals auch die drei klassischen ESP32; dazu drei Varianten des Features.
 - Aus dem Zweig kommen keine neuen Warnungen.
 - Bitvergleich gegen Baseline 2: `project_babble` und `wrooms3` identisch.
@@ -950,7 +950,7 @@ Einzelheiten: Abnahme, Abschnitt 6.
 
 ### 17.10 Budget und ESP-Neustart auf Hardware (2026-09-29)
 
-Rev.5, ESP face, Test-Image vom aktuellen `main` mit Testhaken und ESP-Neustart-Option; Ausfälle per `camera_test_fault hold_reset`, alle UVC-Streams am PC offen. Werkzeug: `tools/camera_budget_check.py` (`f548e1d`).
+Rev.5, ESP face, Test-Image vom aktuellen `main` mit Testhaken und ESP-Neustart-Option; Ausfälle per `camera_test_fault hold_reset`, alle UVC-Streams am PC offen. Werkzeug: `tools/camera_budget_check.py` (`fb30735`).
 
 | Prüfung | Ergebnis |
 |---|---|

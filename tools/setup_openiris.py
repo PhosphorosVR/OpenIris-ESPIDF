@@ -767,7 +767,7 @@ def handle_menu(menu_context: dict | None = None) -> str:
 
 
 def valid_port(port: str):
-    if sys.platform == "windows":
+    if sys.platform == "win32":
         if not port.startswith("COM"):
             raise argparse.ArgumentTypeError("Invalid port name. We only support COM ports")
     else:

@@ -569,7 +569,15 @@ Für v1.0.2 gab es auf GitHub keine Images. Lokal liegen sie unter `fw/102/`.
 - **Ohne Anmeldung sind Entwürfe nicht sichtbar.** Über die API lässt sich nur prüfen, dass Release und Anhänge öffentlich verschwunden sind. Ob der Entwurf mit Anhängen noch da ist, zeigt nur die Release-Seite, wenn man angemeldet ist.
 - **Selbst im schlechtesten Fall geht nichts verloren:** Alle Images liegen byteidentisch lokal, die Release-Texte stehen wörtlich in Anhang A. Jeder Release ließe sich daraus neu anlegen.
 
-**Ergebnis:** folgt nach dem Löschen.
+**Ergebnis (2026-09-30):**
+- **Alle fünf Tags sind auf GitHub gelöscht.** `git ls-remote origin` zeigt keine Tags mehr. `v1.0.1_branch` und `v1.0.2_branch` stehen unverändert, lokal gibt es die Tags weiter.
+- Direkt nach jedem Löschen meldete GitHub noch etwa eine Minute lang den alten Stand, weil öffentliche Antworten zwischengespeichert werden. Geprüft wurde deshalb mit Abfragen, die den Zwischenspeicher umgehen.
+- **v1.0.0, v1.0.1, v1.0.2:** öffentlich weg. Release-Seite, Release-Endpunkt und Anhänge liefern 404, die Releases fehlen in der öffentlichen Liste. Ob sie als Entwürfe mit Anhängen existieren, zeigt nur die angemeldete Ansicht; das steht noch aus.
+- **v1.2.2, v1.2.4:** Sie sind nach dem Löschen der Tags nicht zu Entwürfen geworden und blieben als veröffentlicht stehen.
+  - Ein Unterschied zu den drei anderen: Ihre Zielzweige (`V1.2.4_branch`, `v1.2.2_branch`) waren schon gelöscht. Ob das der Grund ist, ist nicht belegt.
+  - **Entscheidung (2026-09-30): Beide Releases werden gelöscht.**
+  - Vorher geprüft: Die Images sind per SHA-256 und Größe gleich den lokalen Kopien, die Release-Texte gleich Anhang A. Die Metadaten sind außerhalb des Repos gesichert.
+  - Images werden nicht neu hochgeladen. Ob 1.2.x wieder angeboten wird, wird später entschieden.
 
 ### 7.3 Offene Prüfung: Käme das 1.3.2-Image nach dem Umschreiben noch einmal byteidentisch heraus?
 
@@ -585,6 +593,36 @@ egal ob über `PROJECT_VER`, den App-Deskriptor von IDF oder eine erzeugte Kopfd
   - Vorher steht hier, was genau am Git-Zustand hängt und wo.
 
 Die Vergleiche über Commits hinweg waren identisch, aber nur bei den Referenzbuilds. Diese setzen in `tools/compare_builds.py` `APP_REPRODUCIBLE_BUILD` und `APP_PROJECT_VER="reference"` fest, die normalen Produktbuilds nicht. Die identischen Vergleiche beantworten die Frage deshalb nicht.
+
+**Ergebnis (2026-09-30): Nein. Das 1.3.2-Image lässt sich schon heute nicht byteidentisch neu bauen, auch ohne Umschreiben.**
+
+Geprüft an den drei `merged.bin` unter `../OpenIris-refbuilds/release_1.3.2/` und an deren Build-Konfiguration. Am Git-Zustand und am Bauzeitpunkt hängt der App-Deskriptor im Image (ab Offset 0x10020 der Merge-Datei):
+
+1. **Version aus `git describe`.**
+   - Gesetzt ist weder `PROJECT_VER` in `CMakeLists.txt` noch `version.txt` noch `CONFIG_APP_PROJECT_VER_FROM_CONFIG`. IDF nimmt dann `git describe` (`tools/cmake/project.cmake`, Zeilen 669–708).
+   - Im Image steht `v1.2.4-42-g` plus die Kurzkennung des 1.3.2-Build-Commits, bei **eye_R und face zusätzlich `-dirty`**.
+   - Der Wert hängt am Tag `v1.2.4` (auf GitHub gelöscht, lokal noch da), an der Commit-Kennung und an nicht committeten Änderungen beim Bauen.
+2. **Bauzeit und Datum:** `CONFIG_APP_COMPILE_TIME_DATE=y`, im Image bei eye_L `01:44:13` und `Sep 29 2026`. Jeder neue Build hat andere Werte.
+3. **ELF-Prüfsumme im Deskriptor:** Sie ändert sich mit 1 und 2 mit.
+
+Weitere Befunde:
+- `CONFIG_APP_REPRODUCIBLE_BUILD` ist aus.
+- Host-Pfade habe ich im Image nicht gefunden.
+- Die Firmware liest den Deskriptor nicht. Sichtbar ist diese Version nur im Boot-Log und über `esptool image_info`. Was das Gerät über `get_who_am_i` als Version meldet, ist `CONFIG_GENERAL_VERSION` (1.3.2) und hängt nicht an Git.
+- **„dirty“ bei eye_R und face:** Die Ursache lässt sich nicht mehr feststellen. Wahrscheinlich war es die Lock-Datei, denn das Build-Log meldet „update your lock file“. Belegt ist das nicht. Die ausgelieferten Images für eye_R und face stammen damit aus einem Stand, der so in keinem Commit steht.
+
+**Entschieden (2026-09-30): Version festschreiben, als neue Version 1.3.3.** Ein eigener Commit vor dem Umschreiben, nur in `boards/facefocusvr/*`, damit andere Boards bitgleich bleiben:
+- `CONFIG_APP_PROJECT_VER_FROM_CONFIG=y` und `CONFIG_APP_PROJECT_VER="1.3.3"`;
+- `CONFIG_GENERAL_VERSION="1.3.3"`, damit `get_who_am_i` dieselbe Version meldet wie das Boot-Log. Beide Werte werden bei jedem Release angehoben;
+- `CONFIG_APP_REPRODUCIBLE_BUILD=y`. Laut IDF-Hilfe entfernt das „all date, time, and path information“, genau wie bei den Referenzbuilds.
+
+Bedingungen:
+- Vorher wird geklärt, woher `-dirty` kam.
+- Gebaut wird nur aus einem sauberen Arbeitsbaum, `git status` ist leer.
+- Alle drei Images werden zweimal gebaut und per SHA-256 verglichen. Das Ergebnis liegt vor, bevor der Commit gepusht wird.
+- Die 1.3.3-Bins bleiben lokal: kein Release, kein Tag, nichts auf GitHub.
+
+Danach ergibt derselbe Commit mit derselben IDF und demselben Compiler ein byteidentisches FFVR-Image, unabhängig von Tags, Kennungen und Bauzeit. Das gestern gebaute 1.3.2 bleibt nur in der Sicherung.
 
 ---
 

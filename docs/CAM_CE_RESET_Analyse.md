@@ -7,7 +7,7 @@ Stand 3 vom 2026-09-27. Stand 3 zieht die Isolation durch (neuer Abschnitt 16) u
 Quellen:
 - Code im Repo.
 - ESP-IDF v5.4.2 (lokale Installation, Pfade relativ zu `esp-idf/`).
-- OV3660-Datenblatt v1.3 im Repo-Root (`OV3660_CSP3_DS_1.3_sida.pdf`); Seitenangaben sind PDF-Seiten.
+- OV3660-Datenblatt v1.3; Seitenangaben sind PDF-Seiten.
 - Deine Netzlisten- und BOM-Angaben aus der Antwort auf Stand 1. Sie gelten als fest.
 
 Kennzeichnung: ⚠ = Widerspruch oder Abweichung von deinem Vorschlag, *Vermutung* = nicht belegt.

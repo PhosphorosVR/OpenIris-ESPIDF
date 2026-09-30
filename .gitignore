@@ -102,3 +102,6 @@ tests/.env
 
 ###Claude
 .claude/*
+
+### Datasheet, not redistributable
+OV3660_CSP3_DS_1.3_sida.pdf

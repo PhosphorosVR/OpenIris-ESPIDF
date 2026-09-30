@@ -139,7 +139,7 @@ void CameraManager::setupCameraPinout()
     ESP_LOGI(CAMERA_MANAGER_TAG, "CAM_BOARD");
 #endif
 #if CONFIG_GENERAL_INCLUDE_UVC_MODE
-    xclk_freq_hz = CONFIG_CAMERA_USB_XCLK_FREQ_DEFAULT;
+    xclk_freq_hz = CONFIG_CAMERA_USB_XCLK_FREQ;
 #endif
 
     config = {
